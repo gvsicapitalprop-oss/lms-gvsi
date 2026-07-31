@@ -22,7 +22,7 @@ export default async function DashboardPage() {
     .eq('id', user.id)
     .single();
 
-  const firstName = profile?.full_name?.split(' ')[0] || 'Aluno';
+  const firstName = (profile as any)?.full_name?.split(' ')[0] || 'Aluno';
 
   // 3. Buscar inscrições (cursos) do aluno
   const { data: subscriptions } = await supabase
