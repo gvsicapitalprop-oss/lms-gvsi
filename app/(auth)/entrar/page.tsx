@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Mail, Lock, LogIn, ArrowRight } from 'lucide-react';
@@ -9,8 +9,9 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Toast } from '@/components/ui/Toast';
 import { signInWithEmail, signInWithMagicLink } from '@/app/actions/auth';
+import { Skeleton } from '@/components/ui/Skeleton';
 
-export default function LoginPage() {
+function LoginForm() {
   const searchParams = useSearchParams();
   const urlError = searchParams.get('error');
 
@@ -114,5 +115,13 @@ export default function LoginPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<Skeleton style={{ width: '100%', height: '400px' }} />}>
+      <LoginForm />
+    </Suspense>
   );
 }
