@@ -25,7 +25,9 @@ export default async function CoursePlayerPage({ params, searchParams }: { param
     .eq('slug', courseSlug)
     .single();
 
-  if (!course) {
+  const courseData = course as any;
+
+  if (!courseData) {
     return <div style={{ padding: '24px' }}>Curso não encontrado.</div>;
   }
 
@@ -33,7 +35,7 @@ export default async function CoursePlayerPage({ params, searchParams }: { param
   const { data: subscription } = await supabase
     .from('lms_subscriptions')
     .select('id')
-    .eq('course_id', course.id)
+    .eq('course_id', courseData.id)
     .eq('student_id', user.id)
     .eq('status', 'active')
     .single();
@@ -49,11 +51,11 @@ export default async function CoursePlayerPage({ params, searchParams }: { param
         id, title, slug, duration_seconds, menu_order, video_url
       )
     `)
-    .eq('course_id', course.id)
+    .eq('course_id', courseData.id)
     .order('menu_order', { ascending: true });
 
   // Organiza as aulas dentro dos módulos garantindo a ordem
-  const sortedModules = (modules || []).map((mod: any) => ({
+  const sortedModules = ((modules as any) || []).map((mod: any) => ({
     ...mod,
     lms_lessons: (mod.lms_lessons || []).sort((a: any, b: any) => a.menu_order - b.menu_order)
   }));
@@ -84,7 +86,7 @@ export default async function CoursePlayerPage({ params, searchParams }: { param
         <Link href="/cursos" style={{ color: 'var(--accent-primary)', fontSize: '14px', fontWeight: 600, display: 'inline-block', marginBottom: '16px' }}>
           &larr; Voltar para Cursos
         </Link>
-        <h1 style={{ fontSize: '24px', fontWeight: 700 }}>{course.title}</h1>
+        <h1 style={{ fontSize: '24px', fontWeight: 700 }}>{courseData.title}</h1>
       </div>
 
       <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
