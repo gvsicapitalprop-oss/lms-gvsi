@@ -106,8 +106,19 @@
   font-variation-settings: 'FILL' 1;
 }
 
+/* ---- Transições entre páginas (evita "piscar" a tela ao trocar de menu) ---- */
+@view-transition { navigation: auto; }
+::view-transition-old(root),
+::view-transition-new(root) { animation-duration: 0.18s; }
+/* Sidebar (desktop) e nav inferior (mobile) ficam "parados" durante a troca */
+aside.fixed.inset-y-0 { view-transition-name: gvsi-sidebar; }
+nav.fixed.bottom-0 { view-transition-name: gvsi-bottomnav; }
+
 /* ---- Base ---- */
-html { -webkit-tap-highlight-color: transparent; }
+html {
+  -webkit-tap-highlight-color: transparent;
+  background-color: rgb(var(--c-background)); /* evita flash branco antes do Tailwind carregar */
+}
 body {
   font-family: 'Inter', sans-serif;
   min-height: 100dvh;
