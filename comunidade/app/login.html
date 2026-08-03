@@ -28,23 +28,13 @@
 <span class="material-symbols-outlined text-[36px] fill">groups</span>
 </div>
 <h1 class="font-headline-md text-headline-md font-bold text-on-surface">GVSI Comunidade</h1>
-<p id="subtitle" class="text-body-sm text-on-surface-variant text-center">Entre para acessar a comunidade</p>
+<p class="text-body-sm text-on-surface-variant text-center">Entre para acessar a comunidade</p>
 </div>
 
 <!-- Card -->
 <div class="bg-surface-container-lowest border border-outline-variant/40 rounded-2xl shadow-sm p-lg space-y-md">
 
-<!-- Toggle Entrar / Criar conta -->
-<div class="grid grid-cols-2 gap-1 p-1 bg-surface-container-high rounded-xl">
-<button id="tab-signin" type="button" class="py-2 rounded-lg text-label-md font-label-md transition-colors">Entrar</button>
-<button id="tab-signup" type="button" class="py-2 rounded-lg text-label-md font-label-md transition-colors">Criar conta</button>
-</div>
-
 <form id="auth-form" class="space-y-md">
-<div id="name-field" class="hidden">
-<label class="block text-label-md font-label-md text-on-surface-variant mb-xs" for="full_name">Nome</label>
-<input id="full_name" type="text" autocomplete="name" class="w-full bg-surface-container-low border border-outline-variant rounded-xl py-3 px-4 focus:ring-2 focus:ring-primary focus:border-primary transition-all text-body-md text-on-surface" placeholder="Seu nome">
-</div>
 <div>
 <label class="block text-label-md font-label-md text-on-surface-variant mb-xs" for="email">E-mail</label>
 <input id="email" type="email" required autocomplete="email" class="w-full bg-surface-container-low border border-outline-variant rounded-xl py-3 px-4 focus:ring-2 focus:ring-primary focus:border-primary transition-all text-body-md text-on-surface" placeholder="voce@email.com">
@@ -87,6 +77,7 @@ Entrar com link mágico
     var m = $('msg');
     m.textContent = text;
     m.className = 'text-body-sm text-center ' + (ok ? 'text-primary' : 'text-error');
+    m.classList.remove('hidden');
   }
 
   // Já logado? vai direto pro app.
@@ -96,71 +87,40 @@ Entrar com link mágico
     showMsg('Falha ao conectar no servidor. Recarregue a página.', false);
   }
 
-  var mode = 'signin';
-  function setMode(m) {
-    mode = m;
-    var on = 'bg-surface text-on-surface shadow-sm';
-    var off = 'text-on-surface-variant';
-    $('tab-signin').className = 'py-2 rounded-lg text-label-md font-label-md transition-colors ' + (m === 'signin' ? on : off);
-    $('tab-signup').className = 'py-2 rounded-lg text-label-md font-label-md transition-colors ' + (m === 'signup' ? on : off);
-    $('name-field').classList.toggle('hidden', m !== 'signup');
-    $('submit-label').textContent = m === 'signin' ? 'Entrar' : 'Criar conta';
-    $('password').setAttribute('autocomplete', m === 'signin' ? 'current-password' : 'new-password');
-    $('subtitle').textContent = m === 'signin' ? 'Entre para acessar a comunidade' : 'Crie sua conta na comunidade';
-    $('msg').classList.add('hidden');
-  }
-  $('tab-signin').onclick = function () { setMode('signin'); };
-  $('tab-signup').onclick = function () { setMode('signup'); };
-
   $('auth-form').addEventListener('submit', async function (e) {
     e.preventDefault();
     if (!sb) return;
     var email = $('email').value.trim();
     var password = $('password').value;
     $('submit-btn').disabled = true;
-    $('msg').classList.remove('hidden');
     showMsg('Aguarde...', true);
     try {
-      if (mode === 'signin') {
-        var r1 = await sb.auth.signInWithPassword({ email: email, password: password });
-        if (r1.error) throw r1.error;
-        await window.GVSIAuth.ensureProfile();
-        location.replace('index.html');
-      } else {
-        var full_name = $('full_name').value.trim();
-        var r2 = await sb.auth.signUp({ email: email, password: password, options: { data: { full_name: full_name } } });
-        if (r2.error) throw r2.error;
-        if (r2.data.session) {
-          await window.GVSIAuth.ensureProfile();
-          location.replace('index.html');
-        } else {
-          showMsg('Conta criada! Confira seu e-mail para confirmar antes de entrar.', true);
-        }
-      }
+      var r = await sb.auth.signInWithPassword({ email: email, password: password });
+      if (r.error) throw r.error;
+      await window.GVSIAuth.ensureProfile();
+      location.replace('index.html');
     } catch (err) {
-      showMsg(err && err.message ? err.message : 'Erro ao autenticar.', false);
+      showMsg(err && err.message ? err.message : 'Não foi possível entrar. Verifique seus dados.', false);
     } finally {
       $('submit-btn').disabled = false;
     }
   });
 
+  // Link mágico: só para membros existentes (não cria conta)
   $('magic-btn').addEventListener('click', async function () {
     if (!sb) return;
     var email = $('email').value.trim();
-    if (!email) { $('msg').classList.remove('hidden'); showMsg('Digite seu e-mail para receber o link.', false); return; }
-    $('msg').classList.remove('hidden');
+    if (!email) { showMsg('Digite seu e-mail para receber o link.', false); return; }
     showMsg('Enviando...', true);
     try {
       var redirect = location.origin + location.pathname.replace(/login\.html$/, 'index.html');
-      var r = await sb.auth.signInWithOtp({ email: email, options: { emailRedirectTo: redirect } });
+      var r = await sb.auth.signInWithOtp({ email: email, options: { emailRedirectTo: redirect, shouldCreateUser: false } });
       if (r.error) throw r.error;
       showMsg('Link enviado! Confira seu e-mail.', true);
     } catch (err) {
       showMsg(err && err.message ? err.message : 'Erro ao enviar o link.', false);
     }
   });
-
-  setMode('signin');
 </script>
 </body>
 </html>
