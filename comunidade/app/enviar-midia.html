@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport">
+<title>GVSI Comunidade — Enviar Mídia</title>
+<script>(function(){try{var t=localStorage.getItem('gvsi-theme');if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';if(t==='dark')document.documentElement.classList.add('dark');}catch(e){}})();</script>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script src="assets/tailwind-config.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body data-app class="bg-background text-on-background font-body-md min-h-screen">
+
+<!-- Sidebar (desktop) -->
+<aside class="hidden lg:flex lg:flex-col fixed inset-y-0 left-0 w-[360px] bg-surface border-r border-outline-variant z-40">
+<a href="index.html" class="h-16 flex items-center gap-sm px-lg border-b border-outline-variant shrink-0">
+<span class="material-symbols-outlined text-primary fill">groups</span>
+<span class="font-headline-sm text-headline-sm font-bold text-primary">GVSI Comunidade</span>
+</a>
+<nav id="side-topics" class="flex-1 overflow-y-auto custom-scrollbar p-sm space-y-1"></nav>
+<div class="border-t border-outline-variant p-sm flex items-center gap-sm shrink-0">
+<a href="perfil.html" class="flex-1 flex items-center gap-sm p-sm rounded-lg hover:bg-surface-container-high transition-colors">
+<span data-side-avatar class="w-9 h-9 rounded-full bg-surface-container-high flex items-center justify-center text-outline overflow-hidden"><span class="material-symbols-outlined text-[20px]">person</span></span>
+<span data-side-name class="font-body-sm text-on-surface truncate">Meu Perfil</span>
+</a>
+<button type="button" data-theme-toggle class="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors" aria-label="Alternar tema">
+<span class="material-symbols-outlined text-[20px]" data-theme-icon>dark_mode</span>
+</button>
+<button type="button" data-signout class="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-error/10 hover:text-error transition-colors" aria-label="Sair">
+<span class="material-symbols-outlined text-[20px]">logout</span>
+</button>
+</div>
+</aside>
+
+<!-- Header -->
+<header class="fixed top-0 left-0 right-0 lg:left-[360px] z-40 bg-surface shadow-[0px_4px_20px_rgba(0,0,0,0.05)] flex items-center justify-between px-container-margin h-14">
+<a id="btn-close" class="text-primary hover:opacity-80 transition-opacity active:scale-95 duration-200 flex items-center justify-center" href="chat.html" aria-label="Fechar">
+<span class="material-symbols-outlined">close</span>
+</a>
+<h1 class="font-headline-sm text-headline-sm font-bold text-primary">Enviar Mídia</h1>
+<div class="w-10"></div>
+</header>
+
+<main class="lg:pl-[360px] pt-20 pb-28 px-container-margin">
+<div class="max-w-3xl mx-auto space-y-lg">
+
+<!-- Ações -->
+<section class="grid grid-cols-2 gap-md">
+<button type="button" id="act-camera" class="bg-surface-container-high rounded-xl p-lg flex flex-col items-center justify-center gap-md shadow-sm active:scale-[0.98] transition-all">
+<div class="w-16 h-16 rounded-full bg-primary text-on-primary flex items-center justify-center shadow-lg"><span class="material-symbols-outlined text-4xl">photo_camera</span></div>
+<div class="text-center"><h3 class="font-headline-sm text-headline-sm text-primary">Foto</h3><p class="text-body-sm text-on-surface-variant">Câmera ou galeria</p></div>
+</button>
+<button type="button" id="act-audio" class="bg-secondary-container rounded-xl p-lg flex flex-col items-center justify-center gap-md shadow-sm hover:bg-secondary-container/80 transition-colors active:scale-95">
+<div class="w-16 h-16 rounded-full bg-secondary text-on-secondary flex items-center justify-center shadow-lg"><span class="material-symbols-outlined text-4xl">mic</span></div>
+<div class="text-center"><h3 class="font-headline-sm text-headline-sm text-on-secondary-container">Áudio</h3><p class="text-body-sm text-on-secondary-container/80">Arquivo de áudio</p></div>
+</button>
+</section>
+
+<!-- inputs ocultos -->
+<input id="file-camera" type="file" accept="image/*" capture="environment" class="hidden">
+<input id="file-image" type="file" accept="image/*" class="hidden">
+<input id="file-audio" type="file" accept="audio/*" class="hidden">
+
+<!-- Pré-visualização -->
+<section class="bg-surface-container-low rounded-xl p-lg border border-outline-variant shadow-sm space-y-md">
+<div id="preview-empty" class="flex flex-col items-center justify-center text-center gap-sm py-lg">
+<span class="material-symbols-outlined text-[40px] text-outline">image</span>
+<p class="text-body-sm text-on-surface-variant max-w-xs">Escolha uma foto ou um áudio para pré-visualizar aqui.</p>
+</div>
+<div id="preview" class="hidden">
+<div class="flex gap-md items-start">
+<div id="preview-thumb" class="w-24 h-24 rounded-lg overflow-hidden flex-shrink-0 bg-surface-container-high flex items-center justify-center text-outline"></div>
+<div class="flex-grow min-w-0 space-y-sm">
+<div class="flex items-center justify-between gap-sm">
+<span id="preview-name" class="font-label-md text-label-md text-on-surface-variant truncate">arquivo</span>
+<button type="button" id="preview-remove" class="text-error text-xs hover:underline font-semibold shrink-0">Remover</button>
+</div>
+<textarea id="caption" class="w-full bg-transparent border-none focus:ring-0 text-body-md placeholder:text-outline p-0 resize-none h-16 text-on-surface" placeholder="Adicione uma legenda (opcional)..."></textarea>
+</div>
+</div>
+<audio id="preview-audio" controls class="hidden w-full mt-sm"></audio>
+</div>
+</section>
+
+</div>
+</main>
+
+<!-- Bottom Action Bar -->
+<div class="fixed bottom-0 left-0 right-0 lg:left-[360px] z-40 bg-surface shadow-[0px_-4px_20px_rgba(0,0,0,0.05)] rounded-t-xl px-container-margin py-md">
+<div class="max-w-3xl mx-auto flex items-center justify-between gap-md">
+<p id="target-label" class="hidden md:flex items-center gap-xs text-body-sm text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]">groups</span> Compartilhar no grupo
+</p>
+<button id="btn-send" type="button" disabled class="flex-grow md:flex-none bg-primary text-on-primary h-12 px-xl rounded-full font-headline-sm text-headline-sm flex items-center justify-center gap-sm shadow-md active:scale-95 transition-all disabled:opacity-50">
+<span id="btn-send-label">Enviar para o grupo</span>
+<span class="material-symbols-outlined">send</span>
+</button>
+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/supabase.js"></script>
+<script src="assets/auth.js"></script>
+<script src="assets/topics.js"></script>
+<script src="assets/shell.js"></script>
+<script>
+(async function () {
+  var sb = window.sb; if (!sb) return;
+  var $ = function (id) { return document.getElementById(id); };
+  var params = new URLSearchParams(location.search);
+  var slug = params.get('topico');
+  var q = slug ? ('?topico=' + encodeURIComponent(slug)) : '';
+  $('btn-close').href = 'chat.html' + q;
+
+  var ures = await sb.auth.getUser(); var user = ures.data.user; if (!user) return;
+  var pr = await sb.from('lms_students').select('id,full_name,avatar_url,role').eq('id', user.id).maybeSingle();
+  var me = pr.data || { id: user.id, full_name: 'Membro', avatar_url: null, role: 'student' };
+
+  var topic = null;
+  if (slug) {
+    var tr = await sb.from('comu_topics').select('id,name,slug,post_policy').eq('slug', slug).maybeSingle();
+    topic = tr.data;
+    if (topic) $('target-label').innerHTML = '<span class="material-symbols-outlined text-[18px]">groups</span> ' + topic.name;
+  }
+
+  var selectedFile = null, selectedKind = null;
+
+  function humanSize(n) { return n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.round(n / 1024) + ' KB'; }
+  function clearSel() {
+    selectedFile = null; selectedKind = null;
+    $('preview').classList.add('hidden'); $('preview-empty').classList.remove('hidden');
+    $('btn-send').disabled = true;
+    $('preview-audio').classList.add('hidden'); $('preview-audio').src = '';
+  }
+  function showSel(file, kind) {
+    selectedFile = file; selectedKind = kind;
+    $('preview-empty').classList.add('hidden'); $('preview').classList.remove('hidden');
+    $('preview-name').textContent = file.name + ' · ' + humanSize(file.size);
+    var thumb = $('preview-thumb'); var audio = $('preview-audio');
+    var url = URL.createObjectURL(file);
+    if (kind === 'image') {
+      thumb.innerHTML = '<img src="' + url + '" class="w-full h-full object-cover" alt="">';
+      audio.classList.add('hidden');
+    } else {
+      thumb.innerHTML = '<span class="material-symbols-outlined text-[32px]">graphic_eq</span>';
+      audio.src = url; audio.classList.remove('hidden');
+    }
+    $('btn-send').disabled = false;
+  }
+
+  $('act-camera').addEventListener('click', function () { $('file-camera').click(); });
+  $('act-audio').addEventListener('click', function () { $('file-audio').click(); });
+  $('file-camera').addEventListener('change', function () { if (this.files[0]) showSel(this.files[0], 'image'); });
+  $('file-image').addEventListener('change', function () { if (this.files[0]) showSel(this.files[0], 'image'); });
+  $('file-audio').addEventListener('change', function () { if (this.files[0]) showSel(this.files[0], 'audio'); });
+  $('preview-remove').addEventListener('click', clearSel);
+
+  $('btn-send').addEventListener('click', async function () {
+    if (!selectedFile || !topic) return;
+    var btn = $('btn-send'); btn.disabled = true; $('btn-send-label').textContent = 'Enviando...';
+    try {
+      var ext = (selectedFile.name.split('.').pop() || (selectedKind === 'image' ? 'jpg' : 'm4a')).toLowerCase();
+      var path = slug + '/' + me.id + '/' + Date.now() + '.' + ext;
+      var up = await sb.storage.from('comu-media').upload(path, selectedFile, { upsert: true, contentType: selectedFile.type || undefined });
+      if (up.error) throw up.error;
+      var pub = sb.storage.from('comu-media').getPublicUrl(path);
+      var url = pub.data.publicUrl;
+      var caption = $('caption').value.trim() || null;
+      var meta = { name: selectedFile.name, size: selectedFile.size, mime: selectedFile.type };
+      var res;
+      if (topic.post_policy === 'support') {
+        res = await sb.rpc('comu_send_support_message', { p_body: caption, p_kind: selectedKind, p_media_url: url, p_author_name: me.full_name || 'Membro' });
+      } else {
+        res = await sb.from('comu_messages').insert({
+          topic_id: topic.id, author_id: me.id, kind: selectedKind, body: caption,
+          media_url: url, media_meta: meta, author_name: me.full_name || 'Membro', author_avatar: me.avatar_url || null
+        }).select().single();
+      }
+      if (res.error) throw res.error;
+      location.href = 'chat.html' + q;
+    } catch (err) {
+      btn.disabled = false; $('btn-send-label').textContent = 'Enviar para o grupo';
+      alert('Erro ao enviar: ' + (err && err.message ? err.message : err));
+    }
+  });
+})();
+</script>
+</body>
+</html>

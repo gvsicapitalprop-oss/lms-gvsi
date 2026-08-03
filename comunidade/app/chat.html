@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport">
+<title>GVSI Comunidade — Chat</title>
+<script>(function(){try{var t=localStorage.getItem('gvsi-theme');if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';if(t==='dark')document.documentElement.classList.add('dark');}catch(e){}})();</script>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script src="assets/tailwind-config.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body data-app class="bg-background text-on-background font-body-md min-h-screen">
+
+<!-- Sidebar (desktop) -->
+<aside class="hidden lg:flex lg:flex-col fixed inset-y-0 left-0 w-[360px] bg-surface border-r border-outline-variant z-40">
+<a href="index.html" class="h-16 flex items-center gap-sm px-lg border-b border-outline-variant shrink-0">
+<span class="material-symbols-outlined text-primary fill">groups</span>
+<span class="font-headline-sm text-headline-sm font-bold text-primary">GVSI Comunidade</span>
+</a>
+<nav id="side-topics" class="flex-1 overflow-y-auto custom-scrollbar p-sm space-y-1"></nav>
+<div class="border-t border-outline-variant p-sm flex items-center gap-sm shrink-0">
+<a href="perfil.html" class="flex-1 flex items-center gap-sm p-sm rounded-lg hover:bg-surface-container-high transition-colors">
+<span data-side-avatar class="w-9 h-9 rounded-full bg-surface-container-high flex items-center justify-center text-outline overflow-hidden"><span class="material-symbols-outlined text-[20px]">person</span></span>
+<span data-side-name class="font-body-sm text-on-surface truncate">Meu Perfil</span>
+</a>
+<button type="button" data-theme-toggle class="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors" aria-label="Alternar tema">
+<span class="material-symbols-outlined text-[20px]" data-theme-icon>dark_mode</span>
+</button>
+<button type="button" data-signout class="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-error/10 hover:text-error transition-colors" aria-label="Sair">
+<span class="material-symbols-outlined text-[20px]">logout</span>
+</button>
+</div>
+</aside>
+
+<!-- Header -->
+<header class="fixed top-0 left-0 right-0 lg:left-[360px] z-40 bg-surface shadow-[0px_4px_20px_rgba(0,0,0,0.05)] flex items-center justify-between px-container-margin h-14">
+<div class="flex items-center gap-md min-w-0">
+<a class="lg:hidden text-primary hover:opacity-80 transition-opacity active:scale-95 duration-200 flex items-center" href="index.html" aria-label="Voltar">
+<span class="material-symbols-outlined">arrow_back</span>
+</a>
+<div class="flex flex-col min-w-0">
+<h1 id="chat-title" class="font-headline-sm text-headline-sm font-bold text-primary leading-none truncate">GVSI Comunidade</h1>
+<span id="chat-subtitle" class="text-[11px] text-on-surface-variant">Grupo da comunidade</span>
+</div>
+</div>
+<div class="flex items-center gap-xs">
+<button type="button" data-theme-toggle class="lg:hidden text-primary hover:opacity-80 transition-opacity active:scale-95 duration-200 flex items-center" aria-label="Alternar tema">
+<span class="material-symbols-outlined" data-theme-icon>dark_mode</span>
+</button>
+<button class="text-primary hover:opacity-80 transition-opacity active:scale-95 duration-200" aria-label="Opções">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+</header>
+
+<!-- Main -->
+<main id="chat-scroll" class="lg:pl-[360px] min-h-screen pt-14 pb-36 lg:pb-28 flex flex-col overflow-y-auto custom-scrollbar">
+<div id="chat-messages" class="hidden w-full max-w-3xl mx-auto flex flex-col gap-lg px-container-margin py-lg"></div>
+<div id="chat-loading" class="flex-grow flex items-center justify-center text-on-surface-variant text-body-sm gap-sm">
+<span class="material-symbols-outlined animate-spin">progress_activity</span> Carregando…
+</div>
+<div id="chat-empty" class="hidden flex-grow flex flex-col items-center justify-center text-center gap-md py-xl px-container-margin">
+<div class="w-20 h-20 rounded-full bg-surface-container-high flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[40px]">forum</span>
+</div>
+<div class="space-y-xs max-w-xs">
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Ainda não há mensagens</h2>
+<p class="text-body-sm text-on-surface-variant">Seja o primeiro a enviar uma mensagem neste grupo.</p>
+</div>
+</div>
+</main>
+
+<!-- Chat Input -->
+<div id="chat-composer" class="fixed bottom-16 lg:bottom-0 left-0 right-0 lg:left-[360px] px-container-margin pb-md lg:pb-lg z-40">
+<form id="chat-form" class="glass-input rounded-2xl p-sm flex items-center gap-sm shadow-xl border border-outline-variant/40 max-w-3xl mx-auto">
+<div id="composer-normal" class="flex items-center gap-sm flex-grow min-w-0">
+<a id="btn-attach" href="enviar-midia.html" class="w-10 h-10 rounded-xl hover:bg-surface-container-high active:bg-surface-variant transition-colors text-on-surface-variant active:scale-95 flex items-center justify-center shrink-0" aria-label="Anexar mídia">
+<span class="material-symbols-outlined">attach_file</span>
+</a>
+<div class="flex-grow relative flex items-center min-w-0">
+<input id="chat-input" class="w-full bg-surface-container-low border-none rounded-xl px-md py-3 text-body-md focus:ring-2 focus:ring-primary/20 placeholder:text-outline transition-all text-on-surface pr-20" placeholder="Escreva uma mensagem..." type="text" autocomplete="off">
+<div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-xs">
+<a id="btn-camera" href="enviar-midia.html" class="w-8 h-8 inline-flex items-center justify-center rounded-full text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-colors" aria-label="Câmera">
+<span class="material-symbols-outlined text-[20px] leading-none">photo_camera</span>
+</a>
+<button type="button" id="btn-mic" style="touch-action:none;" class="w-8 h-8 inline-flex items-center justify-center rounded-full text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-colors select-none" aria-label="Segure para gravar áudio">
+<span class="material-symbols-outlined text-[20px] leading-none">mic</span>
+</button>
+</div>
+</div>
+</div>
+<div id="rec-bar" class="hidden flex items-center gap-sm flex-grow px-md min-w-0">
+<span class="material-symbols-outlined text-error">mic</span>
+<span class="w-2.5 h-2.5 rounded-full bg-error animate-pulse shrink-0"></span>
+<span id="rec-time" class="text-body-md text-on-surface tabular-nums">0:00</span>
+<span id="rec-hint" class="flex-grow text-body-sm text-on-surface-variant truncate text-right">‹ Arraste para cancelar</span>
+</div>
+<button type="submit" id="btn-send" class="w-12 h-12 bg-primary text-on-primary rounded-xl flex items-center justify-center shadow-lg active:scale-90 active:bg-primary/80 transition-all shrink-0" aria-label="Enviar">
+<span class="material-symbols-outlined fill">send</span>
+</button>
+</form>
+</div>
+
+<!-- Aviso de somente-leitura (tópicos onde só admin publica) -->
+<div id="chat-readonly" class="hidden fixed bottom-16 lg:bottom-0 left-0 right-0 lg:left-[360px] px-container-margin pb-md lg:pb-lg z-40">
+<div class="max-w-3xl mx-auto flex items-center justify-center gap-sm bg-surface-container-high text-on-surface-variant rounded-2xl p-md border border-outline-variant/40 text-body-sm">
+<span class="material-symbols-outlined text-[20px]">lock</span>
+Somente administradores podem publicar neste tópico.
+</div>
+</div>
+
+<!-- Mobile bottom nav -->
+<nav class="lg:hidden fixed bottom-0 left-0 right-0 z-50 rounded-t-xl bg-surface shadow-[0px_-4px_20px_rgba(0,0,0,0.05)] flex justify-around items-center h-16 px-2">
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1 hover:bg-surface-container-high transition-colors active:scale-90 duration-200" href="index.html">
+<span class="material-symbols-outlined">groups</span>
+<span class="font-label-md text-label-md">Grupos</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1 hover:bg-surface-container-high transition-colors active:scale-90 duration-200" href="perfil.html">
+<span class="material-symbols-outlined">person</span>
+<span class="font-label-md text-label-md">Meu Perfil</span>
+</a>
+</nav>
+
+<!-- Modal de confirmação (in-app) -->
+<div id="confirm-modal" class="hidden fixed inset-0 z-[90] items-center justify-center p-container-margin bg-black/40">
+<div class="w-full max-w-xs bg-surface-container-lowest rounded-2xl shadow-xl border border-outline-variant/40 p-lg space-y-md">
+<h3 id="confirm-title" class="font-headline-sm text-headline-sm text-on-surface">Confirmar?</h3>
+<p id="confirm-text" class="text-body-sm text-on-surface-variant"></p>
+<div class="flex gap-sm justify-end pt-sm">
+<button type="button" id="confirm-cancel" class="h-10 px-4 rounded-full text-on-surface font-label-md hover:bg-surface-container-high transition">Cancelar</button>
+<button type="button" id="confirm-ok" class="h-10 px-4 rounded-full bg-primary text-on-primary font-label-md active:scale-95 transition">Confirmar</button>
+</div>
+</div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="hidden fixed bottom-28 lg:bottom-24 left-1/2 -translate-x-1/2 z-[95] bg-inverse-surface text-inverse-on-surface px-4 py-2 rounded-full shadow-lg text-body-sm max-w-[90vw] text-center"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/supabase.js"></script>
+<script src="assets/auth.js"></script>
+<script src="assets/topics.js"></script>
+<script src="assets/shell.js"></script>
+<script>
+(async function () {
+  var sb = window.sb;
+  if (!sb) return;
+
+  var params = new URLSearchParams(location.search);
+  var slug = params.get('topico');
+  var titleEl = document.getElementById('chat-title');
+  var msgsEl = document.getElementById('chat-messages');
+  var emptyEl = document.getElementById('chat-empty');
+  var loadingEl = document.getElementById('chat-loading');
+  var scrollEl = document.getElementById('chat-scroll');
+  var form = document.getElementById('chat-form');
+  var input = document.getElementById('chat-input');
+
+  function esc(s) {
+    return (s == null ? '' : String(s)).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function timeStr(iso) {
+    try { return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); }
+    catch (e) { return ''; }
+  }
+  function scrollBottom() { scrollEl.scrollTop = scrollEl.scrollHeight; }
+  var _toastT;
+  function toast(msg) {
+    var el = document.getElementById('toast'); if (!el) return;
+    el.textContent = msg; el.classList.remove('hidden');
+    clearTimeout(_toastT); _toastT = setTimeout(function () { el.classList.add('hidden'); }, 2600);
+  }
+  function confirmDialog(opts) {
+    return new Promise(function (resolve) {
+      opts = opts || {};
+      var modal = document.getElementById('confirm-modal');
+      document.getElementById('confirm-title').textContent = opts.title || 'Confirmar?';
+      document.getElementById('confirm-text').textContent = opts.text || '';
+      var okBtn = document.getElementById('confirm-ok'); okBtn.textContent = opts.ok || 'Confirmar';
+      okBtn.className = 'h-10 px-4 rounded-full font-label-md active:scale-95 transition ' + (opts.danger ? 'bg-error text-on-error' : 'bg-primary text-on-primary');
+      var cancelBtn = document.getElementById('confirm-cancel');
+      modal.classList.remove('hidden'); modal.classList.add('flex');
+      function close(v) { modal.classList.add('hidden'); modal.classList.remove('flex'); okBtn.onclick = null; cancelBtn.onclick = null; modal.onclick = null; resolve(v); }
+      okBtn.onclick = function () { close(true); };
+      cancelBtn.onclick = function () { close(false); };
+      modal.onclick = function (e) { if (e.target === modal) close(false); };
+    });
+  }
+
+  // Propaga o tópico para a tela de mídia
+  var q = slug ? ('?topico=' + encodeURIComponent(slug)) : '';
+  document.getElementById('btn-attach').href = 'enviar-midia.html' + q;
+  document.getElementById('btn-camera').href = 'enviar-midia.html' + q;
+
+  // Perfil próprio (para identificar mensagens "minhas" e assinar o envio)
+  var ures = await sb.auth.getUser();
+  var user = ures.data.user;
+  var me = { id: user ? user.id : null, full_name: 'Você', avatar_url: null };
+  if (user) {
+    var pr = await sb.from('lms_students').select('id,full_name,avatar_url,role').eq('id', user.id).maybeSingle();
+    if (pr.data) me = pr.data;
+  }
+
+  // Resolve o tópico (slug -> id/nome)
+  var topic = null;
+  if (slug) {
+    var tr = await sb.from('comu_topics').select('id,name,slug,post_policy').eq('slug', slug).maybeSingle();
+    topic = tr.data;
+  }
+  if (topic) {
+    titleEl.textContent = topic.name;
+    document.title = 'GVSI Comunidade — ' + topic.name;
+  }
+
+  // Tópicos somente-leitura: esconde o campo de escrita p/ quem não é admin
+  var isAdmin = me.role === 'admin';
+  if (topic && topic.post_policy === 'readonly' && !isAdmin) {
+    document.getElementById('chat-composer').classList.add('hidden');
+    document.getElementById('chat-readonly').classList.remove('hidden');
+    document.getElementById('chat-subtitle').textContent = 'Somente leitura';
+  }
+
+  // Suporte: admin vai pro console; membro usa modo ticket (privado + protocolo)
+  var isSupport = topic && topic.post_policy === 'support';
+  if (isSupport && isAdmin) { location.replace('suporte.html'); return; }
+  async function refreshTicketInfo() {
+    if (!isSupport) return;
+    var tr2 = await sb.from('comu_support_tickets').select('protocol,status')
+      .eq('user_id', me.id).order('created_at', { ascending: false }).limit(1).maybeSingle();
+    var sub = document.getElementById('chat-subtitle');
+    if (tr2.data) {
+      var st = tr2.data.status === 'aberto' ? 'Aberto' : (tr2.data.status === 'resolvido' ? 'Resolvido' : 'Fechado');
+      sub.textContent = 'Ticket ' + tr2.data.protocol + ' • ' + st;
+    } else {
+      sub.textContent = 'Envie uma mensagem para abrir um ticket';
+    }
+  }
+
+  var seen = Object.create(null);
+  function bubble(m) {
+    var mine = me.id && m.author_id === me.id;
+    var wrap = document.createElement('div');
+    wrap.setAttribute('data-msg-id', m.id);
+    wrap.className = 'flex flex-col gap-xs max-w-[85%] ' + (mine ? 'items-end self-end' : 'items-start');
+    var body = document.createElement('div');
+    body.className = 'msg-body w-full flex flex-col ' + (mine ? 'items-end' : 'items-start');
+    renderMsgBody(body, m, mine);
+    wrap.appendChild(body);
+    var rr = document.createElement('div');
+    rr.className = 'react-row flex items-center gap-xs flex-wrap mt-xs' + (mine ? ' justify-end' : '');
+    rr.setAttribute('data-react', m.id);
+    wrap.appendChild(rr);
+    return wrap;
+  }
+  function renderMsgBody(container, m, mine) {
+    container.innerHTML = '';
+    if (m.status === 'deleted') {
+      container.innerHTML = '<div class="rounded-xl p-md ' + (mine ? 'rounded-tr-none' : 'rounded-tl-none') + ' bg-surface-container-high text-on-surface-variant text-body-sm italic flex items-center gap-xs"><span class="material-symbols-outlined text-[16px]">block</span>mensagem apagada</div>';
+      return;
+    }
+    var when = timeStr(m.created_at);
+    var edited = m.status === 'edited' ? ' <span class="text-[10px] opacity-70">(editado)</span>' : '';
+    var content;
+    if (m.kind === 'image' && m.media_url) {
+      content = '<img src="' + esc(m.media_url) + '" class="rounded-lg max-w-full mb-xs" alt="">' +
+        (m.body ? '<p class="' + (mine ? '' : 'text-on-surface ') + 'font-body-md">' + esc(m.body) + edited + '</p>' : '');
+    } else if (m.kind === 'audio' && m.media_url) {
+      content = '<audio controls src="' + esc(m.media_url) + '" class="max-w-full"></audio>';
+    } else {
+      content = '<p class="' + (mine ? '' : 'text-on-surface ') + 'font-body-md whitespace-pre-wrap break-words">' + esc(m.body) + edited + '</p>';
+    }
+    var inner;
+    if (mine) {
+      inner = '<div class="flex items-center gap-xs mr-sm mb-xs"><span class="text-[10px] text-outline">' + when + '</span><span class="font-label-md text-label-md text-primary">Você</span></div>' +
+        '<div class="message-gradient-outgoing text-on-primary shadow-lg rounded-xl rounded-tr-none p-md">' + content + '</div>';
+    } else {
+      var av = m.author_avatar
+        ? '<img src="' + esc(m.author_avatar) + '" class="w-8 h-8 rounded-full object-cover shrink-0" alt="">'
+        : '<span class="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center text-outline shrink-0"><span class="material-symbols-outlined text-[18px]">person</span></span>';
+      inner = '<div class="flex items-start gap-sm">' + av +
+        '<div class="flex flex-col min-w-0">' +
+          '<div class="flex items-center gap-xs ml-sm mb-xs"><span class="font-label-md text-label-md text-on-surface-variant">' + esc(m.author_name || 'Membro') + '</span><span class="text-[10px] text-outline">' + when + '</span></div>' +
+          '<div class="bg-surface-container-lowest shadow-[0px_4px_20px_rgba(0,0,0,0.05)] rounded-xl rounded-tl-none p-md border border-outline-variant/30">' + content + '</div>' +
+        '</div>' +
+      '</div>';
+    }
+    container.innerHTML = inner;
+    var ageMs = Date.now() - new Date(m.created_at).getTime();
+    var within = ageMs < 1800000;
+    var canEdit = mine && (within || isAdmin) && m.kind !== 'audio';
+    var canDelete = isAdmin || (mine && within);
+    if (canEdit || canDelete) {
+      var actions = document.createElement('div');
+      actions.className = 'flex items-center gap-md mt-xs ' + (mine ? 'mr-sm justify-end' : 'ml-sm');
+      if (canEdit) {
+        var editBtn = document.createElement('button'); editBtn.type = 'button';
+        editBtn.className = 'text-[11px] text-on-surface-variant hover:text-primary flex items-center gap-0.5';
+        editBtn.innerHTML = '<span class="material-symbols-outlined text-[14px]">edit</span>Editar';
+        editBtn.addEventListener('click', function () { startEdit(m); });
+        actions.appendChild(editBtn);
+      }
+      if (canDelete) {
+        var delBtn = document.createElement('button'); delBtn.type = 'button';
+        delBtn.className = 'text-[11px] text-on-surface-variant hover:text-error flex items-center gap-0.5';
+        delBtn.innerHTML = '<span class="material-symbols-outlined text-[14px]">delete</span>Apagar';
+        delBtn.addEventListener('click', function () { doDelete(m); });
+        actions.appendChild(delBtn);
+      }
+      container.appendChild(actions);
+      if (mine && !isAdmin && within) {
+        setTimeout(function () { if (actions.parentNode) actions.remove(); }, 1800000 - ageMs);
+      }
+    }
+  }
+  function startEdit(m) {
+    var wrap = msgsEl.querySelector('[data-msg-id="' + m.id + '"]');
+    if (!wrap) return;
+    var body = wrap.querySelector('.msg-body');
+    var isMine = me.id && m.author_id === me.id;
+    body.innerHTML = '';
+    var ta = document.createElement('textarea');
+    ta.className = 'w-full max-w-md bg-surface-container-low border border-outline-variant rounded-xl p-sm text-body-md text-on-surface resize-none';
+    ta.rows = 2; ta.value = m.body || '';
+    var row = document.createElement('div'); row.className = 'flex justify-end gap-sm mt-xs';
+    var cancel = document.createElement('button'); cancel.type = 'button'; cancel.className = 'text-body-sm text-on-surface-variant px-3 py-1'; cancel.textContent = 'Cancelar';
+    var save = document.createElement('button'); save.type = 'button'; save.className = 'text-body-sm bg-primary text-on-primary rounded-full px-3 py-1'; save.textContent = 'Salvar';
+    cancel.addEventListener('click', function () { renderMsgBody(body, m, isMine); });
+    save.addEventListener('click', async function () {
+      var nb = ta.value.trim(); if (!nb) return;
+      save.disabled = true;
+      var up = await sb.from('comu_messages').update({ body: nb, status: 'edited', edited_at: new Date().toISOString() }).eq('id', m.id).select().single();
+      if (up.error) { toast('Não foi possível editar (passou de 30 min?).'); renderMsgBody(body, m, isMine); return; }
+      m.body = up.data.body; m.status = up.data.status;
+      renderMsgBody(body, m, isMine);
+    });
+    row.appendChild(cancel); row.appendChild(save);
+    body.appendChild(ta); body.appendChild(row); ta.focus();
+  }
+  async function doDelete(m) {
+    var ok = await confirmDialog({ title: 'Apagar esta mensagem?', text: 'Esta ação não pode ser desfeita.', ok: 'Apagar', danger: true });
+    if (!ok) return;
+    var up = await sb.from('comu_messages').update({ status: 'deleted', body: null, media_url: null }).eq('id', m.id).select().single();
+    if (up.error) { toast('Não foi possível apagar (passou de 30 min?).'); return; }
+    m.status = 'deleted'; m.body = null; m.media_url = null;
+    var wrap = msgsEl.querySelector('[data-msg-id="' + m.id + '"]');
+    if (wrap) { renderMsgBody(wrap.querySelector('.msg-body'), m, me.id && m.author_id === me.id); var rr = wrap.querySelector('.react-row'); if (rr) rr.innerHTML = ''; }
+    toast('Mensagem apagada');
+  }
+  function updateMessage(m) {
+    var wrap = msgsEl.querySelector('[data-msg-id="' + m.id + '"]');
+    if (!wrap) return;
+    var mine = me.id && m.author_id === me.id;
+    renderMsgBody(wrap.querySelector('.msg-body'), m, mine);
+    if (m.status === 'deleted') { var rr = wrap.querySelector('.react-row'); if (rr) rr.innerHTML = ''; }
+  }
+  function addMessage(m, scroll) {
+    if (!m || seen[m.id]) return;
+    seen[m.id] = true;
+    msgsEl.appendChild(bubble(m));
+    renderReactions(m.id);
+    emptyEl.classList.add('hidden');
+    msgsEl.classList.remove('hidden');
+    if (scroll) scrollBottom();
+  }
+
+  // ---- Reações ----
+  var reactionsMap = {};
+  var EMOJIS = ['❤️', '👍', '🔥', '✨', '😂', '🙏'];
+  var picker = document.createElement('div');
+  picker.className = 'hidden fixed z-[80] bg-surface-container-highest border border-outline-variant rounded-full shadow-lg px-2 py-1 flex items-center gap-1';
+  var pickerTarget = null;
+  EMOJIS.forEach(function (em) {
+    var b = document.createElement('button'); b.type = 'button';
+    b.className = 'text-[20px] hover:scale-125 transition-transform px-1'; b.textContent = em;
+    b.addEventListener('click', function () { if (pickerTarget) toggleReaction(pickerTarget, em); hidePicker(); });
+    picker.appendChild(b);
+  });
+  document.body.appendChild(picker);
+  function hidePicker() { picker.classList.add('hidden'); pickerTarget = null; }
+  function openPicker(anchor, id) {
+    pickerTarget = id; picker.classList.remove('hidden');
+    var r = anchor.getBoundingClientRect(); var pr = picker.getBoundingClientRect();
+    var top = r.top - pr.height - 6; if (top < 8) top = r.bottom + 6;
+    var left = r.left; if (left + pr.width > window.innerWidth - 8) left = window.innerWidth - 8 - pr.width;
+    picker.style.top = top + 'px'; picker.style.left = Math.max(8, left) + 'px';
+  }
+  document.addEventListener('click', function (e) {
+    if (picker.classList.contains('hidden')) return;
+    if (!picker.contains(e.target) && !(e.target.closest && e.target.closest('.react-add'))) hidePicker();
+  });
+  function renderReactions(id) {
+    var row = msgsEl.querySelector('[data-react="' + id + '"]');
+    if (!row) return;
+    var data = reactionsMap[id] || {};
+    row.innerHTML = '';
+    Object.keys(data).forEach(function (em) {
+      var users = data[em]; if (!users || !users.length) return;
+      var mineR = users.indexOf(me.id) !== -1;
+      var chip = document.createElement('button'); chip.type = 'button';
+      chip.className = 'px-2 py-0.5 rounded-full text-[12px] flex items-center gap-1 border transition-colors ' + (mineR ? 'bg-primary/15 border-primary/40 text-primary' : 'bg-surface-container-high border-outline-variant/50 text-on-surface-variant');
+      chip.innerHTML = '<span>' + em + '</span><span class="font-bold">' + users.length + '</span>';
+      chip.addEventListener('click', function () { toggleReaction(id, em); });
+      row.appendChild(chip);
+    });
+    var add = document.createElement('button'); add.type = 'button';
+    add.className = 'react-add w-6 h-6 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors';
+    add.innerHTML = '<span class="material-symbols-outlined text-[16px]">add_reaction</span>';
+    add.addEventListener('click', function (e) { e.stopPropagation(); openPicker(e.currentTarget, id); });
+    row.appendChild(add);
+  }
+  async function toggleReaction(id, em) {
+    if (!me.id) return;
+    var data = reactionsMap[id] || (reactionsMap[id] = {});
+    var users = data[em] || (data[em] = []);
+    var have = users.indexOf(me.id) !== -1;
+    if (have) data[em] = users.filter(function (u) { return u !== me.id; });
+    else users.push(me.id);
+    renderReactions(id);
+    if (have) await sb.from('comu_message_reactions').delete().eq('message_id', id).eq('user_id', me.id).eq('reaction', em);
+    else await sb.from('comu_message_reactions').insert({ message_id: id, user_id: me.id, reaction: em });
+  }
+  async function loadReactions(ids) {
+    if (!ids || !ids.length) return;
+    var r = await sb.from('comu_message_reactions').select('message_id,user_id,reaction').in('message_id', ids);
+    (r.data || []).forEach(function (x) {
+      var d = reactionsMap[x.message_id] || (reactionsMap[x.message_id] = {});
+      var u = d[x.reaction] || (d[x.reaction] = []);
+      if (u.indexOf(x.user_id) === -1) u.push(x.user_id);
+    });
+    ids.forEach(renderReactions);
+  }
+  function applyReactionEvent(type, row) {
+    if (!row || !row.message_id) return;
+    if (!msgsEl.querySelector('[data-react="' + row.message_id + '"]')) return;
+    var d = reactionsMap[row.message_id] || (reactionsMap[row.message_id] = {});
+    var u = d[row.reaction] || (d[row.reaction] = []);
+    if (type === 'INSERT') { if (u.indexOf(row.user_id) === -1) u.push(row.user_id); }
+    else { d[row.reaction] = u.filter(function (x) { return x !== row.user_id; }); }
+    renderReactions(row.message_id);
+  }
+
+  if (topic) {
+    var lr = await sb.from('comu_messages').select('*')
+      .eq('topic_id', topic.id).neq('status', 'deleted')
+      .order('created_at', { ascending: true }).limit(200);
+    loadingEl.classList.add('hidden');
+    if (!lr.error && lr.data && lr.data.length) {
+      lr.data.forEach(function (m) { addMessage(m, false); });
+      scrollBottom();
+      loadReactions(lr.data.map(function (m) { return m.id; }));
+    } else {
+      emptyEl.classList.remove('hidden');
+    }
+    // Realtime: novas mensagens do tópico
+    sb.channel('comu-' + topic.id)
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'comu_messages', filter: 'topic_id=eq.' + topic.id },
+        function (payload) { addMessage(payload.new, true); })
+      .on('postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'comu_messages', filter: 'topic_id=eq.' + topic.id },
+        function (payload) { updateMessage(payload.new); })
+      .subscribe();
+    sb.channel('comu-react-' + topic.id)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comu_message_reactions' }, function (p) { applyReactionEvent('INSERT', p.new); })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'comu_message_reactions' }, function (p) { applyReactionEvent('DELETE', p.old); })
+      .subscribe();
+    refreshTicketInfo();
+    // marca o tópico como lido (zera o badge de não-lidas)
+    if (me.id) {
+      sb.from('comu_topic_reads').upsert(
+        { topic_id: topic.id, user_id: me.id, last_read_at: new Date().toISOString() },
+        { onConflict: 'topic_id,user_id' }
+      ).then(function () {}, function () {});
+    }
+  } else {
+    loadingEl.classList.add('hidden');
+    emptyEl.classList.remove('hidden');
+  }
+
+  // ---- Gravação de voz (MediaRecorder) ----
+  var recording = false, mediaRecorder = null, recChunks = [], recTimer = null, recSeconds = 0, recStream = null, recMime = '';
+  function pickMime() {
+    var c = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg'];
+    for (var i = 0; i < c.length; i++) { if (window.MediaRecorder && MediaRecorder.isTypeSupported(c[i])) return c[i]; }
+    return '';
+  }
+  function updateRecTime() { var el = document.getElementById('rec-time'); if (el) { var m = Math.floor(recSeconds / 60), s = recSeconds % 60; el.textContent = m + ':' + (s < 10 ? '0' : '') + s; } }
+  function setRecUI(on) {
+    recording = on;
+    document.getElementById('rec-bar').classList.toggle('hidden', !on);
+    document.getElementById('composer-normal').classList.toggle('hidden', on);
+    var sbtn = document.getElementById('btn-send'); if (sbtn) sbtn.classList.toggle('hidden', on);
+  }
+  function stopStream() { if (recStream) { recStream.getTracks().forEach(function (t) { t.stop(); }); recStream = null; } }
+  async function startRecording() {
+    if (recording) return;
+    if (!navigator.mediaDevices || !window.MediaRecorder) { toast('Gravação de áudio não é suportada neste navegador.'); return; }
+    try { recStream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+    catch (e) { toast('Não foi possível acessar o microfone. Permita o acesso e tente de novo.'); return; }
+    recMime = pickMime(); recChunks = [];
+    try { mediaRecorder = new MediaRecorder(recStream, recMime ? { mimeType: recMime } : undefined); }
+    catch (e) { mediaRecorder = new MediaRecorder(recStream); }
+    mediaRecorder.ondataavailable = function (ev) { if (ev.data && ev.data.size) recChunks.push(ev.data); };
+    mediaRecorder.start();
+    recSeconds = 0; updateRecTime();
+    recTimer = setInterval(function () { recSeconds++; updateRecTime(); }, 1000);
+    setRecUI(true);
+  }
+  function cancelRecording() {
+    if (recTimer) clearInterval(recTimer);
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') { mediaRecorder.onstop = function () { stopStream(); }; try { mediaRecorder.stop(); } catch (e) { stopStream(); } }
+    else stopStream();
+    recChunks = []; setRecUI(false);
+  }
+  function finishRecording() {
+    if (!mediaRecorder) { setRecUI(false); return; }
+    if (recTimer) clearInterval(recTimer);
+    var secs = recSeconds;
+    setRecUI(false);
+    mediaRecorder.onstop = async function () {
+      stopStream();
+      if (!recChunks.length || secs < 1) return;
+      var blob = new Blob(recChunks, { type: recMime || 'audio/webm' });
+      var ext = recMime.indexOf('mp4') >= 0 ? 'mp4' : (recMime.indexOf('ogg') >= 0 ? 'ogg' : 'webm');
+      var path = (slug || 'geral') + '/' + me.id + '/voz-' + Date.now() + '.' + ext;
+      var up = await sb.storage.from('comu-media').upload(path, blob, { contentType: recMime || 'audio/webm', upsert: true });
+      if (up.error) { toast('Erro no upload do áudio: ' + up.error.message); return; }
+      var url = sb.storage.from('comu-media').getPublicUrl(path).data.publicUrl;
+      var meta = { duration: secs, mime: recMime };
+      var res;
+      if (isSupport) res = await sb.rpc('comu_send_support_message', { p_body: null, p_kind: 'audio', p_media_url: url, p_author_name: me.full_name || 'Membro' });
+      else res = await sb.from('comu_messages').insert({ topic_id: topic.id, author_id: me.id, kind: 'audio', media_url: url, media_meta: meta, author_name: me.full_name || 'Membro', author_avatar: me.avatar_url || null }).select().single();
+      if (res.error) { toast('Erro ao enviar o áudio: ' + res.error.message); return; }
+      addMessage(res.data, true);
+      if (isSupport) refreshTicketInfo();
+    };
+    try { mediaRecorder.stop(); } catch (e) { stopStream(); }
+  }
+  // Segurar para gravar (push-to-talk); arrastar p/ esquerda cancela
+  var holdActive = false, willCancel = false, holdStartX = 0;
+  function updateRecHint() {
+    var hint = document.getElementById('rec-hint');
+    if (hint) hint.textContent = willCancel ? 'Solte para cancelar' : '‹ Arraste para cancelar';
+    var bar = document.getElementById('rec-bar');
+    if (bar) bar.classList.toggle('text-error', willCancel);
+  }
+  function onHoldMove(e) {
+    if (!recording) return;
+    var x = (typeof e.clientX === 'number') ? e.clientX : holdStartX;
+    willCancel = (x - holdStartX) < -80;
+    updateRecHint();
+  }
+  function cleanupHold() {
+    document.removeEventListener('pointermove', onHoldMove);
+    document.removeEventListener('pointerup', onHoldUp);
+    document.removeEventListener('pointercancel', onHoldUp);
+  }
+  function onHoldUp() {
+    holdActive = false; cleanupHold();
+    if (!recording) return;
+    if (willCancel) { cancelRecording(); toast('Gravação cancelada'); }
+    else finishRecording();
+  }
+  var micBtn = document.getElementById('btn-mic');
+  if (micBtn) micBtn.addEventListener('pointerdown', async function (e) {
+    if (recording) return;
+    e.preventDefault();
+    holdActive = true; willCancel = false; holdStartX = e.clientX || 0;
+    document.addEventListener('pointermove', onHoldMove);
+    document.addEventListener('pointerup', onHoldUp);
+    document.addEventListener('pointercancel', onHoldUp);
+    await startRecording();
+    if (!recording) { cleanupHold(); return; }
+    updateRecHint();
+    if (!holdActive) { cancelRecording(); cleanupHold(); }
+  });
+
+  // Envio
+  form.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    if (recording) { finishRecording(); return; }
+    var body = input.value.trim();
+    if (!body || !topic || !me.id) { input.value = ''; return; }
+    input.value = '';
+    var ins;
+    if (isSupport) {
+      ins = await sb.rpc('comu_send_support_message', {
+        p_body: body, p_kind: 'text', p_author_name: me.full_name || 'Membro'
+      });
+    } else {
+      ins = await sb.from('comu_messages').insert({
+        topic_id: topic.id, author_id: me.id, kind: 'text', body: body,
+        author_name: me.full_name || 'Membro', author_avatar: me.avatar_url || null
+      }).select().single();
+    }
+    if (ins.error) { console.error(ins.error); input.value = body; return; }
+    addMessage(ins.data, true);
+    if (isSupport) refreshTicketInfo();
+  });
+})();
+</script>
+</body>
+</html>

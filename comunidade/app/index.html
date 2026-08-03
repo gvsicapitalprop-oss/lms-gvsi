@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport">
+<title>GVSI Comunidade — Grupos</title>
+<script>(function(){try{var t=localStorage.getItem('gvsi-theme');if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';if(t==='dark')document.documentElement.classList.add('dark');}catch(e){}})();</script>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script src="assets/tailwind-config.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body data-app data-active="grupos" class="bg-background text-on-background font-body-md min-h-screen">
+
+<!-- Sidebar (desktop) -->
+<aside class="hidden lg:flex lg:flex-col fixed inset-y-0 left-0 w-[360px] bg-surface border-r border-outline-variant z-40">
+<a href="index.html" class="h-16 flex items-center gap-sm px-lg border-b border-outline-variant shrink-0">
+<span class="material-symbols-outlined text-primary fill">groups</span>
+<span class="font-headline-sm text-headline-sm font-bold text-primary">GVSI Comunidade</span>
+</a>
+<nav id="side-topics" class="flex-1 overflow-y-auto custom-scrollbar p-sm space-y-1"></nav>
+<div class="border-t border-outline-variant p-sm flex items-center gap-sm shrink-0">
+<a href="perfil.html" class="flex-1 flex items-center gap-sm p-sm rounded-lg hover:bg-surface-container-high transition-colors">
+<span data-side-avatar class="w-9 h-9 rounded-full bg-surface-container-high flex items-center justify-center text-outline overflow-hidden"><span class="material-symbols-outlined text-[20px]">person</span></span>
+<span data-side-name class="font-body-sm text-on-surface truncate">Meu Perfil</span>
+</a>
+<button type="button" data-theme-toggle class="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors" aria-label="Alternar tema">
+<span class="material-symbols-outlined text-[20px]" data-theme-icon>dark_mode</span>
+</button>
+<button type="button" data-signout class="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-error/10 hover:text-error transition-colors" aria-label="Sair">
+<span class="material-symbols-outlined text-[20px]">logout</span>
+</button>
+</div>
+</aside>
+
+<!-- Mobile header -->
+<header class="lg:hidden fixed top-0 left-0 right-0 z-50 bg-surface shadow-[0px_4px_20px_rgba(0,0,0,0.05)] h-14 flex items-center justify-between px-container-margin">
+<button class="text-primary hover:opacity-80 transition-opacity active:scale-95 duration-200" aria-label="Menu">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<h1 class="font-headline-sm text-headline-sm font-bold text-primary">GVSI Comunidade</h1>
+<button type="button" data-theme-toggle class="text-primary hover:opacity-80 transition-opacity active:scale-95 duration-200" aria-label="Alternar tema">
+<span class="material-symbols-outlined" data-theme-icon>dark_mode</span>
+</button>
+</header>
+
+<!-- Content -->
+<main class="lg:pl-[360px] min-h-screen">
+
+<!-- Mobile: lista de tópicos -->
+<div class="lg:hidden pt-14 pb-16">
+<div class="px-container-margin py-lg">
+<div class="mb-lg relative">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline">search</span>
+<input id="topic-search" class="w-full bg-surface-container-low border border-outline-variant rounded-xl py-3 pl-12 pr-4 focus:ring-2 focus:ring-primary focus:border-primary transition-all font-body-md text-body-md text-on-surface" placeholder="Procurar tópicos na comunidade" type="text">
+</div>
+<h2 class="text-headline-md font-bold text-on-surface mb-lg px-2">Escolha um tópico para entrar na conversa</h2>
+<div id="topic-list" class="flex flex-col bg-surface-container-lowest rounded-xl shadow-sm p-sm gap-1"></div>
+<p id="no-results" class="hidden text-center text-on-surface-variant py-lg">Nenhum tópico encontrado.</p>
+</div>
+</div>
+
+<!-- Desktop: hero vazio -->
+<div class="hidden lg:flex min-h-screen flex-col items-center justify-center text-center gap-md p-xl">
+<div class="w-20 h-20 rounded-full bg-surface-container-high flex items-center justify-center text-primary"><span class="material-symbols-outlined text-[40px]">forum</span></div>
+<div class="space-y-xs max-w-sm">
+<h2 class="font-headline-md text-headline-md text-on-surface">Bem-vindo à Comunidade GVSI</h2>
+<p class="text-body-md text-on-surface-variant">Selecione um tópico na barra lateral para começar a conversar.</p>
+</div>
+</div>
+
+</main>
+
+<!-- Mobile bottom nav -->
+<nav class="lg:hidden fixed bottom-0 left-0 right-0 z-50 rounded-t-xl bg-surface shadow-[0px_-4px_20px_rgba(0,0,0,0.05)] flex justify-around items-center h-16 px-2">
+<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-full px-4 py-1 active:scale-90 transition-all duration-200" href="index.html">
+<span class="material-symbols-outlined fill">groups</span>
+<span class="font-label-md text-label-md">Grupos</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1 hover:bg-surface-container-high transition-colors active:scale-90 duration-200" href="perfil.html">
+<span class="material-symbols-outlined">person</span>
+<span class="font-label-md text-label-md">Meu Perfil</span>
+</a>
+</nav>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/supabase.js"></script>
+<script src="assets/auth.js"></script>
+<script src="assets/topics.js"></script>
+<script src="assets/shell.js"></script>
+</body>
+</html>

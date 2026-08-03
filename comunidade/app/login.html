@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport">
+<title>GVSI Comunidade — Entrar</title>
+<script>(function(){try{var t=localStorage.getItem('gvsi-theme');if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';if(t==='dark')document.documentElement.classList.add('dark');}catch(e){}})();</script>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script src="assets/tailwind-config.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body class="bg-background text-on-background font-body-md min-h-screen flex flex-col">
+
+<div class="absolute top-4 right-4">
+<button type="button" data-theme-toggle class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors" aria-label="Alternar tema">
+<span class="material-symbols-outlined" data-theme-icon>dark_mode</span>
+</button>
+</div>
+
+<main class="flex-1 flex items-center justify-center px-container-margin py-xl">
+<div class="w-full max-w-sm">
+
+<!-- Brand -->
+<div class="flex flex-col items-center gap-sm mb-xl">
+<div class="w-16 h-16 rounded-2xl bg-primary text-on-primary flex items-center justify-center shadow-lg">
+<span class="material-symbols-outlined text-[36px] fill">groups</span>
+</div>
+<h1 class="font-headline-md text-headline-md font-bold text-on-surface">GVSI Comunidade</h1>
+<p id="subtitle" class="text-body-sm text-on-surface-variant text-center">Entre para acessar a comunidade</p>
+</div>
+
+<!-- Card -->
+<div class="bg-surface-container-lowest border border-outline-variant/40 rounded-2xl shadow-sm p-lg space-y-md">
+
+<!-- Toggle Entrar / Criar conta -->
+<div class="grid grid-cols-2 gap-1 p-1 bg-surface-container-high rounded-xl">
+<button id="tab-signin" type="button" class="py-2 rounded-lg text-label-md font-label-md transition-colors">Entrar</button>
+<button id="tab-signup" type="button" class="py-2 rounded-lg text-label-md font-label-md transition-colors">Criar conta</button>
+</div>
+
+<form id="auth-form" class="space-y-md">
+<div id="name-field" class="hidden">
+<label class="block text-label-md font-label-md text-on-surface-variant mb-xs" for="full_name">Nome</label>
+<input id="full_name" type="text" autocomplete="name" class="w-full bg-surface-container-low border border-outline-variant rounded-xl py-3 px-4 focus:ring-2 focus:ring-primary focus:border-primary transition-all text-body-md text-on-surface" placeholder="Seu nome">
+</div>
+<div>
+<label class="block text-label-md font-label-md text-on-surface-variant mb-xs" for="email">E-mail</label>
+<input id="email" type="email" required autocomplete="email" class="w-full bg-surface-container-low border border-outline-variant rounded-xl py-3 px-4 focus:ring-2 focus:ring-primary focus:border-primary transition-all text-body-md text-on-surface" placeholder="voce@email.com">
+</div>
+<div>
+<label class="block text-label-md font-label-md text-on-surface-variant mb-xs" for="password">Senha</label>
+<input id="password" type="password" required minlength="6" autocomplete="current-password" class="w-full bg-surface-container-low border border-outline-variant rounded-xl py-3 px-4 focus:ring-2 focus:ring-primary focus:border-primary transition-all text-body-md text-on-surface" placeholder="••••••••">
+</div>
+<button id="submit-btn" type="submit" class="w-full h-12 bg-primary text-on-primary rounded-xl font-headline-sm text-headline-sm flex items-center justify-center gap-sm shadow-md active:scale-[0.98] transition-all disabled:opacity-60">
+<span id="submit-label">Entrar</span>
+</button>
+</form>
+
+<div class="flex items-center gap-sm">
+<span class="flex-1 h-px bg-outline-variant"></span>
+<span class="text-label-md text-outline">ou</span>
+<span class="flex-1 h-px bg-outline-variant"></span>
+</div>
+
+<button id="magic-btn" type="button" class="w-full h-11 border border-outline-variant text-on-surface rounded-xl font-label-md text-label-md flex items-center justify-center gap-sm hover:bg-surface-container-high active:scale-[0.98] transition-all">
+<span class="material-symbols-outlined text-[18px]">mail</span>
+Entrar com link mágico
+</button>
+
+<p id="msg" class="hidden text-body-sm text-center"></p>
+
+</div>
+<p class="text-center text-[11px] text-outline mt-lg">Acesso exclusivo para membros da comunidade GVSI.</p>
+</div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/supabase.js"></script>
+<script src="assets/auth.js"></script>
+<script>
+  var $ = function (id) { return document.getElementById(id); };
+  var sb = window.sb;
+
+  function showMsg(text, ok) {
+    var m = $('msg');
+    m.textContent = text;
+    m.className = 'text-body-sm text-center ' + (ok ? 'text-primary' : 'text-error');
+  }
+
+  // Já logado? vai direto pro app.
+  if (sb) {
+    sb.auth.getSession().then(function (r) { if (r.data.session) location.replace('index.html'); });
+  } else {
+    showMsg('Falha ao conectar no servidor. Recarregue a página.', false);
+  }
+
+  var mode = 'signin';
+  function setMode(m) {
+    mode = m;
+    var on = 'bg-surface text-on-surface shadow-sm';
+    var off = 'text-on-surface-variant';
+    $('tab-signin').className = 'py-2 rounded-lg text-label-md font-label-md transition-colors ' + (m === 'signin' ? on : off);
+    $('tab-signup').className = 'py-2 rounded-lg text-label-md font-label-md transition-colors ' + (m === 'signup' ? on : off);
+    $('name-field').classList.toggle('hidden', m !== 'signup');
+    $('submit-label').textContent = m === 'signin' ? 'Entrar' : 'Criar conta';
+    $('password').setAttribute('autocomplete', m === 'signin' ? 'current-password' : 'new-password');
+    $('subtitle').textContent = m === 'signin' ? 'Entre para acessar a comunidade' : 'Crie sua conta na comunidade';
+    $('msg').classList.add('hidden');
+  }
+  $('tab-signin').onclick = function () { setMode('signin'); };
+  $('tab-signup').onclick = function () { setMode('signup'); };
+
+  $('auth-form').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    if (!sb) return;
+    var email = $('email').value.trim();
+    var password = $('password').value;
+    $('submit-btn').disabled = true;
+    $('msg').classList.remove('hidden');
+    showMsg('Aguarde...', true);
+    try {
+      if (mode === 'signin') {
+        var r1 = await sb.auth.signInWithPassword({ email: email, password: password });
+        if (r1.error) throw r1.error;
+        await window.GVSIAuth.ensureProfile();
+        location.replace('index.html');
+      } else {
+        var full_name = $('full_name').value.trim();
+        var r2 = await sb.auth.signUp({ email: email, password: password, options: { data: { full_name: full_name } } });
+        if (r2.error) throw r2.error;
+        if (r2.data.session) {
+          await window.GVSIAuth.ensureProfile();
+          location.replace('index.html');
+        } else {
+          showMsg('Conta criada! Confira seu e-mail para confirmar antes de entrar.', true);
+        }
+      }
+    } catch (err) {
+      showMsg(err && err.message ? err.message : 'Erro ao autenticar.', false);
+    } finally {
+      $('submit-btn').disabled = false;
+    }
+  });
+
+  $('magic-btn').addEventListener('click', async function () {
+    if (!sb) return;
+    var email = $('email').value.trim();
+    if (!email) { $('msg').classList.remove('hidden'); showMsg('Digite seu e-mail para receber o link.', false); return; }
+    $('msg').classList.remove('hidden');
+    showMsg('Enviando...', true);
+    try {
+      var redirect = location.origin + location.pathname.replace(/login\.html$/, 'index.html');
+      var r = await sb.auth.signInWithOtp({ email: email, options: { emailRedirectTo: redirect } });
+      if (r.error) throw r.error;
+      showMsg('Link enviado! Confira seu e-mail.', true);
+    } catch (err) {
+      showMsg(err && err.message ? err.message : 'Erro ao enviar o link.', false);
+    }
+  });
+
+  setMode('signin');
+</script>
+</body>
+</html>
