@@ -463,7 +463,7 @@
         S = { destroyed: false, channels: [], currentTicket: null, filter: 'todos', seen: Object.create(null), convoChannel: null };
         var self = S;
         view.innerHTML =
-          '<header class="fixed top-0 left-0 right-0 z-50 bg-surface shadow-[0px_4px_20px_rgba(0,0,0,0.05)] h-14 flex items-center justify-between px-container-margin"><a href="#/" class="flex items-center gap-sm text-primary" aria-label="Voltar"><span class="material-symbols-outlined">arrow_back</span><span class="font-headline-sm text-headline-sm font-bold">Suporte · Atendimento</span></a><div class="flex items-center gap-xs"><button type="button" data-theme-toggle class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors" aria-label="Tema"><span class="material-symbols-outlined" data-theme-icon>dark_mode</span></button><button type="button" data-signout class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-error/10 hover:text-error transition-colors" aria-label="Sair"><span class="material-symbols-outlined">logout</span></button></div></header>' +
+          '<header class="fixed top-0 left-0 right-0 z-50 bg-surface shadow-[0px_4px_20px_rgba(0,0,0,0.05)] h-14 flex items-center justify-between px-container-margin"><button type="button" id="suporte-back" class="flex items-center gap-sm text-primary" aria-label="Voltar"><span class="material-symbols-outlined">arrow_back</span><span class="font-headline-sm text-headline-sm font-bold">Suporte · Atendimento</span></button><div class="flex items-center gap-xs"><button type="button" data-theme-toggle class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors" aria-label="Tema"><span class="material-symbols-outlined" data-theme-icon>dark_mode</span></button><button type="button" data-signout class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-error/10 hover:text-error transition-colors" aria-label="Sair"><span class="material-symbols-outlined">logout</span></button></div></header>' +
           '<div class="pt-14 h-[100dvh] flex">' +
             '<aside id="list-panel" class="w-full lg:w-[380px] lg:border-r border-outline-variant flex flex-col shrink-0"><div class="p-sm flex gap-1 border-b border-outline-variant"><button data-filter="todos" class="flex-1 py-2 rounded-lg text-label-md font-label-md bg-primary text-on-primary transition-colors">Todos</button><button data-filter="pendentes" class="flex-1 py-2 rounded-lg text-label-md font-label-md text-on-surface-variant hover:bg-surface-container-high transition-colors">Pendentes</button><button data-filter="resolvidos" class="flex-1 py-2 rounded-lg text-label-md font-label-md text-on-surface-variant hover:bg-surface-container-high transition-colors">Resolvidos</button></div><div id="ticket-list" class="flex-1 overflow-y-auto custom-scrollbar"><p class="p-lg text-center text-on-surface-variant text-body-sm">Carregando…</p></div></aside>' +
             '<section id="convo-panel" class="hidden lg:flex flex-1 flex-col min-w-0"><div id="convo-empty" class="flex-1 flex flex-col items-center justify-center text-center gap-md p-xl text-on-surface-variant"><span class="material-symbols-outlined text-[48px]">forum</span><p class="text-body-md max-w-xs">Selecione uma conversa para ver o histórico e responder.</p></div>' +
@@ -512,7 +512,18 @@
           var r = await sb.from('comu_messages').select('*').eq('ticket_id', tk.id).order('created_at', { ascending: true }); if (self.destroyed) return;
           (r.data || []).forEach(addMsg); scrollConvo(); subscribeConvo(tk.id); loadTickets();
         }
-        document.getElementById('convo-back').addEventListener('click', function () { document.getElementById('convo-panel').classList.add('hidden'); document.getElementById('list-panel').classList.remove('hidden'); });
+        function closeConvo() {
+          if (self.convoChannel) { try { sb.removeChannel(self.convoChannel); } catch (e) {} self.convoChannel = null; }
+          self.currentTicket = null;
+          var cm = document.getElementById('convo-main'); cm.classList.add('hidden'); cm.classList.remove('flex');
+          document.getElementById('convo-empty').classList.remove('hidden');
+          document.getElementById('convo-panel').classList.add('hidden');   // mobile: volta pra lista (no desktop lg:flex mantém visível)
+          document.getElementById('list-panel').classList.remove('hidden');
+          loadTickets();
+        }
+        // "Voltar" do topo: se tem conversa aberta, volta pra lista; senão sai pra home
+        document.getElementById('suporte-back').addEventListener('click', function () { if (self.currentTicket) closeConvo(); else G.navigate('#/'); });
+        document.getElementById('convo-back').addEventListener('click', closeConvo);
         document.getElementById('convo-form').addEventListener('submit', async function (e) {
           e.preventDefault(); var body = document.getElementById('convo-input').value.trim(); if (!body || !self.currentTicket) return; document.getElementById('convo-input').value = '';
           var ins = await sb.from('comu_messages').insert({ topic_id: supportTopicId, author_id: me.id, ticket_id: self.currentTicket.id, kind: 'text', body: body, author_name: me.full_name || 'Suporte' }).select().single();
