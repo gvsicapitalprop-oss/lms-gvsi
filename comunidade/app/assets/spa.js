@@ -122,6 +122,9 @@ GVSI.views = GVSI.views || {};
     document.querySelectorAll('[data-side-name]').forEach(function (el) { el.textContent = m.full_name || 'Meu Perfil'; });
   };
   function setActive(route) {
+    // o console de suporte é tela cheia própria → esconde a sidebar de tópicos
+    var shellAside = document.querySelector('aside.fixed.inset-y-0');
+    if (shellAside) shellAside.style.display = (route.name === 'suporte') ? 'none' : '';
     // tópico ativo na sidebar
     var activeSlug = route.name === 'chat' ? route.params.topico : '';
     document.querySelectorAll('#side-topics .topic-item').forEach(function (a) {
