@@ -157,7 +157,7 @@
           else if (m.kind === 'audio' && m.media_url) content = '<audio controls src="' + esc(m.media_url) + '" class="max-w-full"></audio>';
           else content = '<p class="' + (mine ? '' : 'text-on-surface ') + 'font-body-md whitespace-pre-wrap break-words">' + esc(m.body) + edited + '</p>';
           var inner;
-          if (mine) inner = '<div class="flex items-center gap-xs mr-sm mb-xs"><span class="text-[10px] text-outline">' + when + '</span><span class="font-label-md text-label-md text-primary">Você</span></div><div class="message-gradient-outgoing text-on-primary shadow-lg rounded-xl rounded-tr-none p-md">' + content + '</div>';
+          if (mine) inner = '<div class="flex items-center gap-xs mr-sm mb-xs"><span class="text-[10px] text-outline">' + when + '</span><span class="font-label-md text-label-md text-primary">Você</span></div><div class="message-gradient-outgoing text-white shadow-lg rounded-xl rounded-tr-none p-md">' + content + '</div>';
           else {
             var av = m.author_avatar ? '<img src="' + esc(m.author_avatar) + '" class="w-8 h-8 rounded-full object-cover shrink-0" alt="">' : '<span class="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center text-outline shrink-0"><span class="material-symbols-outlined text-[18px]">person</span></span>';
             inner = '<div class="flex items-start gap-sm">' + av + '<div class="flex flex-col min-w-0"><div class="flex items-center gap-xs ml-sm mb-xs"><span class="font-label-md text-label-md text-on-surface-variant">' + esc(m.author_name || 'Membro') + '</span><span class="text-[10px] text-outline">' + when + '</span></div><div class="bg-surface-container-lowest shadow-[0px_4px_20px_rgba(0,0,0,0.05)] rounded-xl rounded-tl-none p-md border border-outline-variant/30">' + content + '</div></div></div>';
@@ -496,7 +496,7 @@
           var content = '<p class="font-body-md whitespace-pre-wrap break-words ' + (mine ? '' : 'text-on-surface') + '">' + esc(msg.body) + '</p>';
           if (msg.kind === 'image' && msg.media_url) content = '<img src="' + esc(msg.media_url) + '" class="rounded-lg max-w-full">'; else if (msg.kind === 'audio' && msg.media_url) content = '<audio controls src="' + esc(msg.media_url) + '" class="max-w-full"></audio>';
           var wrap = document.createElement('div');
-          if (mine) { wrap.className = 'flex flex-col items-end gap-xs max-w-[80%] self-end'; wrap.innerHTML = '<div class="message-gradient-outgoing text-on-primary rounded-xl rounded-tr-none p-md shadow">' + content + '</div>'; }
+          if (mine) { wrap.className = 'flex flex-col items-end gap-xs max-w-[80%] self-end'; wrap.innerHTML = '<div class="message-gradient-outgoing text-white rounded-xl rounded-tr-none p-md shadow">' + content + '</div>'; }
           else { wrap.className = 'flex flex-col items-start gap-xs max-w-[80%]'; wrap.innerHTML = '<span class="text-label-md font-label-md text-on-surface-variant ml-sm">' + esc(msg.author_name || 'Membro') + '</span><div class="bg-surface-container-lowest border border-outline-variant/30 rounded-xl rounded-tl-none p-md">' + content + '</div>'; }
           document.getElementById('convo-messages').appendChild(wrap);
         }
