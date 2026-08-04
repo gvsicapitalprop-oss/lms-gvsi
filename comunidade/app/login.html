@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport">
 <title>GVSI Comunidade — Entrar</title>
+<link rel="icon" type="image/png" href="assets/favicon.png">
+<link rel="apple-touch-icon" href="assets/favicon.png">
 <script>(function(){try{var t=localStorage.getItem('gvsi-theme');if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';if(t==='dark')document.documentElement.classList.add('dark');}catch(e){}})();</script>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <script src="assets/tailwind-config.js"></script>
@@ -24,9 +26,8 @@
 
 <!-- Brand -->
 <div class="flex flex-col items-center gap-sm mb-xl">
-<div class="w-16 h-16 rounded-2xl bg-primary text-on-primary flex items-center justify-center shadow-lg">
-<span class="material-symbols-outlined text-[36px] fill">groups</span>
-</div>
+<img src="assets/logo-colorida.png" alt="GVSI" class="h-16 w-auto dark:hidden">
+<img src="assets/logo-branca.png" alt="GVSI" class="h-16 w-auto hidden dark:block">
 <h1 class="font-headline-md text-headline-md font-bold text-on-surface">GVSI Comunidade</h1>
 <p class="text-body-sm text-on-surface-variant text-center">Entre para acessar a comunidade</p>
 </div>
