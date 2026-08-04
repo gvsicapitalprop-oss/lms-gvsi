@@ -421,7 +421,16 @@
           var ov = document.createElement('div'); ov.id = 'img-editor';
           ov.className = 'fixed inset-0 z-[100] bg-black/95 flex flex-col p-3 gap-3';
           ov.innerHTML =
-            '<div class="flex-1 min-h-0 flex items-center justify-center overflow-hidden"><img id="ie-img" class="max-w-full max-h-full block" alt=""></div>' +
+            '<div id="ie-stage" class="relative flex-1 min-h-0 flex items-center justify-center overflow-hidden">' +
+              '<img id="ie-img" class="max-w-full max-h-full block" alt="">' +
+              '<div style="position:absolute;right:10px;top:50%;transform:translateY(-50%);z-index:3;display:flex;flex-direction:column;align-items:center;gap:8px">' +
+                '<span class="material-symbols-outlined" style="color:#fff">zoom_in</span>' +
+                '<div style="height:220px;width:38px;display:flex;align-items:center;justify-content:center">' +
+                  '<input type="range" id="ie-zoom" min="50" max="300" value="100" step="1" style="width:220px;transform:rotate(-90deg);accent-color:#7c9cff;cursor:pointer" aria-label="Zoom">' +
+                '</div>' +
+                '<span class="material-symbols-outlined" style="color:#fff">zoom_out</span>' +
+              '</div>' +
+            '</div>' +
             '<div class="shrink-0 flex flex-wrap items-center justify-center gap-2">' +
               '<span class="text-white/80 text-body-sm">Tamanho:</span>' +
               '<select id="ie-size" class="h-11 px-3 rounded-xl bg-white/10 text-white border border-white/20 text-body-md"><option value="0">Original</option><option value="1600">Grande (1600px)</option><option value="1000">Médio (1000px)</option><option value="600">Pequeno (600px)</option></select>' +
@@ -429,9 +438,18 @@
               '<button type="button" id="ie-save" class="h-11 px-5 rounded-full bg-primary text-on-primary font-label-md flex items-center gap-1"><span class="material-symbols-outlined text-[20px]">check</span>Salvar</button>' +
             '</div>';
           document.body.appendChild(ov);
-          var imgEl = ov.querySelector('#ie-img'), cropper = null;
+          var imgEl = ov.querySelector('#ie-img'), cropper = null, baseRatio = 1;
+          var zoomEl = ov.querySelector('#ie-zoom');
           function closeE() { try { if (cropper) cropper.destroy(); } catch (e) {} cropper = null; if (src.indexOf('blob:') === 0) { try { URL.revokeObjectURL(src); } catch (e) {} } ov.remove(); }
-          imgEl.onload = function () { try { cropper = new Cropper(imgEl, { viewMode: 1, autoCropArea: 1, background: false, dragMode: 'crop' }); } catch (e) {} };
+          imgEl.onload = function () {
+            try {
+              cropper = new Cropper(imgEl, {
+                viewMode: 1, autoCropArea: 1, background: false, dragMode: 'crop', zoomOnWheel: false, // zoom pelo slider, não pelo scroll
+                ready: function () { var cd = cropper.getCanvasData(); baseRatio = (cd && cd.naturalWidth) ? (cd.width / cd.naturalWidth) : 1; if (zoomEl) zoomEl.value = 100; }
+              });
+            } catch (e) {}
+          };
+          if (zoomEl) zoomEl.addEventListener('input', function () { if (cropper) { try { cropper.zoomTo(baseRatio * (parseInt(zoomEl.value, 10) || 100) / 100); } catch (e) {} } });
           imgEl.onerror = function () { G.toast('Não foi possível abrir a imagem.'); closeE(); };
           imgEl.src = src;
           ov.querySelector('#ie-cancel').onclick = closeE;
