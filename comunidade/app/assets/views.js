@@ -156,7 +156,7 @@
           var chosen = { rating: 0, solved: null };
           var card = document.createElement('div');
           card.id = 'support-rating-card';
-          card.className = 'self-center w-full max-w-md bg-surface-container-lowest border border-outline-variant/40 rounded-2xl p-lg shadow-sm space-y-md my-md';
+          card.className = 'w-full bg-surface-container-lowest border border-outline-variant/40 rounded-2xl p-lg shadow-sm space-y-md my-md';
           card.innerHTML =
             '<h3 class="font-headline-sm text-headline-sm text-on-surface text-center">Como foi o atendimento?</h3>' +
             '<div class="space-y-xs"><p class="text-body-sm text-on-surface-variant text-center">Resolveu seu problema?</p><div class="flex gap-sm justify-center"><button type="button" data-solved="s" class="rt-solved h-10 px-5 rounded-full border border-outline-variant text-on-surface font-label-md">Sim</button><button type="button" data-solved="n" class="rt-solved h-10 px-5 rounded-full border border-outline-variant text-on-surface font-label-md">Não</button></div></div>' +
@@ -213,8 +213,8 @@
         }
         function bubble(m) {
           if (m.kind === 'system') {
-            var sw = document.createElement('div'); sw.setAttribute('data-msg-id', m.id); sw.className = 'w-full flex justify-center';
-            sw.innerHTML = '<div class="max-w-md text-center text-body-sm text-on-surface-variant bg-surface-container-high rounded-2xl px-4 py-2">' + esc(m.body || '') + '</div>';
+            var sw = document.createElement('div'); sw.setAttribute('data-msg-id', m.id); sw.className = 'w-full';
+            sw.innerHTML = '<div class="w-full text-center text-body-sm text-on-surface-variant bg-surface-container-high rounded-2xl px-4 py-3">' + esc(m.body || '') + '</div>';
             return sw;
           }
           var mine = me.id && m.author_id === me.id;
@@ -268,9 +268,9 @@
         function updateMessage(m) { var wrap = msgsEl.querySelector('[data-msg-id="' + m.id + '"]'); if (!wrap) return; renderMsgBody(wrap.querySelector('.msg-body'), m, me.id && m.author_id === me.id); if (m.status === 'deleted') { var rr = wrap.querySelector('.react-row'); if (rr) rr.innerHTML = ''; } }
 
         // ---- reações ----
-        var EMOJIS = ['❤️', '👍', '🔥', '✨', '😂', '🙏'];
+        var EMOJIS = ['❤️', '👍', '👎', '🔥', '✨', '😂', '🥰', '😮', '😢', '😡', '🙏', '👏', '🙌', '🤝', '💪', '🎯', '🚀', '💯', '✅', '❌', '👀', '🤔', '🥳', '🤑', '📈', '📉', '💰', '⚡'];
         var picker = document.createElement('div'); self.picker = picker;
-        picker.className = 'hidden fixed z-[80] bg-surface-container-highest border border-outline-variant rounded-full shadow-lg px-2 py-1 flex items-center gap-1';
+        picker.className = 'hidden fixed z-[80] bg-surface-container-highest border border-outline-variant rounded-2xl shadow-lg p-2 flex flex-wrap items-center gap-1 max-w-[320px]';
         var pickerTarget = null;
         EMOJIS.forEach(function (em) { var b = document.createElement('button'); b.type = 'button'; b.className = 'text-[26px] hover:scale-125 transition-transform px-2 py-1'; b.textContent = em; b.addEventListener('click', function () { if (pickerTarget) toggleReaction(pickerTarget, em); hidePicker(); }); picker.appendChild(b); });
         document.body.appendChild(picker);
@@ -318,10 +318,6 @@
                 .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'comu_messages', filter: 'topic_id=eq.' + topic.id }, function (p) { updateMessage(p.new); })
                 .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'comu_messages' }, function (p) { if (p.old && p.old.id) removeMessage(p.old.id); })
                 .subscribe());
-              self.channels.push(sb.channel('comu-react-' + topic.id)
-                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comu_message_reactions' }, function (p) { applyReactionEvent('INSERT', p.new); })
-                .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'comu_message_reactions' }, function (p) { applyReactionEvent('DELETE', p.old); })
-                .subscribe());
             };
             try { var _sess = (await sb.auth.getSession()).data.session; if (_sess) await Promise.resolve(sb.realtime.setAuth(_sess.access_token)); } catch (e) {}
             if (self.destroyed) return;
@@ -329,9 +325,13 @@
               .on('broadcast', { event: 'INSERT' }, function (m) { if (m && m.payload && m.payload.record) addMessage(m.payload.record, nearBottom()); })
               .on('broadcast', { event: 'UPDATE' }, function (m) { if (m && m.payload && m.payload.record) updateMessage(m.payload.record); })
               .on('broadcast', { event: 'DELETE' }, function (m) { var r = m && m.payload && (m.payload.old_record || m.payload.record); if (r && r.id) removeMessage(r.id); })
-              .on('broadcast', { event: 'reaction' }, function (m) { var p = m && m.payload; if (p && p.message_id) applyReactionEvent(p.op, { message_id: p.message_id, user_id: p.user_id, reaction: p.reaction }); })
               .subscribe(function (status) { if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') enablePgFallback(); }));
           }
+          // Reações (baixo volume) via postgres_changes p/ TODOS os tópicos — confiável p/ ver as dos outros ao vivo
+          self.channels.push(sb.channel('comu-react-' + topic.id)
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comu_message_reactions' }, function (p) { applyReactionEvent('INSERT', p.new); })
+            .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'comu_message_reactions' }, function (p) { applyReactionEvent('DELETE', p.old); })
+            .subscribe());
           refreshTicketInfo();
           if (me.id) { sb.from('comu_topic_reads').upsert({ topic_id: topic.id, user_id: me.id, last_read_at: new Date().toISOString() }, { onConflict: 'topic_id,user_id' }).then(function () { G.applyUnread(); }, function () {}); }
         } else { loadingEl.classList.add('hidden'); emptyEl.classList.remove('hidden'); }
