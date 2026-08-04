@@ -62,10 +62,12 @@
       (S.channels || []).forEach(function (c) { try { sb.removeChannel(c); } catch (e) {} });
       if (S.picker && S.picker.parentNode) S.picker.remove();
       if (S.reactPop && S.reactPop.parentNode) S.reactPop.remove();
+      if (S.mentionMenu && S.mentionMenu.parentNode) S.mentionMenu.remove();
       if (S.recTimer) clearInterval(S.recTimer);
       if (S.recStream) { try { S.recStream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {} }
       if (S.onPickerDoc) document.removeEventListener('click', S.onPickerDoc);
       if (S.onReactPopDoc) document.removeEventListener('click', S.onReactPopDoc);
+      if (S.onMentionDoc) document.removeEventListener('click', S.onMentionDoc);
       S = null;
     }
     return {
@@ -213,6 +215,65 @@
         }
         function clearReply() { replyState = null; var box = document.getElementById('reply-preview'); if (box) { box.classList.add('hidden'); box.classList.remove('flex'); } }
         var replyCancelBtn = document.getElementById('reply-cancel'); if (replyCancelBtn) replyCancelBtn.addEventListener('click', clearReply);
+        // ---- menções (#6): #tópicos e @pessoas ----
+        var mentionMenu = document.createElement('div'); self.mentionMenu = mentionMenu;
+        mentionMenu.className = 'hidden fixed z-[82] bg-surface-container-highest border border-outline-variant rounded-xl shadow-lg py-1 w-[280px] max-w-[86vw] max-h-[46vh] overflow-y-auto';
+        document.body.appendChild(mentionMenu);
+        var mentionCtx = null, mentionActive = 0, mentionRows = [], mentionTopics = null, mentionSeq = 0, mentionTimer = null;
+        function hideMention() { mentionMenu.classList.add('hidden'); mentionCtx = null; mentionRows = []; }
+        function positionMention() { var r = input.getBoundingClientRect(), pr = mentionMenu.getBoundingClientRect(); var top = r.top - pr.height - 6; if (top < 8) top = r.bottom + 6; var left = r.left; if (left + pr.width > window.innerWidth - 8) left = window.innerWidth - 8 - pr.width; mentionMenu.style.top = top + 'px'; mentionMenu.style.left = Math.max(8, left) + 'px'; }
+        function setMentionActive(i) { mentionActive = (i + mentionRows.length) % mentionRows.length; [].forEach.call(mentionMenu.children, function (c, idx) { c.classList.toggle('bg-surface-container-high', idx === mentionActive); }); var el = mentionMenu.children[mentionActive]; if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' }); }
+        function renderMention(rows) {
+          mentionRows = rows; mentionActive = 0;
+          if (!rows.length) { hideMention(); return; }
+          mentionMenu.innerHTML = '';
+          rows.forEach(function (row, i) {
+            var b = document.createElement('button'); b.type = 'button';
+            b.className = 'w-full flex items-center gap-sm px-3 py-2 text-left ' + (i === 0 ? 'bg-surface-container-high' : '');
+            if (row.kind === 'topic') b.innerHTML = '<span class="material-symbols-outlined text-[20px] text-primary shrink-0">' + (row.icon || 'tag') + '</span><span class="truncate text-body-md text-on-surface">' + esc(row.name) + '</span>';
+            else b.innerHTML = (row.avatar_url ? '<img src="' + esc(row.avatar_url) + '" class="w-7 h-7 rounded-full object-cover shrink-0" alt="">' : '<span class="w-7 h-7 rounded-full bg-surface-container-high flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-[16px]">person</span></span>') + '<span class="truncate text-body-md text-on-surface">' + esc(row.full_name || 'Membro') + '</span>';
+            b.addEventListener('mousedown', function (e) { e.preventDefault(); pickMention(i); });
+            mentionMenu.appendChild(b);
+          });
+          mentionMenu.classList.remove('hidden'); positionMention();
+        }
+        function pickMention(i) {
+          var row = mentionRows[i]; if (!row || !mentionCtx) return;
+          var token = row.kind === 'topic' ? ('#' + row.slug) : ('@' + String(row.full_name || 'membro').trim().split(/\s+/)[0]);
+          var v = input.value; input.value = v.slice(0, mentionCtx.start) + token + ' ' + v.slice(mentionCtx.end);
+          var pos = mentionCtx.start + token.length + 1; input.focus(); try { input.setSelectionRange(pos, pos); } catch (x) {}
+          hideMention();
+        }
+        function onMentionType() {
+          var pos = input.selectionStart, text = input.value.slice(0, pos);
+          var mm = text.match(/(^|\s)([@#])([^\s@#]*)$/);
+          if (!mm) { hideMention(); return; }
+          var trigger = mm[2], q = mm[3];
+          mentionCtx = { start: pos - q.length - 1, end: pos };
+          if (trigger === '#') {
+            if (!mentionTopics) mentionTopics = (G.topics || []).map(function (t) { return { kind: 'topic', slug: t.id, name: t.name, icon: t.icon }; });
+            var ql = q.toLowerCase();
+            renderMention(mentionTopics.filter(function (t) { return !ql || String(t.slug).toLowerCase().indexOf(ql) >= 0 || String(t.name || '').toLowerCase().indexOf(ql) >= 0; }).slice(0, 8));
+          } else {
+            if (mentionTimer) clearTimeout(mentionTimer);
+            var seq = ++mentionSeq;
+            mentionTimer = setTimeout(async function () {
+              var r = await sb.rpc('comu_search_members', { p_q: q });
+              if (self.destroyed || seq !== mentionSeq || !mentionCtx) return;
+              renderMention((r.data || []).map(function (u) { return { kind: 'person', id: u.id, full_name: u.full_name, avatar_url: u.avatar_url }; }));
+            }, 120);
+          }
+        }
+        input.addEventListener('input', onMentionType);
+        input.addEventListener('keydown', function (e) {
+          if (mentionMenu.classList.contains('hidden') || !mentionRows.length) return;
+          if (e.key === 'ArrowDown') { e.preventDefault(); setMentionActive(mentionActive + 1); }
+          else if (e.key === 'ArrowUp') { e.preventDefault(); setMentionActive(mentionActive - 1); }
+          else if (e.key === 'Enter') { e.preventDefault(); pickMention(mentionActive); }
+          else if (e.key === 'Escape') { e.preventDefault(); hideMention(); }
+        });
+        self.onMentionDoc = function (e) { if (mentionMenu.classList.contains('hidden')) return; if (!mentionMenu.contains(e.target) && e.target !== input) hideMention(); };
+        document.addEventListener('click', self.onMentionDoc);
         // ---- render de mensagem ----
         function renderMsgBody(container, m, mine) {
           container.innerHTML = '';

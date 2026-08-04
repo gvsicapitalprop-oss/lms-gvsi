@@ -27,6 +27,13 @@ GVSI.views = GVSI.views || {};
     out = out.replace(/(^|[^\w*])\*([^*\n]+)\*(?![\w*])/g, '$1<em>$2</em>'); // *itálico*
     out = out.replace(/(^|[^\w_])_([^_\n]+)_(?![\w_])/g, '$1<em>$2</em>');   // _itálico_
     out = out.replace(/~~([^~\n]+)~~/g, '<del>$1</del>');                   // ~~tachado~~
+    // menções: #tópico (só slug conhecido vira link) e @pessoa (destaque)
+    var slugs = {}; (G.topics || []).forEach(function (t) { if (t && t.id) slugs[String(t.id).toLowerCase()] = true; });
+    out = out.replace(/(^|\s)#([A-Za-z0-9][A-Za-z0-9_-]*)/g, function (full, pre, slug) {
+      var key = slug.toLowerCase();
+      return slugs[key] ? pre + '<a href="#/chat/' + key + '" class="text-primary font-medium hover:underline">#' + slug + '</a>' : full;
+    });
+    out = out.replace(/(^|\s)@([A-Za-zÀ-ÿ0-9][A-Za-zÀ-ÿ0-9_.]*)/g, '$1<span class="text-primary font-medium">@$2</span>');
     return out;
   };
   G.timeStr = function (iso) {
