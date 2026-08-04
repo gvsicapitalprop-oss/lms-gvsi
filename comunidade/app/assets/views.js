@@ -63,6 +63,7 @@
       if (S.picker && S.picker.parentNode) S.picker.remove();
       if (S.reactPop && S.reactPop.parentNode) S.reactPop.remove();
       if (S.mentionMenu && S.mentionMenu.parentNode) S.mentionMenu.remove();
+      ['img-lightbox', 'img-editor'].forEach(function (id) { var el = document.getElementById(id); if (el) el.remove(); });
       if (S.recTimer) clearInterval(S.recTimer);
       if (S.recStream) { try { S.recStream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {} }
       if (S.onPickerDoc) document.removeEventListener('click', S.onPickerDoc);
@@ -281,7 +282,7 @@
           var when = timeStr(m.created_at);
           var edited = m.status === 'edited' ? ' <span class="text-[12px] opacity-80">(editado)</span>' : '';
           var content;
-          if (m.kind === 'image' && m.media_url) content = '<img src="' + esc(m.media_url) + '" class="rounded-lg max-w-full mb-xs" alt="">' + (m.body ? '<p class="' + (mine ? '' : 'text-on-surface ') + 'font-body-md">' + G.fmt(m.body) + edited + '</p>' : '');
+          if (m.kind === 'image' && m.media_url) content = '<img src="' + esc(m.media_url) + '" data-full="' + esc(m.media_url) + '" class="msg-img rounded-lg max-w-full mb-xs cursor-zoom-in" alt="">' + (m.body ? '<p class="' + (mine ? '' : 'text-on-surface ') + 'font-body-md">' + G.fmt(m.body) + edited + '</p>' : '');
           else if (m.kind === 'video' && m.media_url) content = '<video controls preload="metadata" src="' + esc(m.media_url) + '" class="rounded-lg max-w-full mb-xs" style="max-height:20rem"></video>' + (m.body ? '<p class="' + (mine ? '' : 'text-on-surface ') + 'font-body-md">' + G.fmt(m.body) + edited + '</p>' : '');
           else if (m.kind === 'audio' && m.media_url) content = '<audio controls src="' + esc(m.media_url) + '" class="max-w-full"></audio>';
           else content = '<p class="' + (mine ? '' : 'text-on-surface ') + 'font-body-md whitespace-pre-wrap break-words">' + G.fmt(m.body) + edited + '</p>';
@@ -298,6 +299,8 @@
           container.innerHTML = inner;
           var qEl = container.querySelector('.reply-quote');
           if (qEl) qEl.addEventListener('click', function () { var t = msgsEl.querySelector('[data-msg-id="' + qEl.getAttribute('data-goto') + '"]'); if (t) { t.scrollIntoView({ behavior: 'smooth', block: 'center' }); t.style.transition = 'background-color .3s'; t.style.backgroundColor = 'rgba(37,99,235,0.15)'; setTimeout(function () { t.style.backgroundColor = ''; }, 900); } });
+          var mimg = container.querySelector('.msg-img');
+          if (mimg) mimg.addEventListener('click', function () { openLightbox(mimg.getAttribute('data-full'), m); });
           var ageMs = Date.now() - new Date(m.created_at).getTime();
           var within = ageMs < 1800000;
           var canEdit = mine && (within || isAdmin) && m.kind !== 'audio';
@@ -380,6 +383,80 @@
           G.toast((m.author_name || 'Membro') + ' foi banido.');
         }
         function updateMessage(m) { var wrap = msgsEl.querySelector('[data-msg-id="' + m.id + '"]'); if (!wrap) return; renderMsgBody(wrap.querySelector('.msg-body'), m, me.id && m.author_id === me.id); if (m.status === 'deleted') { var rr = wrap.querySelector('.react-row'); if (rr) rr.innerHTML = ''; } }
+
+        // ---- abrir imagem (lightbox) + editor de corte/redimensionamento (admin) ----
+        function openLightbox(url, m) {
+          if (!url) return;
+          var ov = document.createElement('div'); ov.id = 'img-lightbox';
+          ov.className = 'fixed inset-0 z-[100] bg-black/90 flex flex-col items-center justify-center p-4 gap-3';
+          var img = document.createElement('img'); img.src = url; img.alt = ''; img.className = 'max-w-full max-h-[85vh] rounded-lg object-contain';
+          var bar = document.createElement('div'); bar.className = 'flex items-center gap-2 flex-wrap justify-center';
+          var close = document.createElement('button'); close.type = 'button'; close.className = 'h-11 px-5 rounded-full bg-white/15 text-white font-label-md hover:bg-white/25 flex items-center gap-1'; close.innerHTML = '<span class="material-symbols-outlined text-[20px]">close</span>Fechar'; close.onclick = function () { ov.remove(); };
+          bar.appendChild(close);
+          if (isAdmin && m && m.kind === 'image') { var ed = document.createElement('button'); ed.type = 'button'; ed.className = 'h-11 px-5 rounded-full bg-primary text-on-primary font-label-md flex items-center gap-1'; ed.innerHTML = '<span class="material-symbols-outlined text-[20px]">crop</span>Cortar / Redimensionar'; ed.onclick = function () { ov.remove(); openImageEditor(m); }; bar.appendChild(ed); }
+          ov.appendChild(img); ov.appendChild(bar);
+          ov.addEventListener('click', function (e) { if (e.target === ov) ov.remove(); });
+          document.body.appendChild(ov);
+        }
+        function ensureCropper() {
+          if (window.Cropper) return Promise.resolve();
+          if (self._cropperP) return self._cropperP;
+          self._cropperP = new Promise(function (resolve, reject) {
+            var css = document.createElement('link'); css.rel = 'stylesheet'; css.href = 'https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css'; document.head.appendChild(css);
+            var s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js'; s.onload = function () { resolve(); }; s.onerror = function () { self._cropperP = null; reject(new Error('cropper')); }; document.head.appendChild(s);
+          });
+          return self._cropperP;
+        }
+        async function editableImageURL(url) {
+          try { var path = decodeURIComponent((url.split('/comu-media/')[1] || '').split('?')[0]); if (path) { var dl = await sb.storage.from('comu-media').download(path); if (!dl.error && dl.data) return URL.createObjectURL(dl.data); } } catch (e) {}
+          return url; // fallback (pode dar canvas "tainted", mas melhor que nada)
+        }
+        async function openImageEditor(m) {
+          if (!m || !m.media_url) return;
+          G.toast('Carregando editor…');
+          try { await ensureCropper(); } catch (e) { G.toast('Não foi possível carregar o editor.'); return; }
+          if (self.destroyed) return;
+          var src = await editableImageURL(m.media_url);
+          if (self.destroyed) { if (src.indexOf('blob:') === 0) URL.revokeObjectURL(src); return; }
+          var ov = document.createElement('div'); ov.id = 'img-editor';
+          ov.className = 'fixed inset-0 z-[100] bg-black/95 flex flex-col p-3 gap-3';
+          ov.innerHTML =
+            '<div class="flex-1 min-h-0 flex items-center justify-center overflow-hidden"><img id="ie-img" class="max-w-full max-h-full block" alt=""></div>' +
+            '<div class="shrink-0 flex flex-wrap items-center justify-center gap-2">' +
+              '<span class="text-white/80 text-body-sm">Tamanho:</span>' +
+              '<select id="ie-size" class="h-11 px-3 rounded-xl bg-white/10 text-white border border-white/20 text-body-md"><option value="0">Original</option><option value="1600">Grande (1600px)</option><option value="1000">Médio (1000px)</option><option value="600">Pequeno (600px)</option></select>' +
+              '<button type="button" id="ie-cancel" class="h-11 px-5 rounded-full bg-white/15 text-white font-label-md">Cancelar</button>' +
+              '<button type="button" id="ie-save" class="h-11 px-5 rounded-full bg-primary text-on-primary font-label-md flex items-center gap-1"><span class="material-symbols-outlined text-[20px]">check</span>Salvar</button>' +
+            '</div>';
+          document.body.appendChild(ov);
+          var imgEl = ov.querySelector('#ie-img'), cropper = null;
+          function closeE() { try { if (cropper) cropper.destroy(); } catch (e) {} cropper = null; if (src.indexOf('blob:') === 0) { try { URL.revokeObjectURL(src); } catch (e) {} } ov.remove(); }
+          imgEl.onload = function () { try { cropper = new Cropper(imgEl, { viewMode: 1, autoCropArea: 1, background: false, dragMode: 'crop' }); } catch (e) {} };
+          imgEl.onerror = function () { G.toast('Não foi possível abrir a imagem.'); closeE(); };
+          imgEl.src = src;
+          ov.querySelector('#ie-cancel').onclick = closeE;
+          ov.querySelector('#ie-save').onclick = function () {
+            if (!cropper) return;
+            var save = ov.querySelector('#ie-save'); save.disabled = true; save.textContent = 'Salvando…';
+            var max = parseInt(ov.querySelector('#ie-size').value, 10) || 0;
+            var opts = { imageSmoothingEnabled: true, imageSmoothingQuality: 'high' }; if (max) { opts.maxWidth = max; opts.maxHeight = max; }
+            var canvas; try { canvas = cropper.getCroppedCanvas(opts); } catch (e) { canvas = null; }
+            if (!canvas) { G.toast('Falha ao processar a imagem.'); save.disabled = false; save.textContent = 'Salvar'; return; }
+            canvas.toBlob(async function (blob) {
+              if (!blob) { G.toast('Falha ao gerar a imagem.'); save.disabled = false; save.textContent = 'Salvar'; return; }
+              var path = (slug || 'geral') + '/' + me.id + '/crop-' + m.id + '-' + Date.now() + '.jpg';
+              var up = await sb.storage.from('comu-media').upload(path, blob, { contentType: 'image/jpeg', upsert: true });
+              if (up.error) { G.toast('Erro no upload: ' + up.error.message); save.disabled = false; save.textContent = 'Salvar'; return; }
+              var newUrl = sb.storage.from('comu-media').getPublicUrl(path).data.publicUrl;
+              var upd = await sb.from('comu_messages').update({ media_url: newUrl, media_meta: { edited_by: me.id, w: canvas.width, h: canvas.height, mime: 'image/jpeg' } }).eq('id', m.id).select().single();
+              if (upd.error) { G.toast('Erro ao salvar: ' + upd.error.message); save.disabled = false; save.textContent = 'Salvar'; return; }
+              m.media_url = newUrl;
+              if (!self.destroyed) updateMessage(upd.data);
+              G.toast('Imagem atualizada.');
+              closeE();
+            }, 'image/jpeg', 0.9);
+          };
+        }
 
         // ---- reações ----
         var EMOJIS = ['❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🔥', '✨', '⭐', '💯', '🎉', '🎯', '🚀', '✅', '❌', '👀', '👍', '👎', '🙏', '👏', '🙌', '🤝', '💪', '👋', '🤙', '✌️', '👌', '😀', '😃', '😄', '😁', '😆', '😂', '🤣', '🙂', '😉', '😊', '😍', '🥰', '😘', '😎', '🤩', '🤔', '😐', '😴', '😮', '😲', '🥳', '😢', '😭', '😤', '😡', '🤯', '😱', '🤗', '🤭', '🤫', '🤑', '📈', '📉', '💰', '⚡'];
