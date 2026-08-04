@@ -16,7 +16,7 @@
       view.innerHTML =
         '<header class="lg:hidden fixed top-0 left-0 right-0 z-50 bg-surface shadow-[0px_4px_20px_rgba(0,0,0,0.05)] h-14 flex items-center justify-between px-container-margin">' +
           '<span class="w-9"></span>' +
-          '<div class="flex items-center"><img src="assets/logo-colorida.png" alt="GVSI" class="h-8 w-auto dark:hidden"><img src="assets/logo-branca.png" alt="GVSI" class="h-8 w-auto hidden dark:block"></div>' +
+          '<div class="flex items-center"><img src="assets/logo-colorida.png" alt="GVSI" class="h-10 w-auto dark:hidden"><img src="assets/logo-branca.png" alt="GVSI" class="h-10 w-auto hidden dark:block"></div>' +
           '<button type="button" data-theme-toggle class="text-primary flex items-center" aria-label="Tema"><span class="material-symbols-outlined" data-theme-icon>dark_mode</span></button>' +
         '</header>' +
         '<div class="lg:pl-[360px] min-h-screen">' +
@@ -76,7 +76,7 @@
         var self = S;
 
         view.innerHTML =
-          '<header class="fixed top-0 left-0 right-0 lg:left-[360px] z-40 bg-surface shadow-[0px_4px_20px_rgba(0,0,0,0.05)] flex items-center justify-between px-container-margin h-16">' +
+          '<header class="fixed top-0 left-0 right-0 lg:left-[360px] z-40 bg-surface shadow-[0px_4px_20px_rgba(0,0,0,0.05)] flex items-center justify-between px-container-margin h-16 lg:h-[89px]">' +
             '<div class="flex items-center gap-md min-w-0">' +
               '<a class="lg:hidden text-primary flex items-center" href="#/" aria-label="Voltar"><span class="material-symbols-outlined">arrow_back</span></a>' +
               '<div class="flex flex-col min-w-0 justify-center"><h1 id="chat-title" class="font-headline-sm text-headline-sm font-bold text-primary leading-tight truncate">GVSI Comunidade</h1><span id="chat-subtitle" class="text-body-sm text-on-surface-variant leading-tight">Grupo da comunidade</span></div>' +
@@ -85,7 +85,7 @@
               '<button type="button" data-theme-toggle class="lg:hidden text-primary flex items-center" aria-label="Tema"><span class="material-symbols-outlined" data-theme-icon>dark_mode</span></button>' +
             '</div>' +
           '</header>' +
-          '<main id="chat-scroll" class="lg:pl-[360px] h-[100dvh] pt-16 pb-52 lg:pb-40 flex flex-col overflow-y-auto custom-scrollbar">' +
+          '<main id="chat-scroll" class="lg:pl-[360px] h-[100dvh] pt-16 lg:pt-[89px] pb-52 lg:pb-40 flex flex-col overflow-y-auto custom-scrollbar">' +
             '<div id="chat-messages" class="hidden w-full max-w-3xl mx-auto flex flex-col gap-lg px-container-margin py-lg"></div>' +
             '<div id="chat-loading" class="flex-grow flex items-center justify-center text-on-surface-variant text-body-sm gap-sm"><span class="material-symbols-outlined animate-spin">progress_activity</span> Carregando…</div>' +
             '<div id="chat-empty" class="hidden flex-grow flex flex-col items-center justify-center text-center gap-md py-xl px-container-margin"><div class="w-20 h-20 rounded-full bg-surface-container-high flex items-center justify-center text-primary"><span class="material-symbols-outlined text-[40px]">forum</span></div><div class="space-y-xs max-w-xs"><h2 class="font-headline-sm text-headline-sm text-on-surface">Ainda não há mensagens</h2><p class="text-body-sm text-on-surface-variant">Seja o primeiro a enviar uma mensagem neste grupo.</p></div></div>' +
