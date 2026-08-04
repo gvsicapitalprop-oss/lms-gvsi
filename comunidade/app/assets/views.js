@@ -61,9 +61,11 @@
       S.destroyed = true;
       (S.channels || []).forEach(function (c) { try { sb.removeChannel(c); } catch (e) {} });
       if (S.picker && S.picker.parentNode) S.picker.remove();
+      if (S.reactPop && S.reactPop.parentNode) S.reactPop.remove();
       if (S.recTimer) clearInterval(S.recTimer);
       if (S.recStream) { try { S.recStream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {} }
       if (S.onPickerDoc) document.removeEventListener('click', S.onPickerDoc);
+      if (S.onReactPopDoc) document.removeEventListener('click', S.onReactPopDoc);
       S = null;
     }
     return {
@@ -93,6 +95,10 @@
           '<div id="chat-composer" class="fixed bottom-16 lg:bottom-0 left-0 right-0 lg:left-[360px] px-container-margin pb-md lg:pb-lg z-40">' +
             '<form id="chat-form" class="glass-input rounded-2xl p-sm flex flex-col gap-sm shadow-xl border border-outline-variant/40 max-w-3xl mx-auto">' +
               '<div id="composer-normal" class="flex flex-col gap-sm">' +
+                '<div id="reply-preview" class="hidden items-start gap-sm bg-surface-container-high border-l-4 border-primary rounded-lg px-sm py-2">' +
+                  '<div class="flex-1 min-w-0"><p id="reply-author" class="text-label-md font-label-md text-primary truncate"></p><p id="reply-snippet" class="text-body-sm text-on-surface-variant truncate"></p></div>' +
+                  '<button type="button" id="reply-cancel" class="w-9 h-9 shrink-0 rounded-full hover:bg-surface-container-highest flex items-center justify-center text-on-surface-variant" aria-label="Cancelar resposta"><span class="material-symbols-outlined text-[20px]">close</span></button>' +
+                '</div>' +
                 '<input id="chat-input" class="w-full bg-surface-container-low border border-outline-variant rounded-xl px-md py-3 text-body-md focus:ring-2 focus:ring-primary/20 placeholder:text-on-surface-variant text-on-surface" placeholder="Escreva uma mensagem..." type="text" autocomplete="off">' +
                 '<div class="flex items-center gap-xs -my-xs">' +
                   '<button type="button" id="fmt-bold" class="w-11 h-11 rounded-lg hover:bg-surface-container-high flex items-center justify-center text-on-surface-variant" aria-label="Negrito" title="Negrito (**texto**)"><span class="material-symbols-outlined text-[22px]">format_bold</span></button>' +
@@ -185,6 +191,28 @@
         }
 
         var seen = Object.create(null);
+        // ---- responder citando (#2) ----
+        var replyState = null;
+        function msgPreview(m) {
+          if (!m) return 'mensagem';
+          if (m.status === 'deleted') return 'mensagem apagada';
+          if (m.kind === 'image') return '📷 Foto';
+          if (m.kind === 'video') return '🎬 Vídeo';
+          if (m.kind === 'audio') return '🎤 Áudio';
+          var t = (m.body || '').replace(/\s+/g, ' ').trim();
+          return t.length > 90 ? t.slice(0, 90) + '…' : (t || 'mensagem');
+        }
+        function startReply(m) {
+          if (isSupport) return; // suporte é 1:1: sem citação por ora
+          var author = (me.id && m.author_id === me.id) ? 'Você' : (m.author_name || 'Membro');
+          replyState = { id: m.id, author: author, snippet: msgPreview(m) };
+          document.getElementById('reply-author').textContent = 'Respondendo a ' + author;
+          document.getElementById('reply-snippet').textContent = replyState.snippet;
+          var box = document.getElementById('reply-preview'); box.classList.remove('hidden'); box.classList.add('flex');
+          if (input) input.focus();
+        }
+        function clearReply() { replyState = null; var box = document.getElementById('reply-preview'); if (box) { box.classList.add('hidden'); box.classList.remove('flex'); } }
+        var replyCancelBtn = document.getElementById('reply-cancel'); if (replyCancelBtn) replyCancelBtn.addEventListener('click', clearReply);
         // ---- render de mensagem ----
         function renderMsgBody(container, m, mine) {
           container.innerHTML = '';
@@ -196,6 +224,10 @@
           else if (m.kind === 'video' && m.media_url) content = '<video controls preload="metadata" src="' + esc(m.media_url) + '" class="rounded-lg max-w-full mb-xs" style="max-height:20rem"></video>' + (m.body ? '<p class="' + (mine ? '' : 'text-on-surface ') + 'font-body-md">' + G.fmt(m.body) + edited + '</p>' : '');
           else if (m.kind === 'audio' && m.media_url) content = '<audio controls src="' + esc(m.media_url) + '" class="max-w-full"></audio>';
           else content = '<p class="' + (mine ? '' : 'text-on-surface ') + 'font-body-md whitespace-pre-wrap break-words">' + G.fmt(m.body) + edited + '</p>';
+          if (m.reply_to && (m.reply_snippet || m.reply_author)) {
+            var qB = mine ? 'border-white/50' : 'border-primary/60', qN = mine ? 'text-white' : 'text-primary', qT = mine ? 'text-white/85' : 'text-on-surface-variant', qBg = mine ? 'bg-white/10' : 'bg-black/5 dark:bg-white/10';
+            content = '<div class="reply-quote mb-xs border-l-4 ' + qB + ' ' + qBg + ' rounded px-2 py-1 cursor-pointer" data-goto="' + esc(m.reply_to) + '"><p class="text-[12px] font-bold ' + qN + ' truncate">' + esc(m.reply_author || 'Membro') + '</p><p class="text-[13px] ' + qT + ' truncate">' + esc(m.reply_snippet || '') + '</p></div>' + content;
+          }
           var inner;
           if (mine) inner = '<div class="flex items-center gap-xs mr-sm mb-xs"><span class="text-[13px] text-on-surface-variant">' + when + '</span><span class="font-label-md text-label-md text-primary">Você</span></div><div class="message-gradient-outgoing text-white shadow-lg rounded-xl rounded-tr-none p-md">' + content + '</div>';
           else {
@@ -203,13 +235,17 @@
             inner = '<div class="flex items-start gap-sm">' + av + '<div class="flex flex-col min-w-0"><div class="flex items-center gap-xs ml-sm mb-xs"><span class="font-label-md text-label-md text-on-surface-variant">' + esc(m.author_name || 'Membro') + '</span><span class="text-[13px] text-on-surface-variant">' + when + '</span></div><div class="bg-surface-container-lowest shadow-[0px_4px_20px_rgba(0,0,0,0.05)] rounded-xl rounded-tl-none p-md border border-outline-variant/30">' + content + '</div></div></div>';
           }
           container.innerHTML = inner;
+          var qEl = container.querySelector('.reply-quote');
+          if (qEl) qEl.addEventListener('click', function () { var t = msgsEl.querySelector('[data-msg-id="' + qEl.getAttribute('data-goto') + '"]'); if (t) { t.scrollIntoView({ behavior: 'smooth', block: 'center' }); t.style.transition = 'background-color .3s'; t.style.backgroundColor = 'rgba(37,99,235,0.15)'; setTimeout(function () { t.style.backgroundColor = ''; }, 900); } });
           var ageMs = Date.now() - new Date(m.created_at).getTime();
           var within = ageMs < 1800000;
           var canEdit = mine && (within || isAdmin) && m.kind !== 'audio';
           var canDelete = isAdmin || (mine && within);
-          if (canEdit || canDelete) {
+          var canReply = !isSupport && !(topic && topic.post_policy === 'readonly' && !isAdmin);
+          if (canEdit || canDelete || canReply) {
             var actions = document.createElement('div');
             actions.className = 'flex items-center gap-md mt-xs ' + (mine ? 'mr-sm justify-end' : 'ml-sm');
+            if (canReply) { var rb = document.createElement('button'); rb.type = 'button'; rb.className = 'text-body-sm text-on-surface-variant hover:text-primary flex items-center gap-1 py-1'; rb.innerHTML = '<span class="material-symbols-outlined text-[20px]">reply</span>Responder'; rb.addEventListener('click', function () { startReply(m); }); actions.appendChild(rb); }
             if (canEdit) { var eb = document.createElement('button'); eb.type = 'button'; eb.className = 'text-body-sm text-on-surface-variant hover:text-primary flex items-center gap-1 py-1'; eb.innerHTML = '<span class="material-symbols-outlined text-[20px]">edit</span>Editar'; eb.addEventListener('click', function () { startEdit(m); }); actions.appendChild(eb); }
             if (canDelete) { var db = document.createElement('button'); db.type = 'button'; db.className = 'text-body-sm text-on-surface-variant hover:text-error flex items-center gap-1 py-1'; db.innerHTML = '<span class="material-symbols-outlined text-[20px]">delete</span>Apagar'; db.addEventListener('click', function () { doDelete(m); }); actions.appendChild(db); }
             container.appendChild(actions);
@@ -291,10 +327,40 @@
         var fiEl = document.getElementById('fmt-italic'); if (fiEl) fiEl.addEventListener('click', function () { wrapSel('*', '*'); });
         var beEl = document.getElementById('btn-emoji'); if (beEl) beEl.addEventListener('click', function (ev) { ev.stopPropagation(); if (picker.classList.contains('hidden') || pickerMode !== 'insert') openPicker(beEl, null, 'insert'); else hidePicker(); });
         var reactionsMap = self.reactionsMap;
+        var reactorNames = self.reactorNames || (self.reactorNames = {}); // user_id -> nome
+        // popover "quem reagiu"
+        var reactPop = document.createElement('div'); self.reactPop = reactPop;
+        reactPop.className = 'hidden fixed z-[85] bg-inverse-surface text-inverse-on-surface rounded-xl shadow-lg px-3 py-2 text-body-sm max-w-[260px] max-h-[40vh] overflow-y-auto';
+        document.body.appendChild(reactPop);
+        function hideReactPop() { reactPop.classList.add('hidden'); }
+        self.onReactPopDoc = function (e) { if (reactPop.classList.contains('hidden')) return; if (!reactPop.contains(e.target)) hideReactPop(); };
+        document.addEventListener('click', self.onReactPopDoc);
+        function reactorNamesFor(id, em) { var ids = (reactionsMap[id] && reactionsMap[id][em]) || []; return ids.map(function (u) { return u === me.id ? 'Você' : (reactorNames[u] || 'Membro'); }); }
+        function showReactors(anchor, id, em) {
+          var names = reactorNamesFor(id, em); if (!names.length) return;
+          reactPop.innerHTML = '<div class="flex items-center gap-1 mb-1 opacity-80"><span class="text-[18px]">' + em + '</span><span>' + names.length + '</span></div>' + names.map(function (n) { return '<div class="truncate py-0.5">' + esc(n) + '</div>'; }).join('');
+          reactPop.classList.remove('hidden');
+          var r = anchor.getBoundingClientRect(), pr = reactPop.getBoundingClientRect();
+          var top = r.top - pr.height - 8; if (top < 8) top = r.bottom + 8;
+          var left = r.left + r.width / 2 - pr.width / 2; if (left < 8) left = 8; if (left + pr.width > window.innerWidth - 8) left = window.innerWidth - 8 - pr.width;
+          reactPop.style.top = top + 'px'; reactPop.style.left = left + 'px';
+        }
         function renderReactions(id) {
           var row = msgsEl.querySelector('[data-react="' + id + '"]'); if (!row) return;
           var data = reactionsMap[id] || {}; row.innerHTML = '';
-          Object.keys(data).forEach(function (em) { var users = data[em]; if (!users || !users.length) return; var mineR = users.indexOf(me.id) !== -1; var chip = document.createElement('button'); chip.type = 'button'; chip.className = 'px-3 py-1 rounded-full text-body-sm flex items-center gap-1 border transition-colors ' + (mineR ? 'bg-primary/15 border-primary/40 text-primary' : 'bg-surface-container-high border-outline-variant/50 text-on-surface-variant'); chip.innerHTML = '<span>' + em + '</span><span class="font-bold">' + users.length + '</span>'; chip.addEventListener('click', function () { toggleReaction(id, em); }); row.appendChild(chip); });
+          Object.keys(data).forEach(function (em) {
+            var users = data[em]; if (!users || !users.length) return;
+            var mineR = users.indexOf(me.id) !== -1;
+            var chip = document.createElement('button'); chip.type = 'button';
+            chip.className = 'px-3 py-1 rounded-full text-body-sm flex items-center gap-1 border transition-colors ' + (mineR ? 'bg-primary/15 border-primary/40 text-primary' : 'bg-surface-container-high border-outline-variant/50 text-on-surface-variant');
+            chip.innerHTML = '<span>' + em + '</span><span class="font-bold">' + users.length + '</span>';
+            chip.title = reactorNamesFor(id, em).join(', '); // desktop: hover mostra quem reagiu
+            var lp = false, tm = null;
+            chip.addEventListener('touchstart', function () { lp = false; tm = setTimeout(function () { lp = true; showReactors(chip, id, em); }, 500); }, { passive: true });
+            ['touchend', 'touchmove', 'touchcancel'].forEach(function (ev) { chip.addEventListener(ev, function () { if (tm) { clearTimeout(tm); tm = null; } }); });
+            chip.addEventListener('click', function (e) { if (lp) { lp = false; e.stopPropagation(); return; } toggleReaction(id, em); }); // toque longo = quem reagiu; toque = reagir
+            row.appendChild(chip);
+          });
           var add = document.createElement('button'); add.type = 'button'; add.className = 'react-add w-11 h-11 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors'; add.innerHTML = '<span class="material-symbols-outlined text-[22px]">add_reaction</span>'; add.addEventListener('click', function (e) { e.stopPropagation(); openPicker(e.currentTarget, id); }); row.appendChild(add);
         }
         async function toggleReaction(id, em) {
@@ -305,11 +371,12 @@
           Object.keys(data).forEach(function (e) { var i = data[e].indexOf(me.id); if (i !== -1) data[e].splice(i, 1); });
           if (!have) (data[em] = data[em] || []).push(me.id); // clicou a que já tinha -> tira (toggle off)
           renderReactions(id);
+          reactorNames[me.id] = me.full_name || 'Você';
           await sb.from('comu_message_reactions').delete().eq('message_id', id).eq('user_id', me.id);
-          if (!have) await sb.from('comu_message_reactions').insert({ message_id: id, user_id: me.id, reaction: em });
+          if (!have) await sb.from('comu_message_reactions').insert({ message_id: id, user_id: me.id, reaction: em, user_name: me.full_name || null });
         }
-        async function loadReactions(ids) { if (!ids || !ids.length) return; var r = await sb.from('comu_message_reactions').select('message_id,user_id,reaction').in('message_id', ids); if (self.destroyed) return; (r.data || []).forEach(function (x) { var d = reactionsMap[x.message_id] || (reactionsMap[x.message_id] = {}); var u = d[x.reaction] || (d[x.reaction] = []); if (u.indexOf(x.user_id) === -1) u.push(x.user_id); }); ids.forEach(renderReactions); }
-        function applyReactionEvent(type, row) { if (!row || !row.message_id) return; if (!msgsEl.querySelector('[data-react="' + row.message_id + '"]')) return; var d = reactionsMap[row.message_id] || (reactionsMap[row.message_id] = {}); var u = d[row.reaction] || (d[row.reaction] = []); if (type === 'INSERT') { if (u.indexOf(row.user_id) === -1) u.push(row.user_id); } else { d[row.reaction] = u.filter(function (x) { return x !== row.user_id; }); } renderReactions(row.message_id); }
+        async function loadReactions(ids) { if (!ids || !ids.length) return; var r = await sb.from('comu_message_reactions').select('message_id,user_id,reaction,user_name').in('message_id', ids); if (self.destroyed) return; (r.data || []).forEach(function (x) { var d = reactionsMap[x.message_id] || (reactionsMap[x.message_id] = {}); var u = d[x.reaction] || (d[x.reaction] = []); if (u.indexOf(x.user_id) === -1) u.push(x.user_id); if (x.user_name) reactorNames[x.user_id] = x.user_name; }); ids.forEach(renderReactions); }
+        function applyReactionEvent(type, row) { if (!row || !row.message_id) return; if (!msgsEl.querySelector('[data-react="' + row.message_id + '"]')) return; if (row.user_name) reactorNames[row.user_id] = row.user_name; var d = reactionsMap[row.message_id] || (reactionsMap[row.message_id] = {}); var u = d[row.reaction] || (d[row.reaction] = []); if (type === 'INSERT') { if (u.indexOf(row.user_id) === -1) u.push(row.user_id); } else { d[row.reaction] = u.filter(function (x) { return x !== row.user_id; }); } renderReactions(row.message_id); }
 
         // ---- carrega histórico + realtime ----
         if (topic) {
@@ -406,10 +473,12 @@
           if (self.recording) { finishRecording(); return; }
           var body = input.value.trim(); if (!body || !topic || !me.id) { input.value = ''; return; }
           input.value = '';
+          var rs = replyState;
           var ins;
           if (isSupport) ins = await sb.rpc('comu_send_support_message', { p_body: body, p_kind: 'text', p_author_name: me.full_name || 'Membro' });
-          else ins = await sb.from('comu_messages').insert({ topic_id: topic.id, author_id: me.id, kind: 'text', body: body, author_name: me.full_name || 'Membro', author_avatar: me.avatar_url || null }).select().single();
+          else ins = await sb.from('comu_messages').insert(Object.assign({ topic_id: topic.id, author_id: me.id, kind: 'text', body: body, author_name: me.full_name || 'Membro', author_avatar: me.avatar_url || null }, rs ? { reply_to: rs.id, reply_author: rs.author, reply_snippet: rs.snippet } : {})).select().single();
           if (ins.error) { console.error(ins.error); input.value = body; return; }
+          clearReply();
           if (!self.destroyed) addMessage(ins.data, true); if (isSupport) refreshTicketInfo();
         });
       }
