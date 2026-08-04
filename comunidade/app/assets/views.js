@@ -552,20 +552,61 @@
       render: async function (view) {
         var me = G.me || {};
         if (me.role !== 'admin') { G.navigate('#/'); return; }
-        S = { destroyed: false, channels: [], currentTicket: null, filter: 'todos', seen: Object.create(null), convoChannel: null };
+        S = { destroyed: false, channels: [], currentTicket: null, filter: 'todos', seen: Object.create(null), convoChannel: null, tags: [], contactTags: {} };
         var self = S;
         view.innerHTML =
           '<header class="fixed top-0 left-0 right-0 z-50 bg-surface shadow-[0px_4px_20px_rgba(0,0,0,0.05)] h-14 flex items-center justify-between px-container-margin"><button type="button" id="suporte-back" class="flex items-center gap-sm text-primary" aria-label="Voltar"><span class="material-symbols-outlined">arrow_back</span><span class="font-headline-sm text-headline-sm font-bold">Suporte · Atendimento</span></button><div class="flex items-center gap-xs"><button type="button" data-theme-toggle class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors" aria-label="Tema"><span class="material-symbols-outlined" data-theme-icon>dark_mode</span></button><button type="button" data-signout class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-error/10 hover:text-error transition-colors" aria-label="Sair"><span class="material-symbols-outlined">logout</span></button></div></header>' +
           '<div class="pt-14 h-[100dvh] flex">' +
             '<aside id="list-panel" class="w-full lg:w-[380px] lg:border-r border-outline-variant flex flex-col shrink-0"><div class="p-sm flex gap-1 border-b border-outline-variant"><button data-filter="todos" class="flex-1 py-2 rounded-lg text-label-md font-label-md bg-primary text-on-primary transition-colors">Todos</button><button data-filter="pendentes" class="flex-1 py-2 rounded-lg text-label-md font-label-md text-on-surface-variant hover:bg-surface-container-high transition-colors">Pendentes</button><button data-filter="resolvidos" class="flex-1 py-2 rounded-lg text-label-md font-label-md text-on-surface-variant hover:bg-surface-container-high transition-colors">Resolvidos</button></div><div id="ticket-list" class="flex-1 overflow-y-auto custom-scrollbar"><p class="p-lg text-center text-on-surface-variant text-body-sm">Carregando…</p></div></aside>' +
             '<section id="convo-panel" class="hidden lg:flex flex-1 flex-col min-w-0"><div id="convo-empty" class="flex-1 flex flex-col items-center justify-center text-center gap-md p-xl text-on-surface-variant"><span class="material-symbols-outlined text-[48px]">forum</span><p class="text-body-md max-w-xs">Selecione uma conversa para ver o histórico e responder.</p></div>' +
-              '<div id="convo-main" class="hidden flex-1 flex-col min-h-0"><div class="h-16 shrink-0 border-b border-outline-variant px-md flex items-center"><div class="max-w-3xl mx-auto w-full flex items-center gap-md"><button id="convo-back" class="lg:hidden text-primary flex items-center" aria-label="Voltar"><span class="material-symbols-outlined">arrow_back</span></button><span class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center text-outline shrink-0"><span class="material-symbols-outlined">person</span></span><div class="flex-1 min-w-0"><h2 id="convo-name" class="font-bold text-on-surface truncate">—</h2><p id="convo-protocol" class="text-body-sm text-outline truncate">—</p></div><button id="btn-resolve" class="bg-primary text-on-primary rounded-full px-4 py-2 text-label-md font-label-md active:scale-95 transition disabled:opacity-60 flex items-center gap-xs"><span class="material-symbols-outlined text-[18px]">check_circle</span><span id="btn-resolve-label">Marcar como resolvido</span></button></div></div>' +
+              '<div id="convo-main" class="hidden flex-1 flex-col min-h-0"><div class="h-16 shrink-0 border-b border-outline-variant px-md flex items-center"><div class="max-w-3xl mx-auto w-full flex items-center gap-md"><button id="convo-back" class="lg:hidden text-primary flex items-center" aria-label="Voltar"><span class="material-symbols-outlined">arrow_back</span></button><span id="convo-avatar" class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center text-outline shrink-0 overflow-hidden"><span class="material-symbols-outlined">person</span></span><div class="flex-1 min-w-0"><h2 id="convo-name" class="font-bold text-on-surface truncate">—</h2><p id="convo-protocol" class="text-body-sm text-outline truncate">—</p><div id="convo-tags" class="flex flex-wrap items-center gap-1 mt-1"></div></div><button type="button" id="btn-tags" class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors shrink-0" aria-label="Tags do contato"><span class="material-symbols-outlined">sell</span></button><button id="btn-resolve" class="bg-primary text-on-primary rounded-full px-4 py-2 text-label-md font-label-md active:scale-95 transition disabled:opacity-60 flex items-center gap-xs"><span class="material-symbols-outlined text-[18px]">check_circle</span><span id="btn-resolve-label">Marcar como resolvido</span></button></div></div>' +
                 '<div id="convo-scroll" class="flex-1 overflow-y-auto custom-scrollbar p-md"><div id="convo-messages" class="flex flex-col gap-md max-w-3xl mx-auto w-full"></div></div>' +
                 '<form id="convo-form" class="shrink-0 border-t border-outline-variant p-sm"><div class="max-w-3xl mx-auto w-full flex flex-col gap-sm"><input id="convo-input" type="text" autocomplete="off" placeholder="Responder…" class="w-full bg-surface-container-low border border-outline-variant rounded-xl px-md py-3 text-body-md focus:ring-2 focus:ring-primary/20 text-on-surface placeholder:text-on-surface-variant"><div class="flex flex-wrap items-center gap-sm"><button type="button" id="convo-attach" class="h-11 px-3 rounded-xl border border-outline-variant text-on-surface hover:bg-surface-container-high transition-colors flex items-center gap-xs shrink-0" aria-label="Anexar foto ou vídeo"><span class="material-symbols-outlined text-[24px]">attach_file</span><span class="text-body-sm font-label-md">Anexar</span></button><button type="button" id="convo-audio-btn" class="h-11 px-3 rounded-xl border border-outline-variant text-on-surface hover:bg-surface-container-high transition-colors flex items-center gap-xs shrink-0" aria-label="Enviar áudio"><span class="material-symbols-outlined text-[24px]">mic</span><span class="text-body-sm font-label-md">Áudio</span></button><button type="submit" class="h-11 px-5 ml-auto bg-primary text-on-primary rounded-xl flex items-center gap-xs shadow-lg active:scale-95 transition-all shrink-0" aria-label="Enviar"><span class="material-symbols-outlined fill text-[24px]">send</span><span class="text-body-md font-bold">Enviar</span></button></div></div><input id="convo-file-media" type="file" accept="image/*,video/*" class="hidden"><input id="convo-file-audio" type="file" accept="audio/*" class="hidden"></form></div>' +
             '</section>' +
           '</div>';
         var topicRes = await sb.from('comu_topics').select('id').eq('slug', 'suporte').single(); if (self.destroyed) return;
         var supportTopicId = topicRes.data.id;
+        // ---- tags de contato ----
+        var TAG_COLORS = ['#2563eb', '#16a34a', '#ea580c', '#dc2626', '#7c3aed', '#0d244e', '#0891b2', '#db2777'];
+        async function loadTags() {
+          var t = await sb.from('comu_support_tags').select('*').order('created_at');
+          var c = await sb.from('comu_support_contact_tags').select('user_id,tag_id');
+          if (self.destroyed) return;
+          self.tags = t.data || []; self.contactTags = {};
+          (c.data || []).forEach(function (x) { (self.contactTags[x.user_id] = self.contactTags[x.user_id] || []).push(x.tag_id); });
+        }
+        function tagById(id) { for (var i = 0; i < self.tags.length; i++) if (self.tags[i].id === id) return self.tags[i]; return null; }
+        function contactTagChips(userId) {
+          return (self.contactTags[userId] || []).map(function (id) { var t = tagById(id); return t ? '<span class="inline-flex items-center text-[11px] font-bold px-2 py-0.5 rounded-full text-white" style="background:' + esc(t.color) + '">' + esc(t.name) + '</span>' : ''; }).join('');
+        }
+        function refreshConvoTags() { var el = document.getElementById('convo-tags'); if (el) el.innerHTML = self.currentTicket ? contactTagChips(self.currentTicket.user_id) : ''; }
+        async function toggleContactTag(userId, tagId, forceOn) {
+          var a = self.contactTags[userId] || (self.contactTags[userId] = []); var has = a.indexOf(tagId) !== -1;
+          if (has && !forceOn) { self.contactTags[userId] = a.filter(function (x) { return x !== tagId; }); await sb.from('comu_support_contact_tags').delete().eq('user_id', userId).eq('tag_id', tagId); }
+          else if (!has) { a.push(tagId); await sb.from('comu_support_contact_tags').insert({ user_id: userId, tag_id: tagId }); }
+        }
+        function openTagsPanel(tk) {
+          var userId = tk.user_id, chosen = TAG_COLORS[0];
+          var overlay = document.createElement('div'); overlay.className = 'fixed inset-0 z-[95] flex items-center justify-center p-container-margin bg-black/40';
+          var panel = document.createElement('div'); panel.className = 'w-full max-w-sm bg-surface-container-lowest rounded-2xl shadow-xl border border-outline-variant/40 p-lg space-y-md max-h-[85vh] overflow-y-auto custom-scrollbar';
+          overlay.appendChild(panel); document.body.appendChild(overlay);
+          overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
+          function render() {
+            var assigned = self.contactTags[userId] || [];
+            var h = '<div class="flex items-center justify-between"><h3 class="font-headline-sm text-headline-sm text-on-surface">Tags · ' + esc((tk.member && tk.member.full_name) || 'Membro') + '</h3><button type="button" class="tp-close w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high"><span class="material-symbols-outlined">close</span></button></div>';
+            h += '<div class="flex flex-wrap gap-2">' + (self.tags.length ? '' : '<p class="text-body-sm text-on-surface-variant">Nenhuma tag ainda. Crie a primeira abaixo.</p>');
+            self.tags.forEach(function (t) { var on = assigned.indexOf(t.id) !== -1; h += '<button type="button" data-tag="' + t.id + '" class="tp-toggle inline-flex items-center gap-1 text-body-sm font-bold px-3 py-1.5 rounded-full text-white ' + (on ? '' : 'opacity-50') + '" style="background:' + esc(t.color) + '">' + (on ? '<span class="material-symbols-outlined text-[16px]">check</span>' : '') + esc(t.name) + '</button>'; });
+            h += '</div><div class="pt-sm border-t border-outline-variant/40 space-y-sm"><p class="text-label-md font-label-md text-on-surface-variant">Nova tag</p><input id="tp-name" type="text" placeholder="Nome da tag" class="w-full bg-surface-container-low border border-outline-variant rounded-xl px-3 py-2 text-body-md text-on-surface"><div class="flex flex-wrap gap-2">';
+            TAG_COLORS.forEach(function (c, i) { h += '<button type="button" data-color="' + c + '" class="tp-color w-7 h-7 rounded-full border-2 ' + (i === 0 ? 'border-on-surface' : 'border-transparent') + '" style="background:' + c + '"></button>'; });
+            h += '</div><button type="button" id="tp-create" class="w-full h-10 bg-primary text-on-primary rounded-xl font-label-md">Criar e aplicar</button></div>';
+            panel.innerHTML = h;
+            panel.querySelector('.tp-close').onclick = function () { overlay.remove(); };
+            panel.querySelectorAll('.tp-toggle').forEach(function (b) { b.onclick = async function () { await toggleContactTag(userId, b.dataset.tag); render(); refreshConvoTags(); loadTickets(); }; });
+            panel.querySelectorAll('.tp-color').forEach(function (b) { b.onclick = function () { chosen = b.dataset.color; panel.querySelectorAll('.tp-color').forEach(function (x) { x.classList.remove('border-on-surface'); x.classList.add('border-transparent'); }); b.classList.add('border-on-surface'); b.classList.remove('border-transparent'); }; });
+            panel.querySelector('#tp-create').onclick = async function () { var name = panel.querySelector('#tp-name').value.trim(); if (!name) return; var ins = await sb.from('comu_support_tags').insert({ name: name, color: chosen }).select().single(); if (ins.error) { G.toast('Erro: ' + ins.error.message); return; } self.tags.push(ins.data); await toggleContactTag(userId, ins.data.id, true); render(); refreshConvoTags(); loadTickets(); };
+          }
+          render();
+        }
         function statusLabel(s) { return s === 'aberto' ? 'Pendente' : (s === 'resolvido' ? 'Resolvido' : 'Fechado'); }
         function statusClass(s) { return s === 'aberto' ? 'bg-tertiary-container text-on-tertiary-container' : 'bg-secondary-container text-on-secondary-container'; }
         function timeShort(iso) { try { var d = new Date(iso); if (Date.now() - d.getTime() < 86400000) return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); return d.toLocaleDateString('pt-BR'); } catch (e) { return ''; } }
@@ -577,9 +618,9 @@
           if (r.error) { list.innerHTML = '<p class="p-md text-error text-body-sm">' + esc(r.error.message) + '</p>'; return; }
           if (!r.data.length) { list.innerHTML = '<p class="p-lg text-center text-on-surface-variant text-body-sm">Nenhuma conversa.</p>'; return; }
           r.data.forEach(function (tk) {
-            var m = tk.member || {}; var el = document.createElement('button');
+            var m = tk.member || {}; var el = document.createElement('button'); var chips = contactTagChips(tk.user_id);
             el.className = 'w-full text-left flex items-center gap-md p-md hover:bg-surface-container-low transition-colors border-b border-outline-variant/30 ' + (self.currentTicket && self.currentTicket.id === tk.id ? 'bg-surface-container-high' : '');
-            el.innerHTML = '<span class="w-11 h-11 rounded-full bg-surface-container-high flex items-center justify-center text-outline overflow-hidden shrink-0">' + (m.avatar_url ? '<img src="' + esc(m.avatar_url) + '" class="w-full h-full object-cover">' : '<span class="material-symbols-outlined">person</span>') + '</span><span class="flex-1 min-w-0"><span class="flex items-center justify-between gap-xs"><span class="font-bold text-on-surface truncate">' + esc(m.full_name || 'Membro') + '</span><span class="text-[13px] text-on-surface-variant shrink-0">' + timeShort(tk.last_message_at) + '</span></span><span class="flex items-center justify-between gap-xs mt-0.5"><span class="text-body-sm text-outline truncate">' + esc(tk.protocol) + '</span><span class="text-[10px] px-2 py-0.5 rounded-full ' + statusClass(tk.status) + '">' + statusLabel(tk.status) + '</span></span></span>';
+            el.innerHTML = '<span class="w-11 h-11 rounded-full bg-surface-container-high flex items-center justify-center text-outline overflow-hidden shrink-0">' + (m.avatar_url ? '<img src="' + esc(m.avatar_url) + '" class="w-full h-full object-cover">' : '<span class="material-symbols-outlined">person</span>') + '</span><span class="flex-1 min-w-0"><span class="flex items-center justify-between gap-xs"><span class="font-bold text-on-surface truncate">' + esc(m.full_name || 'Membro') + '</span><span class="text-[13px] text-on-surface-variant shrink-0">' + timeShort(tk.last_message_at) + '</span></span><span class="flex items-center justify-between gap-xs mt-0.5"><span class="text-body-sm text-outline truncate">' + esc(tk.protocol) + '</span><span class="text-[10px] px-2 py-0.5 rounded-full ' + statusClass(tk.status) + '">' + statusLabel(tk.status) + '</span></span>' + (chips ? '<span class="flex flex-wrap gap-1 mt-1">' + chips + '</span>' : '') + '</span>';
             el.addEventListener('click', function () { openTicket(tk); }); list.appendChild(el);
           });
         }
@@ -598,7 +639,7 @@
           else content = '<p class="font-body-md whitespace-pre-wrap break-words ' + (mine ? '' : 'text-on-surface') + '">' + esc(msg.body) + '</p>';
           var wrap = document.createElement('div');
           if (mine) { wrap.className = 'flex flex-col items-end gap-xs max-w-[80%] self-end'; wrap.innerHTML = '<div class="message-gradient-outgoing text-white rounded-xl rounded-tr-none p-md shadow">' + content + '</div>'; }
-          else { wrap.className = 'flex flex-col items-start gap-xs max-w-[80%]'; wrap.innerHTML = '<span class="text-label-md font-label-md text-on-surface-variant ml-sm">' + esc(msg.author_name || 'Membro') + '</span><div class="bg-surface-container-lowest border border-outline-variant/30 rounded-xl rounded-tl-none p-md">' + content + '</div>'; }
+          else { var _a = msg.author_avatar || (self.currentTicket && self.currentTicket.member && self.currentTicket.member.avatar_url) || ''; var _ah = _a ? '<img src="' + esc(_a) + '" class="w-8 h-8 rounded-full object-cover shrink-0">' : '<span class="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center text-outline shrink-0"><span class="material-symbols-outlined text-[18px]">person</span></span>'; wrap.className = 'flex items-start gap-sm max-w-[80%]'; wrap.innerHTML = _ah + '<div class="flex flex-col min-w-0"><span class="text-label-md font-label-md text-on-surface-variant ml-sm">' + esc(msg.author_name || 'Membro') + '</span><div class="bg-surface-container-lowest border border-outline-variant/30 rounded-xl rounded-tl-none p-md">' + content + '</div></div>'; }
           container.appendChild(wrap);
         }
         function scrollConvo() { var s = document.getElementById('convo-scroll'); s.scrollTop = s.scrollHeight; }
@@ -608,7 +649,7 @@
           self.currentTicket = tk; self.seen = Object.create(null);
           document.getElementById('convo-empty').classList.add('hidden'); var cm = document.getElementById('convo-main'); cm.classList.remove('hidden'); cm.classList.add('flex');
           document.getElementById('list-panel').classList.add('hidden'); document.getElementById('convo-panel').classList.remove('hidden');
-          var m = tk.member || {}; document.getElementById('convo-name').textContent = m.full_name || 'Membro'; document.getElementById('convo-protocol').textContent = tk.protocol + ' · ' + statusLabel(tk.status); updateResolveBtn();
+          var m = tk.member || {}; document.getElementById('convo-name').textContent = m.full_name || 'Membro'; document.getElementById('convo-protocol').textContent = tk.protocol + ' · ' + statusLabel(tk.status); updateResolveBtn(); refreshConvoTags(); var _av = document.getElementById('convo-avatar'); if (_av) _av.innerHTML = m.avatar_url ? '<img src="' + esc(m.avatar_url) + '" class="w-full h-full object-cover">' : '<span class="material-symbols-outlined">person</span>';
           document.getElementById('convo-messages').innerHTML = '';
           var r = await sb.from('comu_messages').select('*').eq('ticket_id', tk.id).order('created_at', { ascending: true }); if (self.destroyed) return;
           (r.data || []).forEach(addMsg); scrollConvo(); subscribeConvo(tk.id); loadTickets();
@@ -627,7 +668,7 @@
         document.getElementById('convo-back').addEventListener('click', closeConvo);
         document.getElementById('convo-form').addEventListener('submit', async function (e) {
           e.preventDefault(); var body = document.getElementById('convo-input').value.trim(); if (!body || !self.currentTicket) return; document.getElementById('convo-input').value = '';
-          var ins = await sb.from('comu_messages').insert({ topic_id: supportTopicId, author_id: me.id, ticket_id: self.currentTicket.id, kind: 'text', body: body, author_name: me.full_name || 'Suporte' }).select().single();
+          var ins = await sb.from('comu_messages').insert({ topic_id: supportTopicId, author_id: me.id, ticket_id: self.currentTicket.id, kind: 'text', body: body, author_name: me.full_name || 'Suporte', author_avatar: me.avatar_url || null }).select().single();
           if (ins.error) { console.error(ins.error); document.getElementById('convo-input').value = body; return; } addMsg(ins.data); scrollConvo();
         });
         async function sendMedia(file, kind) {
@@ -637,7 +678,7 @@
           var up = await sb.storage.from('comu-media').upload(path, file, { upsert: true, contentType: file.type || undefined });
           if (up.error) { G.toast('Erro no upload: ' + up.error.message); return; }
           var url = sb.storage.from('comu-media').getPublicUrl(path).data.publicUrl;
-          var ins = await sb.from('comu_messages').insert({ topic_id: supportTopicId, author_id: me.id, ticket_id: self.currentTicket.id, kind: kind, media_url: url, media_meta: { name: file.name, size: file.size, mime: file.type }, author_name: me.full_name || 'Suporte' }).select().single();
+          var ins = await sb.from('comu_messages').insert({ topic_id: supportTopicId, author_id: me.id, ticket_id: self.currentTicket.id, kind: kind, media_url: url, media_meta: { name: file.name, size: file.size, mime: file.type }, author_name: me.full_name || 'Suporte', author_avatar: me.avatar_url || null }).select().single();
           if (ins.error) { G.toast('Erro ao enviar: ' + ins.error.message); return; }
           addMsg(ins.data); scrollConvo();
         }
@@ -654,7 +695,8 @@
           if (!sysIns.error) { addMsg(sysIns.data); scrollConvo(); }
         });
         document.querySelectorAll('[data-filter]').forEach(function (b) { b.addEventListener('click', function () { self.filter = b.dataset.filter; document.querySelectorAll('[data-filter]').forEach(function (x) { x.classList.remove('bg-primary', 'text-on-primary'); x.classList.add('text-on-surface-variant'); }); b.classList.add('bg-primary', 'text-on-primary'); b.classList.remove('text-on-surface-variant'); loadTickets(); }); });
-        loadTickets();
+        document.getElementById('btn-tags').addEventListener('click', function () { if (self.currentTicket) openTagsPanel(self.currentTicket); });
+        await loadTags(); loadTickets();
         self.channels.push(sb.channel('tickets-list').on('postgres_changes', { event: '*', schema: 'public', table: 'comu_support_tickets' }, function () { loadTickets(); }).subscribe());
       }
     };
