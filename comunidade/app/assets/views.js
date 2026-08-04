@@ -183,7 +183,7 @@
         }
         function bubble(m) {
           var mine = me.id && m.author_id === me.id;
-          var wrap = document.createElement('div'); wrap.setAttribute('data-msg-id', m.id);
+          var wrap = document.createElement('div'); wrap.setAttribute('data-msg-id', m.id); wrap.setAttribute('data-author-id', m.author_id || '');
           wrap.className = 'flex flex-col gap-xs max-w-[85%] ' + (mine ? 'items-end self-end' : 'items-start');
           var body = document.createElement('div'); body.className = 'msg-body w-full flex flex-col ' + (mine ? 'items-end' : 'items-start');
           renderMsgBody(body, m, mine); wrap.appendChild(body);
@@ -202,13 +202,33 @@
           sv.addEventListener('click', async function () { var nb = ta.value.trim(); if (!nb) return; sv.disabled = true; var up = await sb.from('comu_messages').update({ body: nb, status: 'edited', edited_at: new Date().toISOString() }).eq('id', m.id).select().single(); if (up.error) { G.toast('Não foi possível editar (passou de 30 min?).'); renderMsgBody(body, m, isMine); return; } m.body = up.data.body; m.status = up.data.status; renderMsgBody(body, m, isMine); });
           row.appendChild(cc); row.appendChild(sv); body.appendChild(ta); body.appendChild(row); ta.focus();
         }
+        function removeMessage(id) { var w = msgsEl.querySelector('[data-msg-id="' + id + '"]'); if (w) w.remove(); if (!msgsEl.children.length) { msgsEl.classList.add('hidden'); emptyEl.classList.remove('hidden'); } }
+        function removeAuthorMessages(authorId) { if (!authorId) return; msgsEl.querySelectorAll('[data-author-id="' + authorId + '"]').forEach(function (w) { w.remove(); }); if (!msgsEl.children.length) { msgsEl.classList.add('hidden'); emptyEl.classList.remove('hidden'); } }
         async function doDelete(m) {
-          var ok = await G.confirmDialog({ title: 'Apagar esta mensagem?', text: 'Esta ação não pode ser desfeita.', ok: 'Apagar', danger: true }); if (!ok) return;
-          var up = await sb.from('comu_messages').update({ status: 'deleted', body: null, media_url: null }).eq('id', m.id).select().single();
-          if (up.error) { G.toast('Não foi possível apagar (passou de 30 min?).'); return; }
-          m.status = 'deleted'; m.body = null; m.media_url = null;
-          var wrap = msgsEl.querySelector('[data-msg-id="' + m.id + '"]'); if (wrap) { renderMsgBody(wrap.querySelector('.msg-body'), m, me.id && m.author_id === me.id); var rr = wrap.querySelector('.react-row'); if (rr) rr.innerHTML = ''; }
-          G.toast('Mensagem apagada');
+          var choice;
+          if (isAdmin) {
+            choice = await G.chooseAction({
+              title: 'Apagar mensagem',
+              text: 'De ' + (m.author_name || 'Membro') + '. Não pode ser desfeito.',
+              options: [
+                { label: 'Apagar só esta mensagem', value: 'one', icon: 'delete', danger: true },
+                { label: 'Apagar tudo desta pessoa neste tópico', value: 'topic', icon: 'delete_sweep', danger: true },
+                { label: 'Apagar tudo desta pessoa em todos os grupos', value: 'all', icon: 'delete_forever', danger: true }
+              ]
+            });
+          } else {
+            var ok = await G.confirmDialog({ title: 'Apagar esta mensagem?', text: 'Esta ação não pode ser desfeita.', ok: 'Apagar', danger: true });
+            choice = ok ? 'one' : null;
+          }
+          if (!choice) return;
+          var q = sb.from('comu_messages').delete();
+          if (choice === 'one') q = q.eq('id', m.id);
+          else if (choice === 'topic') q = q.eq('author_id', m.author_id).eq('topic_id', topic.id).is('ticket_id', null);
+          else q = q.eq('author_id', m.author_id).is('ticket_id', null);
+          var del = await q;
+          if (del.error) { G.toast('Não foi possível apagar: ' + del.error.message); return; }
+          if (choice === 'one') removeMessage(m.id); else removeAuthorMessages(m.author_id);
+          G.toast(choice === 'one' ? 'Mensagem apagada' : 'Mensagens apagadas');
         }
         function updateMessage(m) { var wrap = msgsEl.querySelector('[data-msg-id="' + m.id + '"]'); if (!wrap) return; renderMsgBody(wrap.querySelector('.msg-body'), m, me.id && m.author_id === me.id); if (m.status === 'deleted') { var rr = wrap.querySelector('.react-row'); if (rr) rr.innerHTML = ''; } }
 
@@ -250,6 +270,7 @@
             self.channels.push(sb.channel('comu-' + topic.id)
               .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comu_messages', filter: 'topic_id=eq.' + topic.id }, function (p) { addMessage(p.new, nearBottom()); })
               .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'comu_messages', filter: 'topic_id=eq.' + topic.id }, function (p) { updateMessage(p.new); })
+              .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'comu_messages' }, function (p) { if (p.old && p.old.id) removeMessage(p.old.id); })
               .subscribe());
           } else {
             // Grupo: BROADCAST (escala p/ centenas). Se o broadcast falhar,
@@ -260,6 +281,7 @@
               self.channels.push(sb.channel('comu-' + topic.id)
                 .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comu_messages', filter: 'topic_id=eq.' + topic.id }, function (p) { addMessage(p.new, nearBottom()); })
                 .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'comu_messages', filter: 'topic_id=eq.' + topic.id }, function (p) { updateMessage(p.new); })
+                .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'comu_messages' }, function (p) { if (p.old && p.old.id) removeMessage(p.old.id); })
                 .subscribe());
               self.channels.push(sb.channel('comu-react-' + topic.id)
                 .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comu_message_reactions' }, function (p) { applyReactionEvent('INSERT', p.new); })
@@ -271,6 +293,7 @@
             self.channels.push(sb.channel('topic:' + topic.id, { config: { private: true } })
               .on('broadcast', { event: 'INSERT' }, function (m) { if (m && m.payload && m.payload.record) addMessage(m.payload.record, nearBottom()); })
               .on('broadcast', { event: 'UPDATE' }, function (m) { if (m && m.payload && m.payload.record) updateMessage(m.payload.record); })
+              .on('broadcast', { event: 'DELETE' }, function (m) { var r = m && m.payload && (m.payload.old_record || m.payload.record); if (r && r.id) removeMessage(r.id); })
               .on('broadcast', { event: 'reaction' }, function (m) { var p = m && m.payload; if (p && p.message_id) applyReactionEvent(p.op, { message_id: p.message_id, user_id: p.user_id, reaction: p.reaction }); })
               .subscribe(function (status) { if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') enablePgFallback(); }));
           }

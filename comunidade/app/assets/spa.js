@@ -44,6 +44,32 @@ GVSI.views = GVSI.views || {};
       modal.onclick = function (e) { if (e.target === modal) close(false); };
     });
   };
+  G.chooseAction = function (opts) {
+    return new Promise(function (resolve) {
+      opts = opts || {};
+      var overlay = document.createElement('div');
+      overlay.className = 'fixed inset-0 z-[95] flex items-end sm:items-center justify-center p-container-margin bg-black/40';
+      var sheet = document.createElement('div');
+      sheet.className = 'w-full max-w-sm bg-surface-container-lowest rounded-2xl shadow-xl border border-outline-variant/40 p-lg space-y-xs';
+      var head = '<h3 class="font-headline-sm text-headline-sm text-on-surface">' + G.esc(opts.title || 'Escolha uma opção') + '</h3>';
+      if (opts.text) head += '<p class="text-body-sm text-on-surface-variant pb-xs">' + G.esc(opts.text) + '</p>';
+      sheet.innerHTML = head;
+      function close(v) { overlay.remove(); resolve(v); }
+      (opts.options || []).forEach(function (o) {
+        var b = document.createElement('button'); b.type = 'button';
+        b.className = 'w-full text-left min-h-12 py-2 px-3 rounded-xl font-label-md text-label-md flex items-center gap-sm transition ' + (o.danger ? 'text-error hover:bg-error/10' : 'text-on-surface hover:bg-surface-container-high');
+        b.innerHTML = (o.icon ? '<span class="material-symbols-outlined text-[20px] shrink-0">' + o.icon + '</span>' : '') + '<span>' + G.esc(o.label) + '</span>';
+        b.onclick = function () { close(o.value); };
+        sheet.appendChild(b);
+      });
+      var cancel = document.createElement('button'); cancel.type = 'button';
+      cancel.className = 'w-full h-11 mt-xs rounded-xl border border-outline-variant text-on-surface-variant font-label-md';
+      cancel.textContent = 'Cancelar'; cancel.onclick = function () { close(null); };
+      sheet.appendChild(cancel);
+      overlay.appendChild(sheet); document.body.appendChild(overlay);
+      overlay.onclick = function (e) { if (e.target === overlay) close(null); };
+    });
+  };
   G.navigate = function (hash) { if (location.hash === hash) render(); else location.hash = hash; };
 
   // ---- Tema ----
