@@ -14,3 +14,7 @@ alter table public.comu_messages
 
 alter table public.comu_message_reactions
   add column if not exists user_name text;
+
+-- remove a coluna reply_to_id do schema 0001, que nunca foi usada (o reply
+-- agora usa reply_to + snapshot reply_author/reply_snippet).
+alter table public.comu_messages drop column if exists reply_to_id;
