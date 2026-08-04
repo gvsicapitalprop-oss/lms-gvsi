@@ -124,9 +124,9 @@ GVSI.views = GVSI.views || {};
       '<span class="material-symbols-outlined text-outline">chevron_right</span></a>';
   }
   var TOPIC_GROUPS = [
+    { title: 'Ajuda', slugs: ['suporte'] },
     { title: 'Conversas', slugs: ['prints', 'geral', 'resultados'] },
-    { title: 'Publicações da GVSI', slugs: ['tutoriais', 'recados', 'desafio', 'arquivos'] },
-    { title: 'Ajuda', slugs: ['suporte'] }
+    { title: 'Publicações da GVSI', slugs: ['tutoriais', 'recados', 'desafio', 'arquivos'] }
   ];
   function groupHeaderHtml(title) {
     return '<div class="topic-group-header px-md pt-md pb-xs text-label-md font-label-md text-on-surface-variant/80 uppercase tracking-wide">' + G.esc(title) + '</div>';
@@ -197,6 +197,7 @@ GVSI.views = GVSI.views || {};
   var current = null;
   async function render() {
     var route = parseRoute();
+    try { if (location.hash) localStorage.setItem('gvsi-route', location.hash); } catch (e) {}
     var view = G.views[route.name] || G.views.grupos;
     if (current && current.destroy) { try { current.destroy(); } catch (e) {} }
     var el = document.getElementById('view');
@@ -226,7 +227,7 @@ GVSI.views = GVSI.views || {};
     G.topics = await loadTopics();
     G.renderTopicList(document.getElementById('side-topics'), '');
     G.applyUnread();
-    if (!location.hash) { location.replace('#/'); }
+    if (!location.hash) { var _r; try { _r = localStorage.getItem('gvsi-route'); } catch (e) {} location.replace(_r && _r.charAt(0) === '#' ? _r : '#/'); }
     render();
   });
 })();
