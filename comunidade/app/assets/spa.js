@@ -87,19 +87,26 @@ GVSI.views = GVSI.views || {};
     }
     return window.GVSI_TOPICS || [];
   }
-  function topicItemHtml(t, activeId) {
+  function topicItemHtml(t, activeId, grid) {
     var tone = TONES[t.tone] || TONES.primary;
     var active = t.id === activeId;
-    return '<a href="#/chat/' + t.id + '" data-slug="' + t.id + '" class="topic-item flex items-center gap-md p-md rounded-xl transition-colors cursor-pointer ' +
-      (active ? 'bg-surface-container-high' : 'hover:bg-surface-container-low') + '">' +
+    var base = 'topic-item rounded-xl transition-colors cursor-pointer ' + (active ? 'bg-surface-container-high' : 'hover:bg-surface-container-low');
+    if (grid) {
+      // cartão compacto (grade 2 colunas): ícone + nome, badge no canto do ícone
+      return '<a href="#/chat/' + t.id + '" data-slug="' + t.id + '" class="' + base + ' flex flex-col items-center text-center gap-xs p-md">' +
+        '<div class="relative w-12 h-12 rounded-full ' + tone.bg + ' flex items-center justify-center ' + tone.fg + ' shrink-0"><span class="material-symbols-outlined text-[24px]">' + t.icon + '</span>' +
+          '<span class="unread-badge hidden absolute -top-1 -right-1 min-w-[20px] h-5 px-1 rounded-full bg-primary text-on-primary text-[12px] font-bold flex items-center justify-center">0</span></div>' +
+        '<h3 class="font-bold text-on-surface text-body-sm leading-tight w-full truncate">' + G.esc(t.name) + '</h3></a>';
+    }
+    return '<a href="#/chat/' + t.id + '" data-slug="' + t.id + '" class="' + base + ' flex items-center gap-md p-md">' +
       '<div class="w-12 h-12 rounded-full ' + tone.bg + ' flex items-center justify-center ' + tone.fg + ' shrink-0"><span class="material-symbols-outlined text-[24px]">' + t.icon + '</span></div>' +
       '<div class="flex-1 min-w-0"><h3 class="font-bold text-on-surface truncate">' + G.esc(t.name) + '</h3><p class="text-body-sm text-on-surface-variant truncate">' + G.esc(t.desc) + '</p></div>' +
       '<span class="unread-badge hidden min-w-[24px] h-6 px-1.5 rounded-full bg-primary text-on-primary text-[13px] font-bold flex items-center justify-center">0</span>' +
       '<span class="material-symbols-outlined text-outline">chevron_right</span></a>';
   }
-  G.renderTopicList = function (container, activeId) {
+  G.renderTopicList = function (container, activeId, grid) {
     if (!container) return;
-    container.innerHTML = G.topics.map(function (t) { return topicItemHtml(t, activeId); }).join('');
+    container.innerHTML = G.topics.map(function (t) { return topicItemHtml(t, activeId, grid); }).join('');
   };
   G.applyUnread = async function () {
     if (!G.sb) return;
@@ -180,7 +187,7 @@ GVSI.views = GVSI.views || {};
     initTheme();
     G.updateSidebarProfile();
     G.topics = await loadTopics();
-    G.renderTopicList(document.getElementById('side-topics'), '');
+    G.renderTopicList(document.getElementById('side-topics'), '', true);
     G.applyUnread();
     if (!location.hash) { location.replace('#/'); }
     render();
