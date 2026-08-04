@@ -18,6 +18,17 @@ GVSI.views = GVSI.views || {};
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
   };
+  // Formatação leve (estilo WhatsApp/markdown) -> HTML seguro.
+  // Escapa TUDO primeiro, depois aplica só as tags permitidas.
+  G.fmt = function (s) {
+    var out = G.esc(s);
+    out = out.replace(/`([^`\n]+)`/g, '<code class="px-1 py-0.5 rounded bg-black/10 dark:bg-white/20 text-[0.92em]">$1</code>');
+    out = out.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');       // **negrito**
+    out = out.replace(/(^|[^\w*])\*([^*\n]+)\*(?![\w*])/g, '$1<em>$2</em>'); // *itálico*
+    out = out.replace(/(^|[^\w_])_([^_\n]+)_(?![\w_])/g, '$1<em>$2</em>');   // _itálico_
+    out = out.replace(/~~([^~\n]+)~~/g, '<del>$1</del>');                   // ~~tachado~~
+    return out;
+  };
   G.timeStr = function (iso) {
     try { return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); }
     catch (e) { return ''; }

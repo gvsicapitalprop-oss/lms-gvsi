@@ -94,6 +94,11 @@
             '<form id="chat-form" class="glass-input rounded-2xl p-sm flex flex-col gap-sm shadow-xl border border-outline-variant/40 max-w-3xl mx-auto">' +
               '<div id="composer-normal" class="flex flex-col gap-sm">' +
                 '<input id="chat-input" class="w-full bg-surface-container-low border border-outline-variant rounded-xl px-md py-3 text-body-md focus:ring-2 focus:ring-primary/20 placeholder:text-on-surface-variant text-on-surface" placeholder="Escreva uma mensagem..." type="text" autocomplete="off">' +
+                '<div class="flex items-center gap-xs -my-xs">' +
+                  '<button type="button" id="fmt-bold" class="w-11 h-11 rounded-lg hover:bg-surface-container-high flex items-center justify-center text-on-surface-variant" aria-label="Negrito" title="Negrito (**texto**)"><span class="material-symbols-outlined text-[22px]">format_bold</span></button>' +
+                  '<button type="button" id="fmt-italic" class="w-11 h-11 rounded-lg hover:bg-surface-container-high flex items-center justify-center text-on-surface-variant" aria-label="Itálico" title="Itálico (*texto*)"><span class="material-symbols-outlined text-[22px]">format_italic</span></button>' +
+                  '<button type="button" id="btn-emoji" class="w-11 h-11 rounded-lg hover:bg-surface-container-high flex items-center justify-center text-on-surface-variant" aria-label="Emoji" title="Emoji"><span class="material-symbols-outlined text-[24px]">mood</span></button>' +
+                '</div>' +
                 '<div class="flex flex-wrap items-center gap-sm">' +
                   '<a id="btn-attach" href="#/enviar/' + esc(slug) + '" class="h-11 px-3 rounded-xl border border-outline-variant text-on-surface hover:bg-surface-container-high transition-colors flex items-center gap-xs shrink-0" aria-label="Anexar foto ou arquivo"><span class="material-symbols-outlined text-[24px]">attach_file</span><span class="text-body-sm font-label-md">Anexar</span></a>' +
                   '<button type="button" id="btn-mic" class="h-11 px-3 rounded-xl border border-outline-variant text-on-surface hover:bg-surface-container-high transition-colors flex items-center gap-xs shrink-0" aria-label="Gravar áudio"><span class="material-symbols-outlined text-[24px]">mic</span><span class="text-body-sm font-label-md">Áudio</span></button>' +
@@ -187,10 +192,10 @@
           var when = timeStr(m.created_at);
           var edited = m.status === 'edited' ? ' <span class="text-[12px] opacity-80">(editado)</span>' : '';
           var content;
-          if (m.kind === 'image' && m.media_url) content = '<img src="' + esc(m.media_url) + '" class="rounded-lg max-w-full mb-xs" alt="">' + (m.body ? '<p class="' + (mine ? '' : 'text-on-surface ') + 'font-body-md">' + esc(m.body) + edited + '</p>' : '');
-          else if (m.kind === 'video' && m.media_url) content = '<video controls preload="metadata" src="' + esc(m.media_url) + '" class="rounded-lg max-w-full mb-xs" style="max-height:20rem"></video>' + (m.body ? '<p class="' + (mine ? '' : 'text-on-surface ') + 'font-body-md">' + esc(m.body) + edited + '</p>' : '');
+          if (m.kind === 'image' && m.media_url) content = '<img src="' + esc(m.media_url) + '" class="rounded-lg max-w-full mb-xs" alt="">' + (m.body ? '<p class="' + (mine ? '' : 'text-on-surface ') + 'font-body-md">' + G.fmt(m.body) + edited + '</p>' : '');
+          else if (m.kind === 'video' && m.media_url) content = '<video controls preload="metadata" src="' + esc(m.media_url) + '" class="rounded-lg max-w-full mb-xs" style="max-height:20rem"></video>' + (m.body ? '<p class="' + (mine ? '' : 'text-on-surface ') + 'font-body-md">' + G.fmt(m.body) + edited + '</p>' : '');
           else if (m.kind === 'audio' && m.media_url) content = '<audio controls src="' + esc(m.media_url) + '" class="max-w-full"></audio>';
-          else content = '<p class="' + (mine ? '' : 'text-on-surface ') + 'font-body-md whitespace-pre-wrap break-words">' + esc(m.body) + edited + '</p>';
+          else content = '<p class="' + (mine ? '' : 'text-on-surface ') + 'font-body-md whitespace-pre-wrap break-words">' + G.fmt(m.body) + edited + '</p>';
           var inner;
           if (mine) inner = '<div class="flex items-center gap-xs mr-sm mb-xs"><span class="text-[13px] text-on-surface-variant">' + when + '</span><span class="font-label-md text-label-md text-primary">Você</span></div><div class="message-gradient-outgoing text-white shadow-lg rounded-xl rounded-tr-none p-md">' + content + '</div>';
           else {
@@ -269,16 +274,22 @@
         function updateMessage(m) { var wrap = msgsEl.querySelector('[data-msg-id="' + m.id + '"]'); if (!wrap) return; renderMsgBody(wrap.querySelector('.msg-body'), m, me.id && m.author_id === me.id); if (m.status === 'deleted') { var rr = wrap.querySelector('.react-row'); if (rr) rr.innerHTML = ''; } }
 
         // ---- reações ----
-        var EMOJIS = ['❤️', '👍', '👎', '🔥', '✨', '😂', '🥰', '😮', '😢', '😡', '🙏', '👏', '🙌', '🤝', '💪', '🎯', '🚀', '💯', '✅', '❌', '👀', '🤔', '🥳', '🤑', '📈', '📉', '💰', '⚡'];
+        var EMOJIS = ['❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🔥', '✨', '⭐', '💯', '🎉', '🎯', '🚀', '✅', '❌', '👀', '👍', '👎', '🙏', '👏', '🙌', '🤝', '💪', '👋', '🤙', '✌️', '👌', '😀', '😃', '😄', '😁', '😆', '😂', '🤣', '🙂', '😉', '😊', '😍', '🥰', '😘', '😎', '🤩', '🤔', '😐', '😴', '😮', '😲', '🥳', '😢', '😭', '😤', '😡', '🤯', '😱', '🤗', '🤭', '🤫', '🤑', '📈', '📉', '💰', '⚡'];
         var picker = document.createElement('div'); self.picker = picker;
-        picker.className = 'hidden fixed z-[80] bg-surface-container-highest border border-outline-variant rounded-2xl shadow-lg p-2 flex flex-wrap items-center gap-1 max-w-[320px]';
-        var pickerTarget = null;
-        EMOJIS.forEach(function (em) { var b = document.createElement('button'); b.type = 'button'; b.className = 'text-[26px] hover:scale-125 transition-transform px-2 py-1'; b.textContent = em; b.addEventListener('click', function () { if (pickerTarget) toggleReaction(pickerTarget, em); hidePicker(); }); picker.appendChild(b); });
+        picker.className = 'hidden fixed z-[80] bg-surface-container-highest border border-outline-variant rounded-2xl shadow-lg p-2 flex flex-wrap items-center gap-1 max-w-[340px] max-h-[46vh] overflow-y-auto custom-scrollbar';
+        var pickerTarget = null, pickerMode = 'react';
+        EMOJIS.forEach(function (em) { var b = document.createElement('button'); b.type = 'button'; b.className = 'text-[26px] hover:scale-125 transition-transform px-2 py-1'; b.textContent = em; b.addEventListener('click', function () { if (pickerMode === 'insert') insertAtCursor(input, em); else if (pickerTarget) toggleReaction(pickerTarget, em); hidePicker(); }); picker.appendChild(b); });
         document.body.appendChild(picker);
-        function hidePicker() { picker.classList.add('hidden'); pickerTarget = null; }
-        function openPicker(anchor, id) { pickerTarget = id; picker.classList.remove('hidden'); var r = anchor.getBoundingClientRect(); var pr = picker.getBoundingClientRect(); var top = r.top - pr.height - 6; if (top < 8) top = r.bottom + 6; var left = r.left; if (left + pr.width > window.innerWidth - 8) left = window.innerWidth - 8 - pr.width; picker.style.top = top + 'px'; picker.style.left = Math.max(8, left) + 'px'; }
-        self.onPickerDoc = function (e) { if (picker.classList.contains('hidden')) return; if (!picker.contains(e.target) && !(e.target.closest && e.target.closest('.react-add'))) hidePicker(); };
+        function hidePicker() { picker.classList.add('hidden'); pickerTarget = null; pickerMode = 'react'; }
+        function openPicker(anchor, id, mode) { pickerMode = mode || 'react'; pickerTarget = id || null; picker.classList.remove('hidden'); var r = anchor.getBoundingClientRect(); var pr = picker.getBoundingClientRect(); var top = r.top - pr.height - 6; if (top < 8) top = r.bottom + 6; var left = r.left; if (left + pr.width > window.innerWidth - 8) left = window.innerWidth - 8 - pr.width; picker.style.top = top + 'px'; picker.style.left = Math.max(8, left) + 'px'; }
+        function insertAtCursor(el, text) { if (!el) return; var s = el.selectionStart == null ? el.value.length : el.selectionStart; var e = el.selectionEnd == null ? el.value.length : el.selectionEnd; el.value = el.value.slice(0, s) + text + el.value.slice(e); var p = s + text.length; el.focus(); try { el.setSelectionRange(p, p); } catch (x) {} }
+        function wrapSel(pre, post) { var s = input.selectionStart == null ? input.value.length : input.selectionStart; var e = input.selectionEnd == null ? input.value.length : input.selectionEnd; var v = input.value; var sel = v.slice(s, e) || 'texto'; input.value = v.slice(0, s) + pre + sel + post + v.slice(e); input.focus(); try { input.setSelectionRange(s + pre.length, s + pre.length + sel.length); } catch (x) {} }
+        self.onPickerDoc = function (e) { if (picker.classList.contains('hidden')) return; if (!picker.contains(e.target) && !(e.target.closest && e.target.closest('.react-add')) && !(e.target.closest && e.target.closest('#btn-emoji'))) hidePicker(); };
         document.addEventListener('click', self.onPickerDoc);
+        // toolbar do compositor: negrito / itálico / emoji
+        var fbEl = document.getElementById('fmt-bold'); if (fbEl) fbEl.addEventListener('click', function () { wrapSel('**', '**'); });
+        var fiEl = document.getElementById('fmt-italic'); if (fiEl) fiEl.addEventListener('click', function () { wrapSel('*', '*'); });
+        var beEl = document.getElementById('btn-emoji'); if (beEl) beEl.addEventListener('click', function (ev) { ev.stopPropagation(); if (picker.classList.contains('hidden') || pickerMode !== 'insert') openPicker(beEl, null, 'insert'); else hidePicker(); });
         var reactionsMap = self.reactionsMap;
         function renderReactions(id) {
           var row = msgsEl.querySelector('[data-react="' + id + '"]'); if (!row) return;
@@ -286,7 +297,17 @@
           Object.keys(data).forEach(function (em) { var users = data[em]; if (!users || !users.length) return; var mineR = users.indexOf(me.id) !== -1; var chip = document.createElement('button'); chip.type = 'button'; chip.className = 'px-3 py-1 rounded-full text-body-sm flex items-center gap-1 border transition-colors ' + (mineR ? 'bg-primary/15 border-primary/40 text-primary' : 'bg-surface-container-high border-outline-variant/50 text-on-surface-variant'); chip.innerHTML = '<span>' + em + '</span><span class="font-bold">' + users.length + '</span>'; chip.addEventListener('click', function () { toggleReaction(id, em); }); row.appendChild(chip); });
           var add = document.createElement('button'); add.type = 'button'; add.className = 'react-add w-11 h-11 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors'; add.innerHTML = '<span class="material-symbols-outlined text-[22px]">add_reaction</span>'; add.addEventListener('click', function (e) { e.stopPropagation(); openPicker(e.currentTarget, id); }); row.appendChild(add);
         }
-        async function toggleReaction(id, em) { if (!me.id) return; var data = reactionsMap[id] || (reactionsMap[id] = {}); var users = data[em] || (data[em] = []); var have = users.indexOf(me.id) !== -1; if (have) data[em] = users.filter(function (u) { return u !== me.id; }); else users.push(me.id); renderReactions(id); if (have) await sb.from('comu_message_reactions').delete().eq('message_id', id).eq('user_id', me.id).eq('reaction', em); else await sb.from('comu_message_reactions').insert({ message_id: id, user_id: me.id, reaction: em }); }
+        async function toggleReaction(id, em) {
+          if (!me.id) return;
+          var data = reactionsMap[id] || (reactionsMap[id] = {});
+          var have = (data[em] || []).indexOf(me.id) !== -1;
+          // 1 reação por pessoa: remove qualquer reação minha nesta mensagem
+          Object.keys(data).forEach(function (e) { var i = data[e].indexOf(me.id); if (i !== -1) data[e].splice(i, 1); });
+          if (!have) (data[em] = data[em] || []).push(me.id); // clicou a que já tinha -> tira (toggle off)
+          renderReactions(id);
+          await sb.from('comu_message_reactions').delete().eq('message_id', id).eq('user_id', me.id);
+          if (!have) await sb.from('comu_message_reactions').insert({ message_id: id, user_id: me.id, reaction: em });
+        }
         async function loadReactions(ids) { if (!ids || !ids.length) return; var r = await sb.from('comu_message_reactions').select('message_id,user_id,reaction').in('message_id', ids); if (self.destroyed) return; (r.data || []).forEach(function (x) { var d = reactionsMap[x.message_id] || (reactionsMap[x.message_id] = {}); var u = d[x.reaction] || (d[x.reaction] = []); if (u.indexOf(x.user_id) === -1) u.push(x.user_id); }); ids.forEach(renderReactions); }
         function applyReactionEvent(type, row) { if (!row || !row.message_id) return; if (!msgsEl.querySelector('[data-react="' + row.message_id + '"]')) return; var d = reactionsMap[row.message_id] || (reactionsMap[row.message_id] = {}); var u = d[row.reaction] || (d[row.reaction] = []); if (type === 'INSERT') { if (u.indexOf(row.user_id) === -1) u.push(row.user_id); } else { d[row.reaction] = u.filter(function (x) { return x !== row.user_id; }); } renderReactions(row.message_id); }
 
