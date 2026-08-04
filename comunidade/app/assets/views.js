@@ -142,11 +142,41 @@
         if (isSupport && isAdmin) { G.navigate('#/suporte'); return; }
         async function refreshTicketInfo() {
           if (!isSupport) return;
-          var t2 = await sb.from('comu_support_tickets').select('protocol,status').eq('user_id', me.id).order('created_at', { ascending: false }).limit(1).maybeSingle();
+          var t2 = await sb.from('comu_support_tickets').select('id,protocol,status,rating,solved').eq('user_id', me.id).order('created_at', { ascending: false }).limit(1).maybeSingle();
           if (self.destroyed) return;
           var sub = document.getElementById('chat-subtitle');
           if (t2.data) { var st = t2.data.status === 'aberto' ? 'Aberto' : (t2.data.status === 'resolvido' ? 'Resolvido' : 'Fechado'); sub.textContent = 'Ticket ' + t2.data.protocol + ' • ' + st; }
           else sub.textContent = 'Envie uma mensagem para abrir um ticket';
+          maybeShowRating(t2.data);
+        }
+        function maybeShowRating(tk) {
+          var existing = document.getElementById('support-rating-card');
+          if (!tk || tk.status !== 'resolvido' || tk.rating != null) { if (existing) existing.remove(); return; }
+          if (existing) return;
+          var chosen = { rating: 0, solved: null };
+          var card = document.createElement('div');
+          card.id = 'support-rating-card';
+          card.className = 'self-center w-full max-w-md bg-surface-container-lowest border border-outline-variant/40 rounded-2xl p-lg shadow-sm space-y-md my-md';
+          card.innerHTML =
+            '<h3 class="font-headline-sm text-headline-sm text-on-surface text-center">Como foi o atendimento?</h3>' +
+            '<div class="space-y-xs"><p class="text-body-sm text-on-surface-variant text-center">Resolveu seu problema?</p><div class="flex gap-sm justify-center"><button type="button" data-solved="s" class="rt-solved h-10 px-5 rounded-full border border-outline-variant text-on-surface font-label-md">Sim</button><button type="button" data-solved="n" class="rt-solved h-10 px-5 rounded-full border border-outline-variant text-on-surface font-label-md">Não</button></div></div>' +
+            '<div class="space-y-xs"><p class="text-body-sm text-on-surface-variant text-center">Sua nota</p><div id="rt-stars" class="flex gap-1 justify-center"></div></div>' +
+            '<button type="button" id="rt-send" class="w-full h-11 bg-primary text-on-primary rounded-xl font-label-md disabled:opacity-50" disabled>Enviar avaliação</button>';
+          var stars = card.querySelector('#rt-stars');
+          for (var i = 1; i <= 5; i++) { (function (n) { var s = document.createElement('button'); s.type = 'button'; s.className = 'rt-star text-outline transition-transform active:scale-90'; s.innerHTML = '<span class="material-symbols-outlined" style="font-size:34px">star</span>'; s.addEventListener('click', function () { chosen.rating = n; paint(); }); stars.appendChild(s); })(i); }
+          function paint() {
+            [].forEach.call(stars.children, function (s, idx) { var on = idx < chosen.rating; s.classList.toggle('text-tertiary', on); s.classList.toggle('text-outline', !on); s.firstChild.classList.toggle('fill', on); });
+            card.querySelectorAll('.rt-solved').forEach(function (b) { var on = chosen.solved != null && ((b.dataset.solved === 's') === chosen.solved); b.classList.toggle('bg-primary', on); b.classList.toggle('text-on-primary', on); b.classList.toggle('border-primary', on); });
+            card.querySelector('#rt-send').disabled = !(chosen.rating > 0 && chosen.solved != null);
+          }
+          card.querySelectorAll('.rt-solved').forEach(function (b) { b.addEventListener('click', function () { chosen.solved = (b.dataset.solved === 's'); paint(); }); });
+          card.querySelector('#rt-send').addEventListener('click', async function () {
+            var btn = card.querySelector('#rt-send'); btn.disabled = true; btn.textContent = 'Enviando...';
+            var r = await sb.rpc('comu_rate_ticket', { p_ticket_id: tk.id, p_rating: chosen.rating, p_solved: chosen.solved });
+            if (r.error) { G.toast('Não foi possível enviar: ' + r.error.message); btn.disabled = false; btn.textContent = 'Enviar avaliação'; return; }
+            card.remove(); G.toast('Obrigado pela avaliação!');
+          });
+          msgsEl.appendChild(card); scrollBottom();
         }
 
         var seen = Object.create(null);
@@ -182,6 +212,11 @@
           }
         }
         function bubble(m) {
+          if (m.kind === 'system') {
+            var sw = document.createElement('div'); sw.setAttribute('data-msg-id', m.id); sw.className = 'w-full flex justify-center';
+            sw.innerHTML = '<div class="max-w-md text-center text-body-sm text-on-surface-variant bg-surface-container-high rounded-2xl px-4 py-2">' + esc(m.body || '') + '</div>';
+            return sw;
+          }
           var mine = me.id && m.author_id === me.id;
           var wrap = document.createElement('div'); wrap.setAttribute('data-msg-id', m.id); wrap.setAttribute('data-author-id', m.author_id || '');
           wrap.className = 'flex flex-col gap-xs max-w-[85%] ' + (mine ? 'items-end self-end' : 'items-start');
@@ -268,7 +303,7 @@
           if (isSupport) {
             // Suporte (1:1): postgres_changes basta (sem fan-out)
             self.channels.push(sb.channel('comu-' + topic.id)
-              .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comu_messages', filter: 'topic_id=eq.' + topic.id }, function (p) { addMessage(p.new, nearBottom()); })
+              .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comu_messages', filter: 'topic_id=eq.' + topic.id }, function (p) { addMessage(p.new, nearBottom()); if (p.new && p.new.kind === 'system') refreshTicketInfo(); })
               .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'comu_messages', filter: 'topic_id=eq.' + topic.id }, function (p) { updateMessage(p.new); })
               .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'comu_messages' }, function (p) { if (p.old && p.old.id) removeMessage(p.old.id); })
               .subscribe());
@@ -525,7 +560,7 @@
             '<section id="convo-panel" class="hidden lg:flex flex-1 flex-col min-w-0"><div id="convo-empty" class="flex-1 flex flex-col items-center justify-center text-center gap-md p-xl text-on-surface-variant"><span class="material-symbols-outlined text-[48px]">forum</span><p class="text-body-md max-w-xs">Selecione uma conversa para ver o histórico e responder.</p></div>' +
               '<div id="convo-main" class="hidden flex-1 flex-col min-h-0"><div class="h-16 shrink-0 border-b border-outline-variant flex items-center gap-md px-md"><button id="convo-back" class="lg:hidden text-primary flex items-center" aria-label="Voltar"><span class="material-symbols-outlined">arrow_back</span></button><span class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center text-outline shrink-0"><span class="material-symbols-outlined">person</span></span><div class="flex-1 min-w-0"><h2 id="convo-name" class="font-bold text-on-surface truncate">—</h2><p id="convo-protocol" class="text-body-sm text-outline truncate">—</p></div><button id="btn-resolve" class="bg-primary text-on-primary rounded-full px-4 py-2 text-label-md font-label-md active:scale-95 transition disabled:opacity-60 flex items-center gap-xs"><span class="material-symbols-outlined text-[18px]">check_circle</span><span id="btn-resolve-label">Marcar como resolvido</span></button></div>' +
                 '<div id="convo-scroll" class="flex-1 overflow-y-auto custom-scrollbar p-md"><div id="convo-messages" class="flex flex-col gap-md max-w-3xl mx-auto w-full"></div></div>' +
-                '<form id="convo-form" class="shrink-0 border-t border-outline-variant p-sm flex items-center gap-sm"><input id="convo-input" type="text" autocomplete="off" placeholder="Responder…" class="flex-grow bg-surface-container-low border-none rounded-xl px-md py-3 text-body-md focus:ring-2 focus:ring-primary/20 text-on-surface placeholder:text-outline"><button type="submit" class="w-12 h-12 bg-primary text-on-primary rounded-xl flex items-center justify-center shadow active:scale-90 transition shrink-0" aria-label="Enviar"><span class="material-symbols-outlined fill">send</span></button></form></div>' +
+                '<form id="convo-form" class="shrink-0 border-t border-outline-variant p-sm flex flex-col gap-sm"><input id="convo-input" type="text" autocomplete="off" placeholder="Responder…" class="w-full bg-surface-container-low border border-outline-variant rounded-xl px-md py-3 text-body-md focus:ring-2 focus:ring-primary/20 text-on-surface placeholder:text-on-surface-variant"><div class="flex flex-wrap items-center gap-sm"><button type="button" id="convo-attach" class="h-11 px-3 rounded-xl border border-outline-variant text-on-surface hover:bg-surface-container-high transition-colors flex items-center gap-xs shrink-0" aria-label="Anexar foto ou vídeo"><span class="material-symbols-outlined text-[24px]">attach_file</span><span class="text-body-sm font-label-md">Anexar</span></button><button type="button" id="convo-audio-btn" class="h-11 px-3 rounded-xl border border-outline-variant text-on-surface hover:bg-surface-container-high transition-colors flex items-center gap-xs shrink-0" aria-label="Enviar áudio"><span class="material-symbols-outlined text-[24px]">mic</span><span class="text-body-sm font-label-md">Áudio</span></button><button type="submit" class="h-11 px-5 ml-auto bg-primary text-on-primary rounded-xl flex items-center gap-xs shadow-lg active:scale-95 transition-all shrink-0" aria-label="Enviar"><span class="material-symbols-outlined fill text-[24px]">send</span><span class="text-body-md font-bold">Enviar</span></button></div><input id="convo-file-media" type="file" accept="image/*,video/*" class="hidden"><input id="convo-file-audio" type="file" accept="audio/*" class="hidden"></form></div>' +
             '</section>' +
           '</div>';
         var topicRes = await sb.from('comu_topics').select('id').eq('slug', 'suporte').single(); if (self.destroyed) return;
@@ -548,13 +583,22 @@
           });
         }
         function addMsg(msg) {
-          if (self.seen[msg.id]) return; self.seen[msg.id] = true; var mine = msg.author_id === me.id;
-          var content = '<p class="font-body-md whitespace-pre-wrap break-words ' + (mine ? '' : 'text-on-surface') + '">' + esc(msg.body) + '</p>';
-          if (msg.kind === 'image' && msg.media_url) content = '<img src="' + esc(msg.media_url) + '" class="rounded-lg max-w-full">'; else if (msg.kind === 'audio' && msg.media_url) content = '<audio controls src="' + esc(msg.media_url) + '" class="max-w-full"></audio>';
+          if (self.seen[msg.id]) return; self.seen[msg.id] = true;
+          var container = document.getElementById('convo-messages');
+          if (msg.kind === 'system') {
+            var note = document.createElement('div'); note.className = 'self-center max-w-md text-center text-body-sm text-on-surface-variant bg-surface-container-high rounded-2xl px-4 py-2 my-xs';
+            note.textContent = msg.body || ''; container.appendChild(note); return;
+          }
+          var mine = msg.author_id === me.id;
+          var content;
+          if (msg.kind === 'image' && msg.media_url) content = '<img src="' + esc(msg.media_url) + '" class="rounded-lg max-w-full">';
+          else if (msg.kind === 'video' && msg.media_url) content = '<video controls preload="metadata" src="' + esc(msg.media_url) + '" class="rounded-lg max-w-full" style="max-height:20rem"></video>';
+          else if (msg.kind === 'audio' && msg.media_url) content = '<audio controls src="' + esc(msg.media_url) + '" class="max-w-full"></audio>';
+          else content = '<p class="font-body-md whitespace-pre-wrap break-words ' + (mine ? '' : 'text-on-surface') + '">' + esc(msg.body) + '</p>';
           var wrap = document.createElement('div');
           if (mine) { wrap.className = 'flex flex-col items-end gap-xs max-w-[80%] self-end'; wrap.innerHTML = '<div class="message-gradient-outgoing text-white rounded-xl rounded-tr-none p-md shadow">' + content + '</div>'; }
           else { wrap.className = 'flex flex-col items-start gap-xs max-w-[80%]'; wrap.innerHTML = '<span class="text-label-md font-label-md text-on-surface-variant ml-sm">' + esc(msg.author_name || 'Membro') + '</span><div class="bg-surface-container-lowest border border-outline-variant/30 rounded-xl rounded-tl-none p-md">' + content + '</div>'; }
-          document.getElementById('convo-messages').appendChild(wrap);
+          container.appendChild(wrap);
         }
         function scrollConvo() { var s = document.getElementById('convo-scroll'); s.scrollTop = s.scrollHeight; }
         function updateResolveBtn() { var lbl = document.getElementById('btn-resolve-label'), b = document.getElementById('btn-resolve'); if (self.currentTicket && self.currentTicket.status === 'aberto') { lbl.textContent = 'Marcar como resolvido'; b.disabled = false; } else { lbl.textContent = 'Resolvido'; b.disabled = true; } }
@@ -585,10 +629,28 @@
           var ins = await sb.from('comu_messages').insert({ topic_id: supportTopicId, author_id: me.id, ticket_id: self.currentTicket.id, kind: 'text', body: body, author_name: me.full_name || 'Suporte' }).select().single();
           if (ins.error) { console.error(ins.error); document.getElementById('convo-input').value = body; return; } addMsg(ins.data); scrollConvo();
         });
+        async function sendMedia(file, kind) {
+          if (!file || !self.currentTicket) return;
+          var ext = (file.name.split('.').pop() || (kind === 'image' ? 'jpg' : kind === 'video' ? 'mp4' : 'm4a')).toLowerCase();
+          var path = 'suporte/' + self.currentTicket.id + '/' + Date.now() + '.' + ext;
+          var up = await sb.storage.from('comu-media').upload(path, file, { upsert: true, contentType: file.type || undefined });
+          if (up.error) { G.toast('Erro no upload: ' + up.error.message); return; }
+          var url = sb.storage.from('comu-media').getPublicUrl(path).data.publicUrl;
+          var ins = await sb.from('comu_messages').insert({ topic_id: supportTopicId, author_id: me.id, ticket_id: self.currentTicket.id, kind: kind, media_url: url, media_meta: { name: file.name, size: file.size, mime: file.type }, author_name: me.full_name || 'Suporte' }).select().single();
+          if (ins.error) { G.toast('Erro ao enviar: ' + ins.error.message); return; }
+          addMsg(ins.data); scrollConvo();
+        }
+        document.getElementById('convo-attach').addEventListener('click', function () { document.getElementById('convo-file-media').click(); });
+        document.getElementById('convo-audio-btn').addEventListener('click', function () { document.getElementById('convo-file-audio').click(); });
+        document.getElementById('convo-file-media').addEventListener('change', function () { var f = this.files[0]; if (f) sendMedia(f, (f.type || '').indexOf('video') === 0 ? 'video' : 'image'); this.value = ''; });
+        document.getElementById('convo-file-audio').addEventListener('change', function () { var f = this.files[0]; if (f) sendMedia(f, 'audio'); this.value = ''; });
         document.getElementById('btn-resolve').addEventListener('click', async function () {
           if (!self.currentTicket || self.currentTicket.status !== 'aberto') return;
-          var up = await sb.from('comu_support_tickets').update({ status: 'resolvido', resolved_at: new Date().toISOString() }).eq('id', self.currentTicket.id).select('*, member:lms_students!user_id(full_name,avatar_url,email)').single();
+          var tid = self.currentTicket.id;
+          var up = await sb.from('comu_support_tickets').update({ status: 'resolvido', resolved_at: new Date().toISOString() }).eq('id', tid).select('*, member:lms_students!user_id(full_name,avatar_url,email)').single();
           if (up.error) { console.error(up.error); return; } self.currentTicket = up.data; document.getElementById('convo-protocol').textContent = self.currentTicket.protocol + ' · ' + statusLabel(self.currentTicket.status); updateResolveBtn(); loadTickets();
+          var sysIns = await sb.from('comu_messages').insert({ topic_id: supportTopicId, author_id: me.id, ticket_id: tid, kind: 'system', body: 'Conversa finalizada pelo suporte. Se precisar de algo, é só enviar uma nova mensagem que iniciamos um novo atendimento.', author_name: 'Suporte' }).select().single();
+          if (!sysIns.error) { addMsg(sysIns.data); scrollConvo(); }
         });
         document.querySelectorAll('[data-filter]').forEach(function (b) { b.addEventListener('click', function () { self.filter = b.dataset.filter; document.querySelectorAll('[data-filter]').forEach(function (x) { x.classList.remove('bg-primary', 'text-on-primary'); x.classList.add('text-on-surface-variant'); }); b.classList.add('bg-primary', 'text-on-primary'); b.classList.remove('text-on-surface-variant'); loadTickets(); }); });
         loadTickets();
