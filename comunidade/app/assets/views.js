@@ -86,7 +86,7 @@
               '<button class="text-primary" aria-label="Opções"><span class="material-symbols-outlined">more_vert</span></button>' +
             '</div>' +
           '</header>' +
-          '<main id="chat-scroll" class="lg:pl-[360px] min-h-screen pt-14 pb-52 lg:pb-40 flex flex-col overflow-y-auto custom-scrollbar">' +
+          '<main id="chat-scroll" class="lg:pl-[360px] h-[100dvh] pt-14 pb-52 lg:pb-40 flex flex-col overflow-y-auto custom-scrollbar">' +
             '<div id="chat-messages" class="hidden w-full max-w-3xl mx-auto flex flex-col gap-lg px-container-margin py-lg"></div>' +
             '<div id="chat-loading" class="flex-grow flex items-center justify-center text-on-surface-variant text-body-sm gap-sm"><span class="material-symbols-outlined animate-spin">progress_activity</span> Carregando…</div>' +
             '<div id="chat-empty" class="hidden flex-grow flex flex-col items-center justify-center text-center gap-md py-xl px-container-margin"><div class="w-20 h-20 rounded-full bg-surface-container-high flex items-center justify-center text-primary"><span class="material-symbols-outlined text-[40px]">forum</span></div><div class="space-y-xs max-w-xs"><h2 class="font-headline-sm text-headline-sm text-on-surface">Ainda não há mensagens</h2><p class="text-body-sm text-on-surface-variant">Seja o primeiro a enviar uma mensagem neste grupo.</p></div></div>' +
@@ -125,6 +125,7 @@
         var form = document.getElementById('chat-form');
         var input = document.getElementById('chat-input');
         function scrollBottom() { scrollEl.scrollTop = scrollEl.scrollHeight; }
+        function nearBottom() { return (scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight) < 160; }
 
         // perfil próprio (nome/avatar) já está em G.me
         // resolve tópico
@@ -238,16 +239,41 @@
           var lr = await sb.from('comu_messages').select('*').eq('topic_id', topic.id).neq('status', 'deleted').order('created_at', { ascending: true }).limit(200);
           if (self.destroyed) return;
           loadingEl.classList.add('hidden');
-          if (!lr.error && lr.data && lr.data.length) { lr.data.forEach(function (m) { addMessage(m, false); }); scrollBottom(); loadReactions(lr.data.map(function (m) { return m.id; })); }
+          if (!lr.error && lr.data && lr.data.length) {
+            lr.data.forEach(function (m) { addMessage(m, false); });
+            scrollBottom(); requestAnimationFrame(scrollBottom); setTimeout(function () { if (!self.destroyed) scrollBottom(); }, 250);
+            loadReactions(lr.data.map(function (m) { return m.id; }));
+          }
           else emptyEl.classList.remove('hidden');
-          self.channels.push(sb.channel('comu-' + topic.id)
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comu_messages', filter: 'topic_id=eq.' + topic.id }, function (p) { addMessage(p.new, true); })
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'comu_messages', filter: 'topic_id=eq.' + topic.id }, function (p) { updateMessage(p.new); })
-            .subscribe());
-          self.channels.push(sb.channel('comu-react-' + topic.id)
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comu_message_reactions' }, function (p) { applyReactionEvent('INSERT', p.new); })
-            .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'comu_message_reactions' }, function (p) { applyReactionEvent('DELETE', p.old); })
-            .subscribe());
+          if (isSupport) {
+            // Suporte (1:1): postgres_changes basta (sem fan-out)
+            self.channels.push(sb.channel('comu-' + topic.id)
+              .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comu_messages', filter: 'topic_id=eq.' + topic.id }, function (p) { addMessage(p.new, nearBottom()); })
+              .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'comu_messages', filter: 'topic_id=eq.' + topic.id }, function (p) { updateMessage(p.new); })
+              .subscribe());
+          } else {
+            // Grupo: BROADCAST (escala p/ centenas). Se o broadcast falhar,
+            // cai automaticamente em postgres_changes (o chat nunca quebra).
+            var pgFallbackOn = false;
+            var enablePgFallback = function () {
+              if (pgFallbackOn || self.destroyed) return; pgFallbackOn = true;
+              self.channels.push(sb.channel('comu-' + topic.id)
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comu_messages', filter: 'topic_id=eq.' + topic.id }, function (p) { addMessage(p.new, nearBottom()); })
+                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'comu_messages', filter: 'topic_id=eq.' + topic.id }, function (p) { updateMessage(p.new); })
+                .subscribe());
+              self.channels.push(sb.channel('comu-react-' + topic.id)
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comu_message_reactions' }, function (p) { applyReactionEvent('INSERT', p.new); })
+                .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'comu_message_reactions' }, function (p) { applyReactionEvent('DELETE', p.old); })
+                .subscribe());
+            };
+            try { var _sess = (await sb.auth.getSession()).data.session; if (_sess) await Promise.resolve(sb.realtime.setAuth(_sess.access_token)); } catch (e) {}
+            if (self.destroyed) return;
+            self.channels.push(sb.channel('topic:' + topic.id, { config: { private: true } })
+              .on('broadcast', { event: 'INSERT' }, function (m) { if (m && m.payload && m.payload.record) addMessage(m.payload.record, nearBottom()); })
+              .on('broadcast', { event: 'UPDATE' }, function (m) { if (m && m.payload && m.payload.record) updateMessage(m.payload.record); })
+              .on('broadcast', { event: 'reaction' }, function (m) { var p = m && m.payload; if (p && p.message_id) applyReactionEvent(p.op, { message_id: p.message_id, user_id: p.user_id, reaction: p.reaction }); })
+              .subscribe(function (status) { if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') enablePgFallback(); }));
+          }
           refreshTicketInfo();
           if (me.id) { sb.from('comu_topic_reads').upsert({ topic_id: topic.id, user_id: me.id, last_read_at: new Date().toISOString() }, { onConflict: 'topic_id,user_id' }).then(function () { G.applyUnread(); }, function () {}); }
         } else { loadingEl.classList.add('hidden'); emptyEl.classList.remove('hidden'); }
