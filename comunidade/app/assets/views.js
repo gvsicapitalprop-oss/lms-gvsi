@@ -303,12 +303,14 @@
           var canEdit = mine && (within || isAdmin) && m.kind !== 'audio';
           var canDelete = isAdmin || (mine && within);
           var canReply = !isSupport && !(topic && topic.post_policy === 'readonly' && !isAdmin);
-          if (canEdit || canDelete || canReply) {
+          var canBanU = !!(G.me && G.me.canBan) && !mine && !!m.author_id && !isSupport;
+          if (canEdit || canDelete || canReply || canBanU) {
             var actions = document.createElement('div');
             actions.className = 'flex items-center gap-md mt-xs ' + (mine ? 'mr-sm justify-end' : 'ml-sm');
             if (canReply) { var rb = document.createElement('button'); rb.type = 'button'; rb.className = 'text-body-sm text-on-surface-variant hover:text-primary flex items-center gap-1 py-1'; rb.innerHTML = '<span class="material-symbols-outlined text-[20px]">reply</span>Responder'; rb.addEventListener('click', function () { startReply(m); }); actions.appendChild(rb); }
             if (canEdit) { var eb = document.createElement('button'); eb.type = 'button'; eb.className = 'text-body-sm text-on-surface-variant hover:text-primary flex items-center gap-1 py-1'; eb.innerHTML = '<span class="material-symbols-outlined text-[20px]">edit</span>Editar'; eb.addEventListener('click', function () { startEdit(m); }); actions.appendChild(eb); }
             if (canDelete) { var db = document.createElement('button'); db.type = 'button'; db.className = 'text-body-sm text-on-surface-variant hover:text-error flex items-center gap-1 py-1'; db.innerHTML = '<span class="material-symbols-outlined text-[20px]">delete</span>Apagar'; db.addEventListener('click', function () { doDelete(m); }); actions.appendChild(db); }
+            if (canBanU) { var bnb = document.createElement('button'); bnb.type = 'button'; bnb.className = 'text-body-sm text-error/80 hover:text-error flex items-center gap-1 py-1'; bnb.innerHTML = '<span class="material-symbols-outlined text-[20px]">gavel</span>Banir'; bnb.addEventListener('click', function () { doBan(m); }); actions.appendChild(bnb); }
             container.appendChild(actions);
             if (mine && !isAdmin && within) setTimeout(function () { if (actions.parentNode) actions.remove(); }, 1800000 - ageMs);
           }
@@ -367,6 +369,15 @@
           if (del.error) { G.toast('Não foi possível apagar: ' + del.error.message); return; }
           if (choice === 'one') removeMessage(m.id); else removeAuthorMessages(m.author_id);
           G.toast(choice === 'one' ? 'Mensagem apagada' : 'Mensagens apagadas');
+        }
+        async function doBan(m) {
+          if (!m.author_id) return;
+          var ok = await G.confirmDialog({ title: 'Banir ' + (m.author_name || 'este membro') + '?', text: 'A pessoa verá a tela "VOCÊ FOI DEMITIDO" e não poderá mais participar da comunidade.', ok: 'Banir', danger: true });
+          if (!ok) return;
+          var r = await sb.rpc('comu_ban', { p_user_id: m.author_id });
+          if (r.error) { G.toast('Não foi possível banir: ' + r.error.message); return; }
+          removeAuthorMessages(m.author_id);
+          G.toast((m.author_name || 'Membro') + ' foi banido.');
         }
         function updateMessage(m) { var wrap = msgsEl.querySelector('[data-msg-id="' + m.id + '"]'); if (!wrap) return; renderMsgBody(wrap.querySelector('.msg-body'), m, me.id && m.author_id === me.id); if (m.status === 'deleted') { var rr = wrap.querySelector('.react-row'); if (rr) rr.innerHTML = ''; } }
 

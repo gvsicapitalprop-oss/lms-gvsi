@@ -90,6 +90,24 @@ GVSI.views = GVSI.views || {};
   };
   G.navigate = function (hash) { if (location.hash === hash) render(); else location.hash = hash; };
 
+  // Tela de "demissão" (banimento) — ocupa tudo, imagem passando no fundo
+  G.showBanned = function () {
+    if (document.getElementById('banned-screen')) return;
+    try { document.querySelectorAll('aside, #view, #confirm-modal, #toast').forEach(function (el) { el.style.display = 'none'; }); } catch (e) {}
+    var wrap = document.createElement('div'); wrap.id = 'banned-screen';
+    wrap.innerHTML =
+      '<style>' +
+      '#banned-screen{position:fixed;inset:0;z-index:99999;overflow:hidden;background:#000;display:flex;align-items:center;justify-content:center}' +
+      '#banned-screen .bbg{position:absolute;inset:-40%;background:url("assets/banido.png") repeat;background-size:300px auto;opacity:.5;filter:contrast(1.15) brightness(.9);animation:bslide 16s linear infinite}' +
+      '@keyframes bslide{from{background-position:0 0}to{background-position:-1400px -700px}}' +
+      '#banned-screen .btxt{position:relative;color:#ff1f1f;font-family:Inter,system-ui,sans-serif;font-weight:900;font-size:clamp(2.2rem,10vw,7rem);text-align:center;letter-spacing:.06em;line-height:1.05;text-shadow:0 0 26px rgba(255,0,0,.85),0 6px 10px #000;animation:bpulse 1.1s ease-in-out infinite;padding:0 16px;user-select:none}' +
+      '@keyframes bpulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.07);opacity:.8}}' +
+      '</style>' +
+      '<div class="bbg"></div><h1 class="btxt">VOCÊ FOI DEMITIDO</h1>';
+    document.body.appendChild(wrap);
+    try { document.title = 'VOCÊ FOI DEMITIDO'; } catch (e) {}
+  };
+
   // ---- Tema ----
   G.updateThemeIcons = function () {
     var dark = document.documentElement.classList.contains('dark');
@@ -240,6 +258,11 @@ GVSI.views = GVSI.views || {};
     if (!pr.data) {
       try { await G.sb.from('lms_students').upsert({ id: user.id, email: user.email, full_name: (user.user_metadata && user.user_metadata.full_name) || (user.email || '').split('@')[0] }, { onConflict: 'id', ignoreDuplicates: true }); } catch (e) {}
     }
+    // banimento: se estiver banido, mostra a tela de demissão e para por aqui
+    try { var _ban = await G.sb.from('comu_bans').select('user_id').eq('user_id', user.id).maybeSingle(); if (_ban.data) { G.showBanned(); return; } } catch (e) {}
+    // quem pode banir (allowlist) + "demissão" em tempo real
+    try { var _cb = await G.sb.from('comu_banners').select('user_id').eq('user_id', user.id).maybeSingle(); G.me.canBan = !!(_cb && _cb.data); } catch (e) { G.me.canBan = false; }
+    try { G.sb.channel('comu-ban-self').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comu_bans', filter: 'user_id=eq.' + user.id }, function () { G.showBanned(); }).subscribe(); } catch (e) {}
     initTheme();
     G.updateSidebarProfile();
     G.topics = await loadTopics();
