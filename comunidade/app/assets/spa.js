@@ -123,9 +123,27 @@ GVSI.views = GVSI.views || {};
       '<span class="unread-badge hidden min-w-[24px] h-6 px-1.5 rounded-full bg-primary text-on-primary text-[13px] font-bold flex items-center justify-center">0</span>' +
       '<span class="material-symbols-outlined text-outline">chevron_right</span></a>';
   }
+  var TOPIC_GROUPS = [
+    { title: 'Conversas', slugs: ['prints', 'geral', 'resultados'] },
+    { title: 'Publicações da GVSI', slugs: ['tutoriais', 'recados', 'desafio', 'arquivos'] },
+    { title: 'Ajuda', slugs: ['suporte'] }
+  ];
+  function groupHeaderHtml(title) {
+    return '<div class="topic-group-header px-md pt-md pb-xs text-label-md font-label-md text-on-surface-variant/80 uppercase tracking-wide">' + G.esc(title) + '</div>';
+  }
   G.renderTopicList = function (container, activeId) {
     if (!container) return;
-    container.innerHTML = G.topics.map(function (t) { return topicItemHtml(t, activeId); }).join('');
+    var byId = {}; G.topics.forEach(function (t) { byId[t.id] = t; });
+    var used = {}, html = '';
+    TOPIC_GROUPS.forEach(function (g) {
+      var items = g.slugs.map(function (s) { return byId[s]; }).filter(Boolean);
+      if (!items.length) return;
+      items.forEach(function (t) { used[t.id] = 1; });
+      html += groupHeaderHtml(g.title) + items.map(function (t) { return topicItemHtml(t, activeId); }).join('');
+    });
+    var rest = G.topics.filter(function (t) { return !used[t.id]; });
+    if (rest.length) html += (Object.keys(used).length ? groupHeaderHtml('Outros') : '') + rest.map(function (t) { return topicItemHtml(t, activeId); }).join('');
+    container.innerHTML = html;
   };
   G.applyUnread = async function () {
     if (!G.sb) return;
