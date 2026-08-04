@@ -227,6 +227,12 @@ GVSI.views = GVSI.views || {};
     G.topics = await loadTopics();
     G.renderTopicList(document.getElementById('side-topics'), '');
     G.applyUnread();
+    // badges de não-lidas em tempo real: qualquer mensagem nova re-checa (debounced)
+    try {
+      G.sb.channel('comu-unread-global')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comu_messages' }, function () { clearTimeout(G._unreadT); G._unreadT = setTimeout(function () { G.applyUnread(); }, 400); })
+        .subscribe();
+    } catch (e) {}
     if (!location.hash) { var _r; try { _r = localStorage.getItem('gvsi-route'); } catch (e) {} location.replace(_r && _r.charAt(0) === '#' ? _r : '#/'); }
     render();
   });
