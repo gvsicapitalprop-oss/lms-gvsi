@@ -122,6 +122,7 @@ html {
 body {
   font-family: 'Inter', sans-serif;
   min-height: 100dvh;
+  font-size: 18px; /* base legível p/ público 70+: texto sem classe de tamanho (ex.: balões de mensagem) herda 18px */
 }
 
 /* ---- Balão de mensagem enviada (reutilizado quando houver mensagens reais) ---- */

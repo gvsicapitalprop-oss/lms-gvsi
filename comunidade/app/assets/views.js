@@ -64,8 +64,6 @@
       if (S.recTimer) clearInterval(S.recTimer);
       if (S.recStream) { try { S.recStream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {} }
       if (S.onPickerDoc) document.removeEventListener('click', S.onPickerDoc);
-      if (S.onHoldMove) document.removeEventListener('pointermove', S.onHoldMove);
-      if (S.onHoldUp) { document.removeEventListener('pointerup', S.onHoldUp); document.removeEventListener('pointercancel', S.onHoldUp); }
       S = null;
     }
     return {
@@ -74,37 +72,43 @@
         var slug = params.topico;
         var me = G.me || {};
         var isAdmin = me.role === 'admin';
-        S = { destroyed: false, channels: [], picker: null, reactionsMap: {}, recTimer: null, recStream: null, mediaRecorder: null, recChunks: [], recMime: '', recSeconds: 0, recording: false, holdActive: false, willCancel: false, holdStartX: 0 };
+        S = { destroyed: false, channels: [], picker: null, reactionsMap: {}, recTimer: null, recStream: null, mediaRecorder: null, recChunks: [], recMime: '', recSeconds: 0, recording: false };
         var self = S;
 
         view.innerHTML =
           '<header class="fixed top-0 left-0 right-0 lg:left-[360px] z-40 bg-surface shadow-[0px_4px_20px_rgba(0,0,0,0.05)] flex items-center justify-between px-container-margin h-14">' +
             '<div class="flex items-center gap-md min-w-0">' +
               '<a class="lg:hidden text-primary flex items-center" href="#/" aria-label="Voltar"><span class="material-symbols-outlined">arrow_back</span></a>' +
-              '<div class="flex flex-col min-w-0"><h1 id="chat-title" class="font-headline-sm text-headline-sm font-bold text-primary leading-none truncate">GVSI Comunidade</h1><span id="chat-subtitle" class="text-[11px] text-on-surface-variant">Grupo da comunidade</span></div>' +
+              '<div class="flex flex-col min-w-0"><h1 id="chat-title" class="font-headline-sm text-headline-sm font-bold text-primary leading-none truncate">GVSI Comunidade</h1><span id="chat-subtitle" class="text-body-sm text-on-surface-variant">Grupo da comunidade</span></div>' +
             '</div>' +
             '<div class="flex items-center gap-xs">' +
               '<button type="button" data-theme-toggle class="lg:hidden text-primary flex items-center" aria-label="Tema"><span class="material-symbols-outlined" data-theme-icon>dark_mode</span></button>' +
               '<button class="text-primary" aria-label="Opções"><span class="material-symbols-outlined">more_vert</span></button>' +
             '</div>' +
           '</header>' +
-          '<main id="chat-scroll" class="lg:pl-[360px] min-h-screen pt-14 pb-36 lg:pb-28 flex flex-col overflow-y-auto custom-scrollbar">' +
+          '<main id="chat-scroll" class="lg:pl-[360px] min-h-screen pt-14 pb-52 lg:pb-40 flex flex-col overflow-y-auto custom-scrollbar">' +
             '<div id="chat-messages" class="hidden w-full max-w-3xl mx-auto flex flex-col gap-lg px-container-margin py-lg"></div>' +
             '<div id="chat-loading" class="flex-grow flex items-center justify-center text-on-surface-variant text-body-sm gap-sm"><span class="material-symbols-outlined animate-spin">progress_activity</span> Carregando…</div>' +
             '<div id="chat-empty" class="hidden flex-grow flex flex-col items-center justify-center text-center gap-md py-xl px-container-margin"><div class="w-20 h-20 rounded-full bg-surface-container-high flex items-center justify-center text-primary"><span class="material-symbols-outlined text-[40px]">forum</span></div><div class="space-y-xs max-w-xs"><h2 class="font-headline-sm text-headline-sm text-on-surface">Ainda não há mensagens</h2><p class="text-body-sm text-on-surface-variant">Seja o primeiro a enviar uma mensagem neste grupo.</p></div></div>' +
           '</main>' +
           '<div id="chat-composer" class="fixed bottom-16 lg:bottom-0 left-0 right-0 lg:left-[360px] px-container-margin pb-md lg:pb-lg z-40">' +
-            '<form id="chat-form" class="glass-input rounded-2xl p-sm flex items-center gap-sm shadow-xl border border-outline-variant/40 max-w-3xl mx-auto">' +
-              '<div id="composer-normal" class="flex items-center gap-sm flex-grow min-w-0">' +
-                '<a id="btn-attach" href="#/enviar/' + esc(slug) + '" class="w-10 h-10 rounded-xl hover:bg-surface-container-high transition-colors text-on-surface-variant flex items-center justify-center shrink-0" aria-label="Anexar"><span class="material-symbols-outlined">attach_file</span></a>' +
-                '<div class="flex-grow relative flex items-center min-w-0"><input id="chat-input" class="w-full bg-surface-container-low border-none rounded-xl px-md py-3 text-body-md focus:ring-2 focus:ring-primary/20 placeholder:text-outline text-on-surface pr-20" placeholder="Escreva uma mensagem..." type="text" autocomplete="off">' +
-                  '<div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-xs">' +
-                    '<a id="btn-camera" href="#/enviar/' + esc(slug) + '" class="w-8 h-8 inline-flex items-center justify-center rounded-full text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-colors" aria-label="Câmera"><span class="material-symbols-outlined text-[20px] leading-none">photo_camera</span></a>' +
-                    '<button type="button" id="btn-mic" style="touch-action:none" class="w-8 h-8 inline-flex items-center justify-center rounded-full text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-colors select-none" aria-label="Segure para gravar"><span class="material-symbols-outlined text-[20px] leading-none">mic</span></button>' +
-                  '</div></div>' +
+            '<form id="chat-form" class="glass-input rounded-2xl p-sm flex flex-col gap-sm shadow-xl border border-outline-variant/40 max-w-3xl mx-auto">' +
+              '<div id="composer-normal" class="flex flex-col gap-sm">' +
+                '<input id="chat-input" class="w-full bg-surface-container-low border border-outline-variant rounded-xl px-md py-3 text-body-md focus:ring-2 focus:ring-primary/20 placeholder:text-on-surface-variant text-on-surface" placeholder="Escreva uma mensagem..." type="text" autocomplete="off">' +
+                '<div class="flex flex-wrap items-center gap-sm">' +
+                  '<a id="btn-attach" href="#/enviar/' + esc(slug) + '" class="h-11 px-3 rounded-xl border border-outline-variant text-on-surface hover:bg-surface-container-high transition-colors flex items-center gap-xs shrink-0" aria-label="Anexar foto ou arquivo"><span class="material-symbols-outlined text-[24px]">attach_file</span><span class="text-body-sm font-label-md">Anexar</span></a>' +
+                  '<button type="button" id="btn-mic" class="h-11 px-3 rounded-xl border border-outline-variant text-on-surface hover:bg-surface-container-high transition-colors flex items-center gap-xs shrink-0" aria-label="Gravar áudio"><span class="material-symbols-outlined text-[24px]">mic</span><span class="text-body-sm font-label-md">Áudio</span></button>' +
+                  '<button type="submit" id="btn-send" class="h-11 px-5 ml-auto bg-primary text-on-primary rounded-xl flex items-center gap-xs shadow-lg active:scale-95 transition-all shrink-0" aria-label="Enviar mensagem"><span class="material-symbols-outlined fill text-[24px]">send</span><span class="text-body-md font-bold">Enviar</span></button>' +
+                '</div>' +
               '</div>' +
-              '<div id="rec-bar" class="hidden flex items-center gap-sm flex-grow px-md min-w-0"><span class="material-symbols-outlined text-error">mic</span><span class="w-2.5 h-2.5 rounded-full bg-error animate-pulse shrink-0"></span><span id="rec-time" class="text-body-md text-on-surface tabular-nums">0:00</span><span id="rec-hint" class="flex-grow text-body-sm text-on-surface-variant truncate text-right">‹ Arraste para cancelar</span></div>' +
-              '<button type="submit" id="btn-send" class="w-12 h-12 bg-primary text-on-primary rounded-xl flex items-center justify-center shadow-lg active:scale-90 transition-all shrink-0" aria-label="Enviar"><span class="material-symbols-outlined fill">send</span></button>' +
+              '<div id="rec-bar" class="hidden flex items-center gap-sm px-sm py-1">' +
+                '<span class="w-3 h-3 rounded-full bg-error animate-pulse shrink-0"></span>' +
+                '<span class="material-symbols-outlined text-error">mic</span>' +
+                '<span id="rec-time" class="text-body-lg text-on-surface tabular-nums">0:00</span>' +
+                '<span class="flex-grow"></span>' +
+                '<button type="button" id="rec-cancel" class="h-11 px-3 rounded-xl border border-outline-variant text-on-surface flex items-center gap-xs shrink-0" aria-label="Cancelar gravação"><span class="material-symbols-outlined text-[24px]">close</span><span class="text-body-sm">Cancelar</span></button>' +
+                '<button type="button" id="rec-send" class="h-11 px-4 bg-primary text-on-primary rounded-xl flex items-center gap-xs shadow shrink-0" aria-label="Enviar áudio"><span class="material-symbols-outlined fill text-[24px]">send</span><span class="text-body-sm font-bold">Enviar</span></button>' +
+              '</div>' +
             '</form>' +
           '</div>' +
           '<div id="chat-readonly" class="hidden fixed bottom-16 lg:bottom-0 left-0 right-0 lg:left-[360px] px-container-margin pb-md lg:pb-lg z-40"><div class="max-w-3xl mx-auto flex items-center justify-center gap-sm bg-surface-container-high text-on-surface-variant rounded-2xl p-md border border-outline-variant/40 text-body-sm"><span class="material-symbols-outlined text-[20px]">lock</span>Somente administradores podem publicar neste tópico.</div></div>' +
@@ -151,16 +155,16 @@
           container.innerHTML = '';
           if (m.status === 'deleted') { container.innerHTML = '<div class="rounded-xl p-md ' + (mine ? 'rounded-tr-none' : 'rounded-tl-none') + ' bg-surface-container-high text-on-surface-variant text-body-sm italic flex items-center gap-xs"><span class="material-symbols-outlined text-[16px]">block</span>mensagem apagada</div>'; return; }
           var when = timeStr(m.created_at);
-          var edited = m.status === 'edited' ? ' <span class="text-[10px] opacity-70">(editado)</span>' : '';
+          var edited = m.status === 'edited' ? ' <span class="text-[12px] opacity-80">(editado)</span>' : '';
           var content;
           if (m.kind === 'image' && m.media_url) content = '<img src="' + esc(m.media_url) + '" class="rounded-lg max-w-full mb-xs" alt="">' + (m.body ? '<p class="' + (mine ? '' : 'text-on-surface ') + 'font-body-md">' + esc(m.body) + edited + '</p>' : '');
           else if (m.kind === 'audio' && m.media_url) content = '<audio controls src="' + esc(m.media_url) + '" class="max-w-full"></audio>';
           else content = '<p class="' + (mine ? '' : 'text-on-surface ') + 'font-body-md whitespace-pre-wrap break-words">' + esc(m.body) + edited + '</p>';
           var inner;
-          if (mine) inner = '<div class="flex items-center gap-xs mr-sm mb-xs"><span class="text-[10px] text-outline">' + when + '</span><span class="font-label-md text-label-md text-primary">Você</span></div><div class="message-gradient-outgoing text-white shadow-lg rounded-xl rounded-tr-none p-md">' + content + '</div>';
+          if (mine) inner = '<div class="flex items-center gap-xs mr-sm mb-xs"><span class="text-[13px] text-on-surface-variant">' + when + '</span><span class="font-label-md text-label-md text-primary">Você</span></div><div class="message-gradient-outgoing text-white shadow-lg rounded-xl rounded-tr-none p-md">' + content + '</div>';
           else {
             var av = m.author_avatar ? '<img src="' + esc(m.author_avatar) + '" class="w-8 h-8 rounded-full object-cover shrink-0" alt="">' : '<span class="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center text-outline shrink-0"><span class="material-symbols-outlined text-[18px]">person</span></span>';
-            inner = '<div class="flex items-start gap-sm">' + av + '<div class="flex flex-col min-w-0"><div class="flex items-center gap-xs ml-sm mb-xs"><span class="font-label-md text-label-md text-on-surface-variant">' + esc(m.author_name || 'Membro') + '</span><span class="text-[10px] text-outline">' + when + '</span></div><div class="bg-surface-container-lowest shadow-[0px_4px_20px_rgba(0,0,0,0.05)] rounded-xl rounded-tl-none p-md border border-outline-variant/30">' + content + '</div></div></div>';
+            inner = '<div class="flex items-start gap-sm">' + av + '<div class="flex flex-col min-w-0"><div class="flex items-center gap-xs ml-sm mb-xs"><span class="font-label-md text-label-md text-on-surface-variant">' + esc(m.author_name || 'Membro') + '</span><span class="text-[13px] text-on-surface-variant">' + when + '</span></div><div class="bg-surface-container-lowest shadow-[0px_4px_20px_rgba(0,0,0,0.05)] rounded-xl rounded-tl-none p-md border border-outline-variant/30">' + content + '</div></div></div>';
           }
           container.innerHTML = inner;
           var ageMs = Date.now() - new Date(m.created_at).getTime();
@@ -170,8 +174,8 @@
           if (canEdit || canDelete) {
             var actions = document.createElement('div');
             actions.className = 'flex items-center gap-md mt-xs ' + (mine ? 'mr-sm justify-end' : 'ml-sm');
-            if (canEdit) { var eb = document.createElement('button'); eb.type = 'button'; eb.className = 'text-[11px] text-on-surface-variant hover:text-primary flex items-center gap-0.5'; eb.innerHTML = '<span class="material-symbols-outlined text-[14px]">edit</span>Editar'; eb.addEventListener('click', function () { startEdit(m); }); actions.appendChild(eb); }
-            if (canDelete) { var db = document.createElement('button'); db.type = 'button'; db.className = 'text-[11px] text-on-surface-variant hover:text-error flex items-center gap-0.5'; db.innerHTML = '<span class="material-symbols-outlined text-[14px]">delete</span>Apagar'; db.addEventListener('click', function () { doDelete(m); }); actions.appendChild(db); }
+            if (canEdit) { var eb = document.createElement('button'); eb.type = 'button'; eb.className = 'text-body-sm text-on-surface-variant hover:text-primary flex items-center gap-1 py-1'; eb.innerHTML = '<span class="material-symbols-outlined text-[20px]">edit</span>Editar'; eb.addEventListener('click', function () { startEdit(m); }); actions.appendChild(eb); }
+            if (canDelete) { var db = document.createElement('button'); db.type = 'button'; db.className = 'text-body-sm text-on-surface-variant hover:text-error flex items-center gap-1 py-1'; db.innerHTML = '<span class="material-symbols-outlined text-[20px]">delete</span>Apagar'; db.addEventListener('click', function () { doDelete(m); }); actions.appendChild(db); }
             container.appendChild(actions);
             if (mine && !isAdmin && within) setTimeout(function () { if (actions.parentNode) actions.remove(); }, 1800000 - ageMs);
           }
@@ -212,7 +216,7 @@
         var picker = document.createElement('div'); self.picker = picker;
         picker.className = 'hidden fixed z-[80] bg-surface-container-highest border border-outline-variant rounded-full shadow-lg px-2 py-1 flex items-center gap-1';
         var pickerTarget = null;
-        EMOJIS.forEach(function (em) { var b = document.createElement('button'); b.type = 'button'; b.className = 'text-[20px] hover:scale-125 transition-transform px-1'; b.textContent = em; b.addEventListener('click', function () { if (pickerTarget) toggleReaction(pickerTarget, em); hidePicker(); }); picker.appendChild(b); });
+        EMOJIS.forEach(function (em) { var b = document.createElement('button'); b.type = 'button'; b.className = 'text-[26px] hover:scale-125 transition-transform px-2 py-1'; b.textContent = em; b.addEventListener('click', function () { if (pickerTarget) toggleReaction(pickerTarget, em); hidePicker(); }); picker.appendChild(b); });
         document.body.appendChild(picker);
         function hidePicker() { picker.classList.add('hidden'); pickerTarget = null; }
         function openPicker(anchor, id) { pickerTarget = id; picker.classList.remove('hidden'); var r = anchor.getBoundingClientRect(); var pr = picker.getBoundingClientRect(); var top = r.top - pr.height - 6; if (top < 8) top = r.bottom + 6; var left = r.left; if (left + pr.width > window.innerWidth - 8) left = window.innerWidth - 8 - pr.width; picker.style.top = top + 'px'; picker.style.left = Math.max(8, left) + 'px'; }
@@ -222,8 +226,8 @@
         function renderReactions(id) {
           var row = msgsEl.querySelector('[data-react="' + id + '"]'); if (!row) return;
           var data = reactionsMap[id] || {}; row.innerHTML = '';
-          Object.keys(data).forEach(function (em) { var users = data[em]; if (!users || !users.length) return; var mineR = users.indexOf(me.id) !== -1; var chip = document.createElement('button'); chip.type = 'button'; chip.className = 'px-2 py-0.5 rounded-full text-[12px] flex items-center gap-1 border transition-colors ' + (mineR ? 'bg-primary/15 border-primary/40 text-primary' : 'bg-surface-container-high border-outline-variant/50 text-on-surface-variant'); chip.innerHTML = '<span>' + em + '</span><span class="font-bold">' + users.length + '</span>'; chip.addEventListener('click', function () { toggleReaction(id, em); }); row.appendChild(chip); });
-          var add = document.createElement('button'); add.type = 'button'; add.className = 'react-add w-6 h-6 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors'; add.innerHTML = '<span class="material-symbols-outlined text-[16px]">add_reaction</span>'; add.addEventListener('click', function (e) { e.stopPropagation(); openPicker(e.currentTarget, id); }); row.appendChild(add);
+          Object.keys(data).forEach(function (em) { var users = data[em]; if (!users || !users.length) return; var mineR = users.indexOf(me.id) !== -1; var chip = document.createElement('button'); chip.type = 'button'; chip.className = 'px-3 py-1 rounded-full text-body-sm flex items-center gap-1 border transition-colors ' + (mineR ? 'bg-primary/15 border-primary/40 text-primary' : 'bg-surface-container-high border-outline-variant/50 text-on-surface-variant'); chip.innerHTML = '<span>' + em + '</span><span class="font-bold">' + users.length + '</span>'; chip.addEventListener('click', function () { toggleReaction(id, em); }); row.appendChild(chip); });
+          var add = document.createElement('button'); add.type = 'button'; add.className = 'react-add w-11 h-11 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors'; add.innerHTML = '<span class="material-symbols-outlined text-[22px]">add_reaction</span>'; add.addEventListener('click', function (e) { e.stopPropagation(); openPicker(e.currentTarget, id); }); row.appendChild(add);
         }
         async function toggleReaction(id, em) { if (!me.id) return; var data = reactionsMap[id] || (reactionsMap[id] = {}); var users = data[em] || (data[em] = []); var have = users.indexOf(me.id) !== -1; if (have) data[em] = users.filter(function (u) { return u !== me.id; }); else users.push(me.id); renderReactions(id); if (have) await sb.from('comu_message_reactions').delete().eq('message_id', id).eq('user_id', me.id).eq('reaction', em); else await sb.from('comu_message_reactions').insert({ message_id: id, user_id: me.id, reaction: em }); }
         async function loadReactions(ids) { if (!ids || !ids.length) return; var r = await sb.from('comu_message_reactions').select('message_id,user_id,reaction').in('message_id', ids); if (self.destroyed) return; (r.data || []).forEach(function (x) { var d = reactionsMap[x.message_id] || (reactionsMap[x.message_id] = {}); var u = d[x.reaction] || (d[x.reaction] = []); if (u.indexOf(x.user_id) === -1) u.push(x.user_id); }); ids.forEach(renderReactions); }
@@ -248,10 +252,10 @@
           if (me.id) { sb.from('comu_topic_reads').upsert({ topic_id: topic.id, user_id: me.id, last_read_at: new Date().toISOString() }, { onConflict: 'topic_id,user_id' }).then(function () { G.applyUnread(); }, function () {}); }
         } else { loadingEl.classList.add('hidden'); emptyEl.classList.remove('hidden'); }
 
-        // ---- gravação de voz (segurar) ----
+        // ---- gravação de voz (toque para gravar / toque para enviar) ----
         function pickMime() { var c = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg']; for (var i = 0; i < c.length; i++) { if (window.MediaRecorder && MediaRecorder.isTypeSupported(c[i])) return c[i]; } return ''; }
         function updateRecTime() { var el = document.getElementById('rec-time'); if (el) { var m = Math.floor(self.recSeconds / 60), s = self.recSeconds % 60; el.textContent = m + ':' + (s < 10 ? '0' : '') + s; } }
-        function setRecUI(on) { self.recording = on; document.getElementById('rec-bar').classList.toggle('hidden', !on); document.getElementById('composer-normal').classList.toggle('hidden', on); var sbtn = document.getElementById('btn-send'); if (sbtn) sbtn.classList.toggle('hidden', on); }
+        function setRecUI(on) { self.recording = on; var rb = document.getElementById('rec-bar'), cn = document.getElementById('composer-normal'); if (rb) rb.classList.toggle('hidden', !on); if (cn) cn.classList.toggle('hidden', on); }
         function stopStream() { if (self.recStream) { self.recStream.getTracks().forEach(function (t) { t.stop(); }); self.recStream = null; } }
         async function startRecording() {
           if (self.recording) return;
@@ -283,12 +287,12 @@
           };
           try { self.mediaRecorder.stop(); } catch (e) { stopStream(); }
         }
-        function updateRecHint() { var hint = document.getElementById('rec-hint'); if (hint) hint.textContent = self.willCancel ? 'Solte para cancelar' : '‹ Arraste para cancelar'; var bar = document.getElementById('rec-bar'); if (bar) bar.classList.toggle('text-error', self.willCancel); }
-        self.onHoldMove = function (e) { if (!self.recording) return; var x = (typeof e.clientX === 'number') ? e.clientX : self.holdStartX; self.willCancel = (x - self.holdStartX) < -80; updateRecHint(); };
-        function cleanupHoldListeners() { document.removeEventListener('pointermove', self.onHoldMove); document.removeEventListener('pointerup', self.onHoldUp); document.removeEventListener('pointercancel', self.onHoldUp); }
-        self.onHoldUp = function () { self.holdActive = false; cleanupHoldListeners(); if (!self.recording) return; if (self.willCancel) { cancelRecording(); G.toast('Gravação cancelada'); } else finishRecording(); };
         var micBtn = document.getElementById('btn-mic');
-        if (micBtn) micBtn.addEventListener('pointerdown', async function (e) { if (self.recording) return; e.preventDefault(); self.holdActive = true; self.willCancel = false; self.holdStartX = e.clientX || 0; document.addEventListener('pointermove', self.onHoldMove); document.addEventListener('pointerup', self.onHoldUp); document.addEventListener('pointercancel', self.onHoldUp); await startRecording(); if (!self.recording) { cleanupHoldListeners(); return; } updateRecHint(); if (!self.holdActive) { cancelRecording(); cleanupHoldListeners(); } });
+        if (micBtn) micBtn.addEventListener('click', function () { if (!self.recording) startRecording(); });
+        var recCancelBtn = document.getElementById('rec-cancel');
+        if (recCancelBtn) recCancelBtn.addEventListener('click', function () { if (self.recording) { cancelRecording(); G.toast('Gravação cancelada'); } });
+        var recSendBtn = document.getElementById('rec-send');
+        if (recSendBtn) recSendBtn.addEventListener('click', function () { if (self.recording) finishRecording(); });
 
         // ---- envio de texto ----
         form.addEventListener('submit', async function (e) {
@@ -487,7 +491,7 @@
           r.data.forEach(function (tk) {
             var m = tk.member || {}; var el = document.createElement('button');
             el.className = 'w-full text-left flex items-center gap-md p-md hover:bg-surface-container-low transition-colors border-b border-outline-variant/30 ' + (self.currentTicket && self.currentTicket.id === tk.id ? 'bg-surface-container-high' : '');
-            el.innerHTML = '<span class="w-11 h-11 rounded-full bg-surface-container-high flex items-center justify-center text-outline overflow-hidden shrink-0">' + (m.avatar_url ? '<img src="' + esc(m.avatar_url) + '" class="w-full h-full object-cover">' : '<span class="material-symbols-outlined">person</span>') + '</span><span class="flex-1 min-w-0"><span class="flex items-center justify-between gap-xs"><span class="font-bold text-on-surface truncate">' + esc(m.full_name || 'Membro') + '</span><span class="text-[10px] text-outline shrink-0">' + timeShort(tk.last_message_at) + '</span></span><span class="flex items-center justify-between gap-xs mt-0.5"><span class="text-body-sm text-outline truncate">' + esc(tk.protocol) + '</span><span class="text-[10px] px-2 py-0.5 rounded-full ' + statusClass(tk.status) + '">' + statusLabel(tk.status) + '</span></span></span>';
+            el.innerHTML = '<span class="w-11 h-11 rounded-full bg-surface-container-high flex items-center justify-center text-outline overflow-hidden shrink-0">' + (m.avatar_url ? '<img src="' + esc(m.avatar_url) + '" class="w-full h-full object-cover">' : '<span class="material-symbols-outlined">person</span>') + '</span><span class="flex-1 min-w-0"><span class="flex items-center justify-between gap-xs"><span class="font-bold text-on-surface truncate">' + esc(m.full_name || 'Membro') + '</span><span class="text-[13px] text-on-surface-variant shrink-0">' + timeShort(tk.last_message_at) + '</span></span><span class="flex items-center justify-between gap-xs mt-0.5"><span class="text-body-sm text-outline truncate">' + esc(tk.protocol) + '</span><span class="text-[10px] px-2 py-0.5 rounded-full ' + statusClass(tk.status) + '">' + statusLabel(tk.status) + '</span></span></span>';
             el.addEventListener('click', function () { openTicket(tk); }); list.appendChild(el);
           });
         }

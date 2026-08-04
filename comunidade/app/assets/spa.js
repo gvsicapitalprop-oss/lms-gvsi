@@ -93,8 +93,8 @@ GVSI.views = GVSI.views || {};
     return '<a href="#/chat/' + t.id + '" data-slug="' + t.id + '" class="topic-item flex items-center gap-md p-md rounded-xl transition-colors cursor-pointer ' +
       (active ? 'bg-surface-container-high' : 'hover:bg-surface-container-low') + '">' +
       '<div class="w-12 h-12 rounded-full ' + tone.bg + ' flex items-center justify-center ' + tone.fg + ' shrink-0"><span class="material-symbols-outlined text-[24px]">' + t.icon + '</span></div>' +
-      '<div class="flex-1 min-w-0"><h3 class="font-bold text-on-surface truncate">' + G.esc(t.name) + '</h3><p class="text-body-sm text-outline truncate">' + G.esc(t.desc) + '</p></div>' +
-      '<span class="unread-badge hidden min-w-[20px] h-5 px-1.5 rounded-full bg-primary text-on-primary text-[11px] font-bold flex items-center justify-center">0</span>' +
+      '<div class="flex-1 min-w-0"><h3 class="font-bold text-on-surface truncate">' + G.esc(t.name) + '</h3><p class="text-body-sm text-on-surface-variant truncate">' + G.esc(t.desc) + '</p></div>' +
+      '<span class="unread-badge hidden min-w-[24px] h-6 px-1.5 rounded-full bg-primary text-on-primary text-[13px] font-bold flex items-center justify-center">0</span>' +
       '<span class="material-symbols-outlined text-outline">chevron_right</span></a>';
   }
   G.renderTopicList = function (container, activeId) {
