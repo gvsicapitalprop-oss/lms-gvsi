@@ -307,16 +307,15 @@
           var canDelete = isAdmin || (mine && within);
           var canReply = !isSupport && !(topic && topic.post_policy === 'readonly' && !isAdmin);
           var canBanU = !!(G.me && G.me.canBan) && !mine && !!m.author_id && !isSupport;
-          if (canEdit || canDelete || canReply || canBanU) {
-            var actions = document.createElement('div');
-            actions.className = 'flex items-center gap-md mt-xs ' + (mine ? 'mr-sm justify-end' : 'ml-sm');
-            if (canReply) { var rb = document.createElement('button'); rb.type = 'button'; rb.className = 'text-body-sm text-on-surface-variant hover:text-primary flex items-center gap-1 py-1'; rb.innerHTML = '<span class="material-symbols-outlined text-[20px]">reply</span>Responder'; rb.addEventListener('click', function () { startReply(m); }); actions.appendChild(rb); }
-            if (canEdit) { var eb = document.createElement('button'); eb.type = 'button'; eb.className = 'text-body-sm text-on-surface-variant hover:text-primary flex items-center gap-1 py-1'; eb.innerHTML = '<span class="material-symbols-outlined text-[20px]">edit</span>Editar'; eb.addEventListener('click', function () { startEdit(m); }); actions.appendChild(eb); }
-            if (canDelete) { var db = document.createElement('button'); db.type = 'button'; db.className = 'text-body-sm text-on-surface-variant hover:text-error flex items-center gap-1 py-1'; db.innerHTML = '<span class="material-symbols-outlined text-[20px]">delete</span>Apagar'; db.addEventListener('click', function () { doDelete(m); }); actions.appendChild(db); }
-            if (canBanU) { var bnb = document.createElement('button'); bnb.type = 'button'; bnb.className = 'text-body-sm text-error/80 hover:text-error flex items-center gap-1 py-1'; bnb.innerHTML = '<span class="material-symbols-outlined text-[20px]">gavel</span>Banir'; bnb.addEventListener('click', function () { doBan(m); }); actions.appendChild(bnb); }
-            container.appendChild(actions);
-            if (mine && !isAdmin && within) setTimeout(function () { if (actions.parentNode) actions.remove(); }, 1800000 - ageMs);
-          }
+          var actions = document.createElement('div');
+          actions.className = 'flex flex-wrap items-center gap-md mt-xs ' + (mine ? 'mr-sm justify-end' : 'ml-sm');
+          var ra = document.createElement('button'); ra.type = 'button'; ra.className = 'react-add text-body-sm text-on-surface-variant hover:text-primary flex items-center gap-1 py-1'; ra.innerHTML = '<span class="material-symbols-outlined text-[20px]">add_reaction</span>Reagir'; ra.addEventListener('click', function (e) { e.stopPropagation(); openPicker(ra, m.id); }); actions.appendChild(ra);
+          if (canReply) { var rb = document.createElement('button'); rb.type = 'button'; rb.className = 'text-body-sm text-on-surface-variant hover:text-primary flex items-center gap-1 py-1'; rb.innerHTML = '<span class="material-symbols-outlined text-[20px]">reply</span>Responder'; rb.addEventListener('click', function () { startReply(m); }); actions.appendChild(rb); }
+          if (canEdit) { var eb = document.createElement('button'); eb.type = 'button'; eb.className = 'text-body-sm text-on-surface-variant hover:text-primary flex items-center gap-1 py-1'; eb.innerHTML = '<span class="material-symbols-outlined text-[20px]">edit</span>Editar'; eb.addEventListener('click', function () { startEdit(m); }); actions.appendChild(eb); }
+          if (canDelete) { var db = document.createElement('button'); db.type = 'button'; db.className = 'text-body-sm text-on-surface-variant hover:text-error flex items-center gap-1 py-1'; db.innerHTML = '<span class="material-symbols-outlined text-[20px]">delete</span>Apagar'; db.addEventListener('click', function () { doDelete(m); }); actions.appendChild(db); }
+          if (canBanU) { var bnb = document.createElement('button'); bnb.type = 'button'; bnb.className = 'text-body-sm text-error/80 hover:text-error flex items-center gap-1 py-1'; bnb.innerHTML = '<span class="material-symbols-outlined text-[20px]">gavel</span>Banir'; bnb.addEventListener('click', function () { doBan(m); }); actions.appendChild(bnb); }
+          container.appendChild(actions);
+          if (mine && !isAdmin && within) setTimeout(function () { if (typeof eb !== 'undefined' && eb && eb.parentNode) eb.remove(); if (typeof db !== 'undefined' && db && db.parentNode) db.remove(); }, 1800000 - ageMs);
         }
         function bubble(m) {
           if (m.kind === 'system') {
@@ -421,14 +420,13 @@
           var ov = document.createElement('div'); ov.id = 'img-editor';
           ov.className = 'fixed inset-0 z-[100] bg-black/95 flex flex-col p-3 gap-3';
           ov.innerHTML =
-            '<div id="ie-stage" class="relative flex-1 min-h-0 flex items-center justify-center overflow-hidden">' +
+            '<style>#img-editor .cropper-view-box{outline:2px solid rgba(124,156,255,.95)}#img-editor .cropper-line{background-color:#6f8cff;opacity:.4}#img-editor .cropper-point{background-color:#7c9cff;opacity:1;width:13px;height:13px}</style>' +
+            '<div id="ie-stage" class="relative flex-1 min-h-0 flex items-center justify-center overflow-hidden" style="padding:14px 84px 14px 20px">' +
               '<img id="ie-img" class="max-w-full max-h-full block" alt="">' +
-              '<div style="position:absolute;right:10px;top:50%;transform:translateY(-50%);z-index:3;display:flex;flex-direction:column;align-items:center;gap:8px">' +
-                '<span class="material-symbols-outlined" style="color:#fff">zoom_in</span>' +
-                '<div style="height:220px;width:38px;display:flex;align-items:center;justify-content:center">' +
-                  '<input type="range" id="ie-zoom" min="50" max="300" value="100" step="1" style="width:220px;transform:rotate(-90deg);accent-color:#7c9cff;cursor:pointer" aria-label="Zoom">' +
-                '</div>' +
-                '<span class="material-symbols-outlined" style="color:#fff">zoom_out</span>' +
+              '<div style="position:absolute;right:12px;top:50%;transform:translateY(-50%);z-index:60;display:flex;flex-direction:column;align-items:center;gap:6px;background:rgba(0,0,0,.55);padding:10px 6px;border-radius:9999px">' +
+                '<button type="button" id="ie-zin" class="material-symbols-outlined" style="color:#fff;font-size:28px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:9999px;cursor:pointer" aria-label="Aproximar">add</button>' +
+                '<input type="range" id="ie-zoom" min="50" max="300" value="100" step="1" aria-label="Zoom" style="writing-mode:vertical-lr;direction:rtl;width:12px;height:170px;accent-color:#7c9cff;cursor:pointer">' +
+                '<button type="button" id="ie-zout" class="material-symbols-outlined" style="color:#fff;font-size:28px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:9999px;cursor:pointer" aria-label="Afastar">remove</button>' +
               '</div>' +
             '</div>' +
             '<div class="shrink-0 flex flex-wrap items-center justify-center gap-2">' +
@@ -441,15 +439,19 @@
           var imgEl = ov.querySelector('#ie-img'), cropper = null, baseRatio = 1;
           var zoomEl = ov.querySelector('#ie-zoom');
           function closeE() { try { if (cropper) cropper.destroy(); } catch (e) {} cropper = null; if (src.indexOf('blob:') === 0) { try { URL.revokeObjectURL(src); } catch (e) {} } ov.remove(); }
+          function applyZoom() { if (cropper) { try { cropper.zoomTo(baseRatio * (parseInt(zoomEl.value, 10) || 100) / 100); } catch (e) {} } }
           imgEl.onload = function () {
             try {
               cropper = new Cropper(imgEl, {
-                viewMode: 1, autoCropArea: 1, background: false, dragMode: 'crop', zoomOnWheel: false, // zoom pelo slider, não pelo scroll
+                viewMode: 1, autoCropArea: 0.9, background: false, dragMode: 'crop', zoomOnWheel: false, // zoom pelos botoes/slider, nao pelo scroll
                 ready: function () { var cd = cropper.getCanvasData(); baseRatio = (cd && cd.naturalWidth) ? (cd.width / cd.naturalWidth) : 1; if (zoomEl) zoomEl.value = 100; }
               });
             } catch (e) {}
           };
-          if (zoomEl) zoomEl.addEventListener('input', function () { if (cropper) { try { cropper.zoomTo(baseRatio * (parseInt(zoomEl.value, 10) || 100) / 100); } catch (e) {} } });
+          if (zoomEl) zoomEl.addEventListener('input', applyZoom);
+          var zin = ov.querySelector('#ie-zin'), zout = ov.querySelector('#ie-zout');
+          if (zin) zin.onclick = function () { zoomEl.value = Math.min(300, (parseInt(zoomEl.value, 10) || 100) + 15); applyZoom(); };
+          if (zout) zout.onclick = function () { zoomEl.value = Math.max(50, (parseInt(zoomEl.value, 10) || 100) - 15); applyZoom(); };
           imgEl.onerror = function () { G.toast('Não foi possível abrir a imagem.'); closeE(); };
           imgEl.src = src;
           ov.querySelector('#ie-cancel').onclick = closeE;
@@ -528,7 +530,6 @@
             chip.addEventListener('click', function (e) { if (lp) { lp = false; e.stopPropagation(); return; } toggleReaction(id, em); }); // toque longo = quem reagiu; toque = reagir
             row.appendChild(chip);
           });
-          var add = document.createElement('button'); add.type = 'button'; add.className = 'react-add w-11 h-11 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors'; add.innerHTML = '<span class="material-symbols-outlined text-[22px]">add_reaction</span>'; add.addEventListener('click', function (e) { e.stopPropagation(); openPicker(e.currentTarget, id); }); row.appendChild(add);
         }
         async function toggleReaction(id, em) {
           if (!me.id) return;
