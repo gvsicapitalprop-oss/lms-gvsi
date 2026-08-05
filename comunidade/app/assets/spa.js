@@ -149,13 +149,42 @@ GVSI.views = GVSI.views || {};
     }
     return window.GVSI_TOPICS || [];
   }
+  // ---- preview da última mensagem no menu (dinâmico) ----
+  G.lastMsgs = {};
+  function msgPreviewText(m) {
+    if (!m) return '';
+    if (m.kind === 'system') return (m.body || '').replace(/\s+/g, ' ').trim();
+    var who = m.author_name ? (String(m.author_name).trim().split(/\s+/)[0] + ': ') : '';
+    if (m.kind === 'image') return who + '📷 Foto';
+    if (m.kind === 'video') return who + '🎬 Vídeo';
+    if (m.kind === 'audio') return who + '🎤 Áudio';
+    return who + (m.body || '').replace(/\s+/g, ' ').trim();
+  }
+  function topicPreview(slug) { return msgPreviewText(G.lastMsgs[slug]); }
+  G.applyTopicPreviews = function () {
+    document.querySelectorAll('#side-topics .topic-item').forEach(function (item) {
+      var p = item.querySelector('.topic-preview'); if (!p) return;
+      var txt = topicPreview(item.dataset.slug);
+      p.textContent = txt || (p.dataset.desc || '');
+    });
+  };
+  G.loadLastMessages = async function () {
+    if (!G.sb) return;
+    try {
+      var r = await G.sb.rpc('comu_topic_last_messages');
+      if (r.error || !r.data) return;
+      var map = {}; r.data.forEach(function (x) { map[x.slug] = { body: x.body, kind: x.kind, author_name: x.author_name, created_at: x.created_at }; });
+      G.lastMsgs = map;
+      G.applyTopicPreviews();
+    } catch (e) {}
+  };
   function topicItemHtml(t, activeId) {
     var tone = TONES[t.tone] || TONES.primary;
     var active = t.id === activeId;
     return '<a href="#/chat/' + t.id + '" data-slug="' + t.id + '" class="topic-item flex items-center gap-md p-md rounded-xl transition-colors cursor-pointer ' +
       (active ? 'bg-surface-container-high' : 'hover:bg-surface-container-low') + '">' +
       '<div class="w-12 h-12 rounded-full ' + tone.bg + ' flex items-center justify-center ' + tone.fg + ' shrink-0"><span class="material-symbols-outlined text-[24px]">' + t.icon + '</span></div>' +
-      '<div class="flex-1 min-w-0"><h3 class="font-bold text-on-surface truncate">' + G.esc(t.name) + '</h3><p class="text-body-sm text-on-surface-variant truncate">' + G.esc(t.desc) + '</p></div>' +
+      '<div class="flex-1 min-w-0"><h3 class="font-bold text-on-surface truncate">' + G.esc(t.name) + '</h3><p class="topic-preview text-body-sm text-on-surface-variant truncate" data-desc="' + G.esc(t.desc) + '">' + G.esc(topicPreview(t.id) || t.desc) + '</p></div>' +
       '<span class="unread-badge hidden min-w-[24px] h-6 px-1.5 rounded-full bg-primary text-on-primary text-[13px] font-bold flex items-center justify-center">0</span>' +
       '<span class="material-symbols-outlined text-outline">chevron_right</span></a>';
   }
@@ -268,10 +297,11 @@ GVSI.views = GVSI.views || {};
     G.topics = await loadTopics();
     G.renderTopicList(document.getElementById('side-topics'), '');
     G.applyUnread();
-    // badges de não-lidas em tempo real: qualquer mensagem nova re-checa (debounced)
+    G.loadLastMessages();
+    // badges + preview da última mensagem em tempo real (debounced)
     try {
       G.sb.channel('comu-unread-global')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comu_messages' }, function () { clearTimeout(G._unreadT); G._unreadT = setTimeout(function () { G.applyUnread(); }, 400); })
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comu_messages' }, function () { clearTimeout(G._unreadT); G._unreadT = setTimeout(function () { G.applyUnread(); G.loadLastMessages(); }, 400); })
         .subscribe();
     } catch (e) {}
     if (!location.hash) { var _r; try { _r = localStorage.getItem('gvsi-route'); } catch (e) {} location.replace(_r && _r.charAt(0) === '#' ? _r : '#/'); }
