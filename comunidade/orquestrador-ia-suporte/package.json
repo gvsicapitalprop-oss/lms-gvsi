@@ -1,0 +1,10 @@
+{
+  "name": "comu-ai-suporte",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Orquestrador de IA (Bruno) no Suporte da Comunidade GVSI",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0"
+  }
+}

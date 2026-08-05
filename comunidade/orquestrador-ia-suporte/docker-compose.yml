@@ -1,0 +1,7 @@
+services:
+  comu-ai-suporte:
+    build: .
+    container_name: comu-ai-suporte
+    restart: unless-stopped
+    env_file: .env
+    # Worker puro (sem HTTP/porta/Traefik). Fala com Supabase (realtime) e n8n.
