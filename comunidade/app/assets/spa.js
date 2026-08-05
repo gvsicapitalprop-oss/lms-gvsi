@@ -155,10 +155,9 @@ GVSI.views = GVSI.views || {};
     if (!m) return '';
     if (m.kind === 'system') return G.esc((m.body || '').replace(/\s+/g, ' ').trim());
     var who = m.author_name ? G.esc(String(m.author_name).trim().split(/\s+/)[0]) + ': ' : '';
-    function ic(n, l) { return who + '<span class="material-symbols-outlined align-middle text-[15px] leading-none mr-0.5">' + n + '</span>' + l; }
-    if (m.kind === 'image') return ic('photo_camera', 'Foto');
-    if (m.kind === 'video') return ic('videocam', 'Vídeo');
-    if (m.kind === 'audio') return ic('mic', 'Áudio');
+    if (m.kind === 'image') return who + 'Foto';
+    if (m.kind === 'video') return who + 'Vídeo';
+    if (m.kind === 'audio') return who + 'Áudio';
     return who + G.esc((m.body || '').replace(/\s+/g, ' ').trim());
   }
   function topicPreview(slug) { return msgPreviewHtml(G.lastMsgs[slug]); }
