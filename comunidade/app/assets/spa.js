@@ -151,21 +151,22 @@ GVSI.views = GVSI.views || {};
   }
   // ---- preview da última mensagem no menu (dinâmico) ----
   G.lastMsgs = {};
-  function msgPreviewText(m) {
+  function msgPreviewHtml(m) {
     if (!m) return '';
-    if (m.kind === 'system') return (m.body || '').replace(/\s+/g, ' ').trim();
-    var who = m.author_name ? (String(m.author_name).trim().split(/\s+/)[0] + ': ') : '';
-    if (m.kind === 'image') return who + '📷 Foto';
-    if (m.kind === 'video') return who + '🎬 Vídeo';
-    if (m.kind === 'audio') return who + '🎤 Áudio';
-    return who + (m.body || '').replace(/\s+/g, ' ').trim();
+    if (m.kind === 'system') return G.esc((m.body || '').replace(/\s+/g, ' ').trim());
+    var who = m.author_name ? G.esc(String(m.author_name).trim().split(/\s+/)[0]) + ': ' : '';
+    function ic(n, l) { return who + '<span class="material-symbols-outlined align-middle text-[15px] leading-none mr-0.5">' + n + '</span>' + l; }
+    if (m.kind === 'image') return ic('photo_camera', 'Foto');
+    if (m.kind === 'video') return ic('videocam', 'Vídeo');
+    if (m.kind === 'audio') return ic('mic', 'Áudio');
+    return who + G.esc((m.body || '').replace(/\s+/g, ' ').trim());
   }
-  function topicPreview(slug) { return msgPreviewText(G.lastMsgs[slug]); }
+  function topicPreview(slug) { return msgPreviewHtml(G.lastMsgs[slug]); }
   G.applyTopicPreviews = function () {
     document.querySelectorAll('#side-topics .topic-item').forEach(function (item) {
       var p = item.querySelector('.topic-preview'); if (!p) return;
-      var txt = topicPreview(item.dataset.slug);
-      p.textContent = txt || (p.dataset.desc || '');
+      var html = topicPreview(item.dataset.slug);
+      if (html) p.innerHTML = html; else p.textContent = p.dataset.desc || '';
     });
   };
   G.loadLastMessages = async function () {
@@ -184,7 +185,7 @@ GVSI.views = GVSI.views || {};
     return '<a href="#/chat/' + t.id + '" data-slug="' + t.id + '" class="topic-item flex items-center gap-md p-md rounded-xl transition-colors cursor-pointer ' +
       (active ? 'bg-surface-container-high' : 'hover:bg-surface-container-low') + '">' +
       '<div class="w-12 h-12 rounded-full ' + tone.bg + ' flex items-center justify-center ' + tone.fg + ' shrink-0"><span class="material-symbols-outlined text-[24px]">' + t.icon + '</span></div>' +
-      '<div class="flex-1 min-w-0"><h3 class="font-bold text-on-surface truncate">' + G.esc(t.name) + '</h3><p class="topic-preview text-body-sm text-on-surface-variant truncate" data-desc="' + G.esc(t.desc) + '">' + G.esc(topicPreview(t.id) || t.desc) + '</p></div>' +
+      '<div class="flex-1 min-w-0"><h3 class="font-bold text-on-surface truncate">' + G.esc(t.name) + '</h3><p class="topic-preview text-body-sm text-on-surface-variant truncate" data-desc="' + G.esc(t.desc) + '">' + (topicPreview(t.id) || G.esc(t.desc)) + '</p></div>' +
       '<span class="unread-badge hidden min-w-[24px] h-6 px-1.5 rounded-full bg-primary text-on-primary text-[13px] font-bold flex items-center justify-center">0</span>' +
       '<span class="material-symbols-outlined text-outline">chevron_right</span></a>';
   }
