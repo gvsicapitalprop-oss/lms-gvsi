@@ -5,6 +5,6 @@
     { "source": "/app/:path*", "destination": "/:path*", "permanent": false }
   ],
   "rewrites": [
-    { "source": "/((?!assets|login).*)", "destination": "/index.html" }
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
