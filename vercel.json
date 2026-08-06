@@ -1,10 +1,10 @@
 {
-  "cleanUrls": true,
-  "redirects": [
-    { "source": "/app", "destination": "/", "permanent": false },
-    { "source": "/app/:path*", "destination": "/:path*", "permanent": false }
-  ],
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+  "routes": [
+    { "src": "/index.html", "status": 308, "headers": { "Location": "/" } },
+    { "src": "/app/(.*)", "status": 308, "headers": { "Location": "/$1" } },
+    { "src": "/app", "status": 308, "headers": { "Location": "/" } },
+    { "handle": "filesystem" },
+    { "src": "/login", "dest": "/login.html" },
+    { "src": "/.*", "dest": "/index.html" }
   ]
 }
