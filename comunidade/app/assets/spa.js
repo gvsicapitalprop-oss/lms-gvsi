@@ -52,7 +52,7 @@ GVSI.views = GVSI.views || {};
     if (G._pingAt && now - G._pingAt < 300) return;        // no máx ~3 toques/seg
     G._pingAt = now;
     try {
-      if (!G._ping) { G._ping = new Audio('assets/ping.mp3?v=3'); G._ping.preload = 'auto'; G._ping.volume = 0.6; }
+      if (!G._ping) { G._ping = new Audio('assets/ping.mp3?v=4'); G._ping.preload = 'auto'; G._ping.volume = 0.6; }
       G._ping.currentTime = 0;
       var pr = G._ping.play();
       if (pr && pr.catch) pr.catch(function () {});          // autoplay bloqueado: ignora
