@@ -1,34 +1,49 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Comunidade GVSI
 
-## Getting Started
+App da **comunidade** (chat/grupos/suporte) da GVSI para traders. Compartilha o **mesmo projeto Supabase** do LMS (tabelas com prefixo `comu_`), mas por enquanto é um **app estático (HTML + Tailwind via CDN)** separado do LMS Next.js.
 
-First, run the development server:
+> **Coexistência:** este diretório `comunidade/` vive lado a lado com o LMS (Next.js na raiz do repo) **sem se misturar**. O deploy é diferenciado no Vercel (um projeto aponta para a raiz = LMS; outro aponta para `comunidade/app` = comunidade). A fusão dos dois virá depois.
+
+## Rodar local
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cd comunidade/app
+python -m http.server 8777
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abra <http://127.0.0.1:8777/login.html>. Precisa de internet (Tailwind e fontes via CDN).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Estrutura
 
-## Learn More
+```
+comunidade/
+  app/                     App estático (a raiz do deploy da comunidade)
+    login.html             Entrar / criar conta (Supabase Auth)
+    index.html             Grupos (home)
+    chat.html              Chat de um tópico (?topico=<slug>) — realtime, mídia, reações, editar/apagar
+    enviar-midia.html      Upload de foto/áudio
+    perfil.html            Perfil do membro (dados reais + edição)
+    suporte.html           Console de atendimento (tickets) — só admin
+    assets/                tailwind-config.js, app.css, topics.js, shell.js, supabase.js, auth.js
+    README.md              Detalhes técnicos do app
+  supabase/migrations/     Migrations das tabelas comu_* (0001..0007)
+  serene_support/DESIGN.md Design system
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Supabase
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- Projeto: `mwnyuursbrlfxfssvkyu` (o mesmo do LMS). Identidade de membro reutiliza `lms_students` (= `auth.uid()`).
+- As migrations em `comunidade/supabase/migrations/` criam as tabelas `comu_*` e **dependem** do schema do LMS (usam `lms_students` e a função `lms_is_admin()`), então aplicam **depois** do core do LMS.
+- No front (`app/assets/supabase.js`) fica apenas a **publishable key** (pública). A `service_role` **nunca** entra aqui.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Deploy (Vercel)
 
-## Deploy on Vercel
+Projeto estático apontando para **`comunidade/app`** (framework: *Other*, sem build). Entry: `login.html`/`index.html`.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Antes de produção
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Reativar a confirmação de e-mail no Supabase (`mailer_autoconfirm` foi desativado para desenvolvimento).
+- Allowlistar a URL real (Auth → Redirect URLs) para magic link / redirect.
+- Trocar Tailwind/fontes do CDN por build local.
+
+Detalhes de cada tela e do backend estão em [`app/README.md`](app/README.md).
