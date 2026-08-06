@@ -298,12 +298,13 @@ GVSI.views = GVSI.views || {};
     G.renderTopicList(document.getElementById('side-topics'), '');
     G.applyUnread();
     G.loadLastMessages();
-    // badges + preview da última mensagem em tempo real (debounced)
-    try {
-      G.sb.channel('comu-unread-global')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comu_messages' }, function () { clearTimeout(G._unreadT); G._unreadT = setTimeout(function () { G.applyUnread(); G.loadLastMessages(); }, 400); })
-        .subscribe();
-    } catch (e) {}
+    // Badges/preview da sidebar: por POLL leve (15s) + ao voltar o foco — NÃO
+    // por postgres_changes global, que não escala (1 msg = 1 leitura RLS por
+    // usuário conectado). As mensagens do tópico ABERTO já chegam via Broadcast.
+    function refreshSidebar() { if (document.hidden) return; G.applyUnread(); G.loadLastMessages(); }
+    if (G._sidebarPoll) clearInterval(G._sidebarPoll);
+    G._sidebarPoll = setInterval(refreshSidebar, 15000);
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) refreshSidebar(); });
     if (!location.hash) { var _r; try { _r = localStorage.getItem('gvsi-route'); } catch (e) {} location.replace(_r && _r.charAt(0) === '#' ? _r : '#/'); }
     render();
   });
