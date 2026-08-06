@@ -37,13 +37,13 @@
   async function signOut() {
     try { await client().auth.signOut(); } catch (e) {}
     try { sessionStorage.removeItem("gvsi-profile-ensured"); } catch (e) {}
-    location.replace("login.html");
+    location.replace("/login");
   }
 
   // Garante sessão; senão manda p/ login. Roda ensureProfile 1x por sessão.
   async function requireAuth() {
     const session = await getSession();
-    if (!session) { location.replace("login.html"); return null; }
+    if (!session) { location.replace("/login"); return null; }
     try {
       if (!sessionStorage.getItem("gvsi-profile-ensured")) {
         await ensureProfile();

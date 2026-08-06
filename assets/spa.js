@@ -31,7 +31,7 @@ GVSI.views = GVSI.views || {};
     var slugs = {}; (G.topics || []).forEach(function (t) { if (t && t.id) slugs[String(t.id).toLowerCase()] = true; });
     out = out.replace(/(^|\s)#([A-Za-z0-9][A-Za-z0-9_-]*)/g, function (full, pre, slug) {
       var key = slug.toLowerCase();
-      return slugs[key] ? pre + '<a href="#/chat/' + key + '" class="text-primary font-medium hover:underline">#' + slug + '</a>' : full;
+      return slugs[key] ? pre + '<a href="/chat/' + key + '" class="text-primary font-medium hover:underline">#' + slug + '</a>' : full;
     });
     out = out.replace(/(^|\s)@([A-Za-zÀ-ÿ0-9][A-Za-zÀ-ÿ0-9_.]*)/g, '$1<span class="text-primary font-medium">@$2</span>');
     return out;
@@ -100,7 +100,7 @@ GVSI.views = GVSI.views || {};
       overlay.onclick = function (e) { if (e.target === overlay) close(null); };
     });
   };
-  G.navigate = function (hash) { if (location.hash === hash) render(); else location.hash = hash; };
+  G.navigate = function (path) { if (location.pathname === path) { render(); } else { history.pushState(null, '', path); render(); } };
 
   // Tela de "demissão" (banimento) — ocupa tudo, imagem passando no fundo
   G.showBanned = function () {
@@ -138,7 +138,7 @@ GVSI.views = GVSI.views || {};
         return;
       }
       var so = e.target.closest && e.target.closest('[data-signout]');
-      if (so) { e.preventDefault(); (async function () { try { await G.sb.auth.signOut(); } catch (er) {} location.replace('login.html'); })(); }
+      if (so) { e.preventDefault(); (async function () { try { await G.sb.auth.signOut(); } catch (er) {} location.replace('/login'); })(); }
     });
     G.updateThemeIcons();
   }
@@ -193,7 +193,7 @@ GVSI.views = GVSI.views || {};
   function topicItemHtml(t, activeId) {
     var tone = TONES[t.tone] || TONES.primary;
     var active = t.id === activeId;
-    return '<a href="#/chat/' + t.id + '" data-slug="' + t.id + '" class="topic-item flex items-center gap-md p-md rounded-xl transition-colors cursor-pointer ' +
+    return '<a href="/chat/' + t.id + '" data-slug="' + t.id + '" class="topic-item flex items-center gap-md p-md rounded-xl transition-colors cursor-pointer ' +
       (active ? 'bg-surface-container-high' : 'hover:bg-surface-container-low') + '">' +
       '<div class="w-12 h-12 rounded-full ' + tone.bg + ' flex items-center justify-center ' + tone.fg + ' shrink-0"><span class="material-symbols-outlined text-[24px]">' + t.icon + '</span></div>' +
       '<div class="flex-1 min-w-0"><h3 class="font-bold text-on-surface truncate">' + G.esc(t.name) + '</h3><p class="topic-preview text-body-sm text-on-surface-variant truncate" data-desc="' + G.esc(t.desc) + '">' + (topicPreview(t.id) || G.esc(t.desc)) + '</p></div>' +
@@ -261,7 +261,7 @@ GVSI.views = GVSI.views || {};
 
   // ---- Roteador ----
   function parseRoute() {
-    var h = (location.hash || '').replace(/^#/, '');
+    var h = location.pathname || '/';
     if (!h || h === '/') return { name: 'grupos', params: {} };
     var seg = h.replace(/^\//, '').split('/');
     if (seg[0] === 'chat') return { name: 'chat', params: { topico: decodeURIComponent(seg[1] || '') } };
@@ -274,7 +274,7 @@ GVSI.views = GVSI.views || {};
   var current = null;
   async function render() {
     var route = parseRoute();
-    try { if (location.hash) localStorage.setItem('gvsi-route', location.hash); } catch (e) {}
+    try { var _p = location.pathname; if (_p && _p !== '/') localStorage.setItem('gvsi-route', _p); } catch (e) {}
     var view = G.views[route.name] || G.views.grupos;
     if (current && current.destroy) { try { current.destroy(); } catch (e) {} }
     var el = document.getElementById('view');
@@ -285,13 +285,23 @@ GVSI.views = GVSI.views || {};
     G.updateThemeIcons();
   }
   G.render = render;
-  window.addEventListener('hashchange', render);
+  window.addEventListener('popstate', render);
+  // Intercepta cliques em links internos (rota por caminho, sem recarregar a página).
+  document.addEventListener('click', function (e) {
+    var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+    if (!a) return;
+    if (a.target === '_blank' || a.hasAttribute('download') || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    var href = a.getAttribute('href');
+    if (!href) return;
+    if (href.charAt(0) === '#') { e.preventDefault(); return; }               // âncora (ex.: #conquistas) — no-op
+    if (href.charAt(0) === '/' && href.charAt(1) !== '/') { e.preventDefault(); G.navigate(href); }  // rota interna
+  });
 
   // ---- Init (guarda de auth + carrega perfil + shell) ----
   document.addEventListener('DOMContentLoaded', async function () {
-    if (!G.sb) { location.replace('login.html'); return; }
+    if (!G.sb) { location.replace('/login'); return; }
     var session = (await G.sb.auth.getSession()).data.session;
-    if (!session) { location.replace('login.html'); return; }
+    if (!session) { location.replace('/login'); return; }
     var user = (await G.sb.auth.getUser()).data.user;
     // perfil próprio + garante registro em lms_students
     var pr = await G.sb.from('lms_students').select('id,full_name,email,bio,phone,avatar_url,role').eq('id', user.id).maybeSingle();
@@ -317,7 +327,7 @@ GVSI.views = GVSI.views || {};
     if (G._sidebarPoll) clearInterval(G._sidebarPoll);
     G._sidebarPoll = setInterval(refreshSidebar, 15000);
     document.addEventListener('visibilitychange', function () { if (!document.hidden) refreshSidebar(); });
-    if (!location.hash) { var _r; try { _r = localStorage.getItem('gvsi-route'); } catch (e) {} location.replace(_r && _r.charAt(0) === '#' ? _r : '#/'); }
+    if (location.pathname === '/') { var _r; try { _r = localStorage.getItem('gvsi-route'); } catch (e) {} if (_r && _r.charAt(0) === '/' && _r !== '/') history.replaceState(null, '', _r); }
     render();
   });
 })();

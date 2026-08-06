@@ -3,5 +3,8 @@
   "redirects": [
     { "source": "/app", "destination": "/", "permanent": false },
     { "source": "/app/:path*", "destination": "/:path*", "permanent": false }
+  ],
+  "rewrites": [
+    { "source": "/((?!assets/|login|.*\.).*)", "destination": "/index.html" }
   ]
 }

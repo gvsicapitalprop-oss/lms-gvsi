@@ -16,7 +16,7 @@
       view.innerHTML =
         '<header class="lg:hidden fixed top-0 left-0 right-0 z-50 bg-surface shadow-[0px_4px_20px_rgba(0,0,0,0.05)] h-14 flex items-center justify-between px-container-margin">' +
           '<span class="w-9"></span>' +
-          '<div class="flex items-center"><img src="assets/logo-colorida.png" alt="GVSI" class="h-10 w-auto dark:hidden"><img src="assets/logo-branca.png" alt="GVSI" class="h-10 w-auto hidden dark:block"></div>' +
+          '<div class="flex items-center"><img src="assets/logo-colorida.png" alt="GVSI" class="h-10 w-auto dark:hidden"><img src="assets/logo-dark.svg" alt="GVSI" class="h-10 w-auto hidden dark:block"></div>' +
           '<button type="button" data-theme-toggle class="text-primary flex items-center" aria-label="Tema"><span class="material-symbols-outlined" data-theme-icon>dark_mode</span></button>' +
         '</header>' +
         '<div class="lg:pl-[360px] min-h-screen">' +
@@ -33,8 +33,8 @@
           '</div>' +
         '</div>' +
         '<nav class="lg:hidden fixed bottom-0 left-0 right-0 z-50 rounded-t-xl bg-surface shadow-[0px_-4px_20px_rgba(0,0,0,0.05)] flex justify-around items-center h-16 px-2">' +
-          '<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-full px-4 py-1" href="#/"><span class="material-symbols-outlined fill">groups</span><span class="font-label-md text-label-md">Grupos</span></a>' +
-          '<a class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1" href="#/perfil"><span class="material-symbols-outlined">person</span><span class="font-label-md text-label-md">Meu Perfil</span></a>' +
+          '<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-full px-4 py-1" href="/"><span class="material-symbols-outlined fill">groups</span><span class="font-label-md text-label-md">Grupos</span></a>' +
+          '<a class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1" href="/perfil"><span class="material-symbols-outlined">person</span><span class="font-label-md text-label-md">Meu Perfil</span></a>' +
         '</nav>';
       G.renderTopicList(document.getElementById('topic-list'), '');
       G.applyUnread();
@@ -83,7 +83,7 @@
         view.innerHTML =
           '<header class="fixed top-0 left-0 right-0 lg:left-[360px] z-40 bg-surface shadow-[0px_4px_20px_rgba(0,0,0,0.05)] flex items-center justify-between px-container-margin h-16 lg:h-[89px]">' +
             '<div class="flex items-center gap-md min-w-0">' +
-              '<a class="lg:hidden text-primary flex items-center" href="#/" aria-label="Voltar"><span class="material-symbols-outlined">arrow_back</span></a>' +
+              '<a class="lg:hidden text-primary flex items-center" href="/" aria-label="Voltar"><span class="material-symbols-outlined">arrow_back</span></a>' +
               '<div class="flex flex-col min-w-0 justify-center"><h1 id="chat-title" class="font-headline-sm text-headline-sm font-bold text-primary leading-tight truncate">GVSI Comunidade</h1><span id="chat-subtitle" class="text-body-sm text-on-surface-variant leading-tight">Grupo da comunidade</span></div>' +
             '</div>' +
             '<div class="flex items-center gap-xs">' +
@@ -109,7 +109,7 @@
                   '<button type="button" id="btn-emoji" class="h-11 px-3 rounded-lg hover:bg-surface-container-high flex items-center justify-center text-on-surface-variant" aria-label="Emoji" title="Emoji"><span class="material-symbols-outlined text-[24px]">mood</span></button>' +
                 '</div>' +
                 '<div class="flex flex-wrap items-center gap-sm">' +
-                  '<a id="btn-attach" href="#/enviar/' + esc(slug) + '" class="h-11 px-3 rounded-xl border border-outline-variant text-on-surface hover:bg-surface-container-high transition-colors flex items-center gap-xs shrink-0" aria-label="Anexar foto ou arquivo"><span class="material-symbols-outlined text-[24px]">attach_file</span><span class="text-body-sm font-label-md">Anexar</span></a>' +
+                  '<a id="btn-attach" href="/enviar/' + esc(slug) + '" class="h-11 px-3 rounded-xl border border-outline-variant text-on-surface hover:bg-surface-container-high transition-colors flex items-center gap-xs shrink-0" aria-label="Anexar foto ou arquivo"><span class="material-symbols-outlined text-[24px]">attach_file</span><span class="text-body-sm font-label-md">Anexar</span></a>' +
                   '<button type="button" id="btn-mic" class="h-11 px-3 rounded-xl border border-outline-variant text-on-surface hover:bg-surface-container-high transition-colors flex items-center gap-xs shrink-0" aria-label="Gravar áudio"><span class="material-symbols-outlined text-[24px]">mic</span><span class="text-body-sm font-label-md">Áudio</span></button>' +
                   '<button type="submit" id="btn-send" class="h-11 px-5 ml-auto bg-primary text-on-primary rounded-xl flex items-center gap-xs shadow-lg active:scale-95 transition-all shrink-0" aria-label="Enviar mensagem"><span class="material-symbols-outlined fill text-[24px]">send</span><span class="text-body-md font-bold">Enviar</span></button>' +
                 '</div>' +
@@ -126,8 +126,8 @@
           '</div>' +
           '<div id="chat-readonly" class="hidden fixed bottom-16 lg:bottom-0 left-0 right-0 lg:left-[360px] px-container-margin pb-md lg:pb-lg z-40"><div class="max-w-3xl mx-auto flex items-center justify-center gap-sm bg-surface-container-high text-on-surface-variant rounded-2xl p-md border border-outline-variant/40 text-body-sm"><span class="material-symbols-outlined text-[20px]">lock</span>Somente administradores podem publicar neste tópico.</div></div>' +
           '<nav class="lg:hidden fixed bottom-0 left-0 right-0 z-50 rounded-t-xl bg-surface shadow-[0px_-4px_20px_rgba(0,0,0,0.05)] flex justify-around items-center h-16 px-2">' +
-            '<a class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1" href="#/"><span class="material-symbols-outlined">groups</span><span class="font-label-md text-label-md">Grupos</span></a>' +
-            '<a class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1" href="#/perfil"><span class="material-symbols-outlined">person</span><span class="font-label-md text-label-md">Meu Perfil</span></a>' +
+            '<a class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1" href="/"><span class="material-symbols-outlined">groups</span><span class="font-label-md text-label-md">Grupos</span></a>' +
+            '<a class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1" href="/perfil"><span class="material-symbols-outlined">person</span><span class="font-label-md text-label-md">Meu Perfil</span></a>' +
           '</nav>';
 
         var titleEl = document.getElementById('chat-title');
@@ -153,7 +153,7 @@
           document.getElementById('chat-subtitle').textContent = 'Somente leitura';
         }
         var isSupport = topic && topic.post_policy === 'support';
-        if (isSupport && isAdmin) { G.navigate('#/suporte'); return; }
+        if (isSupport && isAdmin) { G.navigate('/suporte'); return; }
         async function refreshTicketInfo() {
           if (!isSupport) return;
           var t2 = await sb.from('comu_support_tickets').select('id,protocol,status,rating,solved').eq('user_id', me.id).order('created_at', { ascending: false }).limit(1).maybeSingle();
@@ -691,7 +691,7 @@
   GVSI.views.enviar = {
     destroy: function () {},
     render: async function (view, params) {
-      var slug = params.topico; var me = G.me || {}; var back = '#/chat/' + encodeURIComponent(slug || '');
+      var slug = params.topico; var me = G.me || {}; var back = '/chat/' + encodeURIComponent(slug || '');
       view.innerHTML =
         '<header class="fixed top-0 left-0 right-0 lg:left-[360px] z-40 bg-surface shadow-[0px_4px_20px_rgba(0,0,0,0.05)] flex items-center justify-between px-container-margin h-14">' +
           '<a class="text-primary flex items-center" href="' + back + '" aria-label="Fechar"><span class="material-symbols-outlined">close</span></a>' +
@@ -752,7 +752,7 @@
     render: async function (view) {
       var me = G.me || {};
       view.innerHTML =
-        '<header class="lg:hidden fixed top-0 left-0 right-0 z-50 bg-surface shadow-[0px_4px_20px_rgba(0,0,0,0.05)] h-14 flex items-center justify-between px-container-margin"><a href="#/" class="text-primary flex items-center" aria-label="Voltar"><span class="material-symbols-outlined">arrow_back</span></a><h1 class="font-headline-sm text-headline-sm font-bold text-primary">Meu Perfil</h1><button type="button" data-theme-toggle class="text-primary flex items-center" aria-label="Tema"><span class="material-symbols-outlined" data-theme-icon>dark_mode</span></button></header>' +
+        '<header class="lg:hidden fixed top-0 left-0 right-0 z-50 bg-surface shadow-[0px_4px_20px_rgba(0,0,0,0.05)] h-14 flex items-center justify-between px-container-margin"><a href="/" class="text-primary flex items-center" aria-label="Voltar"><span class="material-symbols-outlined">arrow_back</span></a><h1 class="font-headline-sm text-headline-sm font-bold text-primary">Meu Perfil</h1><button type="button" data-theme-toggle class="text-primary flex items-center" aria-label="Tema"><span class="material-symbols-outlined" data-theme-icon>dark_mode</span></button></header>' +
         '<div class="lg:pl-[360px] min-h-screen"><div class="pt-14 lg:pt-lg pb-20 lg:pb-8 px-container-margin max-w-3xl mx-auto space-y-lg">' +
           '<h1 class="hidden lg:block font-headline-md text-headline-md text-on-surface pt-sm">Meu Perfil</h1>' +
           '<section class="grid grid-cols-1 md:grid-cols-3 gap-md">' +
@@ -763,9 +763,9 @@
             '<div class="bg-surface-container-high rounded-xl p-lg shadow-sm border border-outline-variant/20 flex flex-col justify-center items-center text-center space-y-md"><div class="grid grid-cols-2 gap-md w-full"><div class="flex flex-col items-center"><span id="pf-msgcount" class="font-headline-sm text-headline-sm text-primary">0</span><span class="font-label-md text-label-md text-on-surface-variant">Mensagens</span></div><div class="flex flex-col items-center"><span class="font-headline-sm text-headline-sm text-secondary">0</span><span class="font-label-md text-label-md text-on-surface-variant">Conquistas</span></div></div><a href="#conquistas" class="w-full h-12 bg-primary text-on-primary rounded-xl font-label-md text-label-md hover:bg-primary/90 active:scale-[0.98] transition-all flex items-center justify-center">Ver conquistas</a></div>' +
           '</section>' +
           '<section class="space-y-md"><h3 class="font-headline-sm text-headline-sm text-on-surface">Recursos</h3><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-md">' +
-            '<a href="#/chat/suporte" class="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-xl flex flex-col gap-md min-h-[12rem] hover:shadow-md active:scale-[0.98] transition-all"><div class="bg-primary/10 text-primary p-2 rounded-lg w-fit"><span class="material-symbols-outlined">support_agent</span></div><div><h4 class="font-headline-sm text-headline-sm text-on-surface">Suporte GVSI</h4><p class="font-body-sm text-body-sm text-on-surface-variant">Fale com a equipe de suporte.</p></div></a>' +
+            '<a href="/chat/suporte" class="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-xl flex flex-col gap-md min-h-[12rem] hover:shadow-md active:scale-[0.98] transition-all"><div class="bg-primary/10 text-primary p-2 rounded-lg w-fit"><span class="material-symbols-outlined">support_agent</span></div><div><h4 class="font-headline-sm text-headline-sm text-on-surface">Suporte GVSI</h4><p class="font-body-sm text-body-sm text-on-surface-variant">Fale com a equipe de suporte.</p></div></a>' +
             '<button type="button" data-soon class="text-left bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-xl flex flex-col gap-md min-h-[12rem] hover:shadow-md active:scale-[0.98] transition-all"><div class="bg-primary/10 text-primary p-2 rounded-lg w-fit"><span class="material-symbols-outlined">library_books</span></div><div><h4 class="font-headline-sm text-headline-sm text-on-surface">Guia do Trader</h4><p class="font-body-sm text-body-sm text-on-surface-variant">Gerenciamento de risco e consistência.</p></div></button>' +
-            '<a href="#/" class="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-xl flex flex-col gap-md min-h-[12rem] hover:shadow-md active:scale-[0.98] transition-all"><div class="bg-secondary-container/30 text-on-secondary-container p-2 rounded-lg w-fit"><span class="material-symbols-outlined">forum</span></div><div><h4 class="font-headline-sm text-headline-sm text-on-surface">Fórum de Trades</h4><p class="font-body-sm text-body-sm text-on-surface-variant">Volte para os grupos da comunidade.</p></div></a>' +
+            '<a href="/" class="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-xl flex flex-col gap-md min-h-[12rem] hover:shadow-md active:scale-[0.98] transition-all"><div class="bg-secondary-container/30 text-on-secondary-container p-2 rounded-lg w-fit"><span class="material-symbols-outlined">forum</span></div><div><h4 class="font-headline-sm text-headline-sm text-on-surface">Fórum de Trades</h4><p class="font-body-sm text-body-sm text-on-surface-variant">Volte para os grupos da comunidade.</p></div></a>' +
             '<a href="https://giovannipaganini.com/" target="_blank" rel="noopener noreferrer" class="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-xl flex flex-col gap-md min-h-[12rem] hover:shadow-md active:scale-[0.98] transition-all"><div class="flex items-start justify-between"><div class="bg-primary/10 text-primary p-2 rounded-lg w-fit"><span class="material-symbols-outlined">card_membership</span></div><span class="material-symbols-outlined text-[18px] text-on-surface-variant/60">open_in_new</span></div><div><h4 class="font-headline-sm text-headline-sm text-on-surface">Área de membros</h4><p class="font-body-sm text-body-sm text-on-surface-variant">Sua área exclusiva de membro.</p></div></a>' +
             '<a href="https://www.diariodetrade.com/" target="_blank" rel="noopener noreferrer" class="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-xl flex flex-col gap-md min-h-[12rem] hover:shadow-md active:scale-[0.98] transition-all"><div class="flex items-start justify-between"><div class="bg-tertiary/10 text-tertiary p-2 rounded-lg w-fit"><span class="material-symbols-outlined">edit_note</span></div><span class="material-symbols-outlined text-[18px] text-on-surface-variant/60">open_in_new</span></div><div><h4 class="font-headline-sm text-headline-sm text-on-surface">Diário de trading</h4><p class="font-body-sm text-body-sm text-on-surface-variant">Registre e analise suas operações.</p></div></a>' +
             '<a href="https://www.gvsicapital.com/" target="_blank" rel="noopener noreferrer" class="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-xl flex flex-col gap-md min-h-[12rem] hover:shadow-md active:scale-[0.98] transition-all"><div class="flex items-start justify-between"><div class="bg-secondary-container/30 text-on-secondary-container p-2 rounded-lg w-fit"><span class="material-symbols-outlined">account_balance</span></div><span class="material-symbols-outlined text-[18px] text-on-surface-variant/60">open_in_new</span></div><div><h4 class="font-headline-sm text-headline-sm text-on-surface">Mesa proprietária</h4><p class="font-body-sm text-body-sm text-on-surface-variant">Opere com o capital da mesa.</p></div></a>' +
@@ -778,7 +778,7 @@
             '<button type="button" data-signout class="w-full flex items-center justify-between p-lg hover:bg-error/10 transition-colors text-left"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-error">logout</span><span class="font-body-md text-body-md text-error">Sair da conta</span></div></button>' +
           '</div></section>' +
         '</div></div>' +
-        '<nav class="lg:hidden fixed bottom-0 left-0 right-0 z-50 rounded-t-xl bg-surface shadow-[0px_-4px_20px_rgba(0,0,0,0.05)] h-16 flex justify-around items-center px-2"><a class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1" href="#/"><span class="material-symbols-outlined">groups</span><span class="font-label-md text-label-md">Grupos</span></a><a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-full px-4 py-1" href="#/perfil"><span class="material-symbols-outlined fill">person</span><span class="font-label-md text-label-md">Meu Perfil</span></a></nav>' +
+        '<nav class="lg:hidden fixed bottom-0 left-0 right-0 z-50 rounded-t-xl bg-surface shadow-[0px_-4px_20px_rgba(0,0,0,0.05)] h-16 flex justify-around items-center px-2"><a class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1" href="/"><span class="material-symbols-outlined">groups</span><span class="font-label-md text-label-md">Grupos</span></a><a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-full px-4 py-1" href="/perfil"><span class="material-symbols-outlined fill">person</span><span class="font-label-md text-label-md">Meu Perfil</span></a></nav>' +
         '<div id="edit-modal" class="hidden fixed inset-0 z-[60] items-center justify-center p-container-margin bg-black/40"><div class="w-full max-w-md bg-surface-container-lowest rounded-2xl shadow-xl border border-outline-variant/40 p-lg space-y-md max-h-[90vh] overflow-y-auto custom-scrollbar"><div class="flex items-center justify-between"><h3 class="font-headline-sm text-headline-sm text-on-surface">Editar perfil</h3><button type="button" data-edit-close class="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high" aria-label="Fechar"><span class="material-symbols-outlined">close</span></button></div>' +
           '<form id="edit-form" class="space-y-md"><div class="flex items-center gap-md"><span class="w-16 h-16 rounded-full bg-surface-container-high flex items-center justify-center text-outline overflow-hidden shrink-0"><span id="ef-avatar-icon" class="material-symbols-outlined text-[32px]">person</span><img id="ef-avatar-preview" class="hidden w-16 h-16 object-cover" alt=""></span><button type="button" id="ef-avatar-btn" class="text-primary text-label-md font-label-md flex items-center gap-xs"><span class="material-symbols-outlined text-[18px]">photo_camera</span> Alterar foto</button><input id="ef-avatar-input" type="file" accept="image/*" class="hidden"></div>' +
           '<div><label for="ef-name" class="block text-label-md font-label-md text-on-surface-variant mb-xs">Nome</label><input id="ef-name" type="text" class="w-full bg-surface-container-low border border-outline-variant rounded-xl py-3 px-4 focus:ring-2 focus:ring-primary text-body-md text-on-surface" placeholder="Seu nome"></div>' +
@@ -844,7 +844,7 @@
       destroy: cleanup,
       render: async function (view) {
         var me = G.me || {};
-        if (me.role !== 'admin') { G.navigate('#/'); return; }
+        if (me.role !== 'admin') { G.navigate('/'); return; }
         S = { destroyed: false, channels: [], currentTicket: null, filter: 'todos', seen: Object.create(null), convoChannel: null, tags: [], contactTags: {} };
         var self = S;
         view.innerHTML =
@@ -957,7 +957,7 @@
           loadTickets();
         }
         // "Voltar" do topo: se tem conversa aberta, volta pra lista; senão sai pra home
-        document.getElementById('suporte-back').addEventListener('click', function () { if (self.currentTicket) closeConvo(); else G.navigate('#/'); });
+        document.getElementById('suporte-back').addEventListener('click', function () { if (self.currentTicket) closeConvo(); else G.navigate('/'); });
         document.getElementById('convo-back').addEventListener('click', closeConvo);
         document.getElementById('convo-form').addEventListener('submit', async function (e) {
           e.preventDefault(); var body = document.getElementById('convo-input').value.trim(); if (!body || !self.currentTicket) return; document.getElementById('convo-input').value = '';
