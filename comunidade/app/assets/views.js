@@ -102,7 +102,7 @@
                   '<div class="flex-1 min-w-0"><p id="reply-author" class="text-label-md font-label-md text-primary truncate"></p><p id="reply-snippet" class="text-body-sm text-on-surface-variant truncate"></p></div>' +
                   '<button type="button" id="reply-cancel" class="w-9 h-9 shrink-0 rounded-full hover:bg-surface-container-highest flex items-center justify-center text-on-surface-variant" aria-label="Cancelar resposta"><span class="material-symbols-outlined text-[20px]">close</span></button>' +
                 '</div>' +
-                '<input id="chat-input" class="w-full bg-surface-container-low border border-outline-variant rounded-xl px-md py-3 text-body-md focus:ring-2 focus:ring-primary/20 placeholder:text-on-surface-variant text-on-surface" placeholder="Escreva uma mensagem..." type="text" autocomplete="off">' +
+                '<input id="chat-input" maxlength="65536" class="w-full bg-surface-container-low border border-outline-variant rounded-xl px-md py-3 text-body-md focus:ring-2 focus:ring-primary/20 placeholder:text-on-surface-variant text-on-surface" placeholder="Escreva uma mensagem..." type="text" autocomplete="off">' +
                 '<div class="flex items-center gap-xs -my-xs">' +
                   '<button type="button" id="fmt-bold" class="h-11 px-3 rounded-lg hover:bg-surface-container-high flex items-center justify-center text-on-surface-variant" aria-label="Negrito" title="Negrito (**texto**)"><span class="material-symbols-outlined text-[22px]">format_bold</span></button>' +
                   '<button type="button" id="fmt-italic" class="h-11 px-3 rounded-lg hover:bg-surface-container-high flex items-center justify-center text-on-surface-variant" aria-label="Itálico" title="Itálico (*texto*)"><span class="material-symbols-outlined text-[22px]">format_italic</span></button>' +
@@ -332,7 +332,7 @@
           return wrap;
         }
         function markRead() { if (!me.id || !topic) return; clearTimeout(self.readT); self.readT = setTimeout(function () { if (self.destroyed) return; sb.from('comu_topic_reads').upsert({ topic_id: topic.id, user_id: me.id, last_read_at: new Date().toISOString() }, { onConflict: 'topic_id,user_id' }).then(function () { G.applyUnread(); }, function () {}); }, 600); }
-        function addMessage(m, scroll) { if (!m || seen[m.id]) return; seen[m.id] = true; msgsEl.appendChild(bubble(m)); renderReactions(m.id); emptyEl.classList.add('hidden'); msgsEl.classList.remove('hidden'); if (scroll) scrollBottom(); markRead(); }
+        function addMessage(m, scroll, live) { if (!m || seen[m.id]) return; seen[m.id] = true; msgsEl.appendChild(bubble(m)); renderReactions(m.id); emptyEl.classList.add('hidden'); msgsEl.classList.remove('hidden'); if (scroll) scrollBottom(); markRead(); if (live && me.id && m.author_id !== me.id) G.playPing(); }
         function startEdit(m) {
           var wrap = msgsEl.querySelector('[data-msg-id="' + m.id + '"]'); if (!wrap) return;
           var body = wrap.querySelector('.msg-body'); var isMine = me.id && m.author_id === me.id; body.innerHTML = '';
@@ -584,7 +584,7 @@
           if (isSupport) {
             // Suporte (1:1): postgres_changes basta (sem fan-out)
             self.channels.push(sb.channel('comu-' + topic.id)
-              .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comu_messages', filter: 'topic_id=eq.' + topic.id }, function (p) { addMessage(p.new, nearBottom()); if (p.new && p.new.kind === 'system') refreshTicketInfo(); })
+              .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comu_messages', filter: 'topic_id=eq.' + topic.id }, function (p) { addMessage(p.new, nearBottom(), true); if (p.new && p.new.kind === 'system') refreshTicketInfo(); })
               .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'comu_messages', filter: 'topic_id=eq.' + topic.id }, function (p) { updateMessage(p.new); })
               .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'comu_messages' }, function (p) { if (p.old && p.old.id) removeMessage(p.old.id); })
               .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comu_message_reactions' }, function (p) { applyReactionEvent('INSERT', p.new); })
@@ -597,7 +597,7 @@
             var enablePgFallback = function () {
               if (pgFallbackOn || self.destroyed) return; pgFallbackOn = true;
               self.channels.push(sb.channel('comu-' + topic.id)
-                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comu_messages', filter: 'topic_id=eq.' + topic.id }, function (p) { addMessage(p.new, nearBottom()); })
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comu_messages', filter: 'topic_id=eq.' + topic.id }, function (p) { addMessage(p.new, nearBottom(), true); })
                 .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'comu_messages', filter: 'topic_id=eq.' + topic.id }, function (p) { updateMessage(p.new); })
                 .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'comu_messages' }, function (p) { if (p.old && p.old.id) removeMessage(p.old.id); })
                 .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comu_message_reactions' }, function (p) { applyReactionEvent('INSERT', p.new); })
@@ -607,7 +607,7 @@
             try { var _sess = (await sb.auth.getSession()).data.session; if (_sess) await Promise.resolve(sb.realtime.setAuth(_sess.access_token)); } catch (e) {}
             if (self.destroyed) return;
             self.channels.push(sb.channel('topic:' + topic.id, { config: { private: true } })
-              .on('broadcast', { event: 'INSERT' }, function (m) { if (m && m.payload && m.payload.record) addMessage(m.payload.record, nearBottom()); })
+              .on('broadcast', { event: 'INSERT' }, function (m) { if (m && m.payload && m.payload.record) addMessage(m.payload.record, nearBottom(), true); })
               .on('broadcast', { event: 'UPDATE' }, function (m) { if (m && m.payload && m.payload.record) updateMessage(m.payload.record); })
               .on('broadcast', { event: 'DELETE' }, function (m) { var r = m && m.payload && (m.payload.old_record || m.payload.record); if (r && r.id) removeMessage(r.id); })
               .on('broadcast', { event: 'reaction' }, function (m) { var p = m && m.payload; if (p && p.message_id) applyReactionEvent(p.op === 'DELETE' ? 'DELETE' : 'INSERT', { message_id: p.message_id, user_id: p.user_id, reaction: p.reaction, user_name: p.user_name }); })
@@ -669,7 +669,15 @@
           var ins;
           if (isSupport) ins = await sb.rpc('comu_send_support_message', { p_body: body, p_kind: 'text', p_author_name: me.full_name || 'Membro' });
           else ins = await sb.from('comu_messages').insert(Object.assign({ topic_id: topic.id, author_id: me.id, kind: 'text', body: body, author_name: me.full_name || 'Membro', author_avatar: me.avatar_url || null }, rs ? { reply_to: rs.id, reply_author: rs.author, reply_snippet: rs.snippet } : {})).select().single();
-          if (ins.error) { console.error(ins.error); input.value = body; return; }
+          if (ins.error) {
+            console.error(ins.error); input.value = body;             // não perde o texto digitado
+            var em = ins.error.message || '';
+            if (/rápido demais|rate/i.test(em)) G.toast('Você está enviando rápido demais. Espere alguns segundos.');
+            else if (/Storage|embutida/i.test(em)) G.toast('Mídia deve ir como arquivo, não embutida.');
+            else if (/banido|banned/i.test(em)) G.toast('Você não pode enviar mensagens aqui.');
+            else G.toast('Não foi possível enviar. Tente de novo.');
+            return;
+          }
           clearReply();
           if (!self.destroyed) addMessage(ins.data, true); if (isSupport) refreshTicketInfo();
         });
