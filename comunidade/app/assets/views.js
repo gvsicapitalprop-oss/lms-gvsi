@@ -145,7 +145,7 @@
         var topic = null;
         if (slug) { var tr = await sb.from('comu_topics').select('id,name,slug,post_policy').eq('slug', slug).maybeSingle(); topic = tr.data; }
         if (self.destroyed) return;
-        if (topic) { titleEl.textContent = topic.name; document.title = 'GVSI Comunidade · ' + topic.name; }
+        if (topic) { titleEl.textContent = topic.name; document.title = 'GVSI Comunidade | ' + topic.name; }
 
         if (topic && topic.post_policy === 'readonly' && !isAdmin) {
           document.getElementById('chat-composer').classList.add('hidden');
@@ -794,7 +794,7 @@
         document.getElementById('pf-avatar').innerHTML = avatarHtml();
         var badge = document.getElementById('pf-role');
         if (me.role === 'admin' || me.role === 'suporte') { badge.textContent = me.role === 'admin' ? 'Administrador' : 'Suporte'; badge.classList.remove('hidden'); } else badge.classList.add('hidden');
-        G.updateSidebarProfile(); document.title = 'GVSI Comunidade · ' + (me.full_name || 'Meu Perfil');
+        G.updateSidebarProfile(); document.title = 'GVSI Comunidade | ' + (me.full_name || 'Meu Perfil');
       }
       fillUI();
       sb.from('comu_messages').select('id', { count: 'exact', head: true }).eq('author_id', me.id).then(function (r) { var el = document.getElementById('pf-msgcount'); if (el) el.textContent = r.count || 0; });
