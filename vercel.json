@@ -1,4 +1,5 @@
 {
+  "cleanUrls": true,
   "redirects": [
     { "source": "/app", "destination": "/", "permanent": false },
     { "source": "/app/:path*", "destination": "/:path*", "permanent": false }

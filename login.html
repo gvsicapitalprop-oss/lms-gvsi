@@ -82,7 +82,7 @@ Entrar com link mágico
 
   // Já logado? vai direto pro app.
   if (sb) {
-    sb.auth.getSession().then(function (r) { if (r.data.session) location.replace('index.html'); });
+    sb.auth.getSession().then(function (r) { if (r.data.session) location.replace('/'); });
   } else {
     showMsg('Falha ao conectar no servidor. Recarregue a página.', false);
   }
@@ -98,7 +98,7 @@ Entrar com link mágico
       var r = await sb.auth.signInWithPassword({ email: email, password: password });
       if (r.error) throw r.error;
       await window.GVSIAuth.ensureProfile();
-      location.replace('index.html');
+      location.replace('/');
     } catch (err) {
       showMsg(err && err.message ? err.message : 'Não foi possível entrar. Verifique seus dados.', false);
     } finally {
@@ -113,7 +113,7 @@ Entrar com link mágico
     if (!email) { showMsg('Digite seu e-mail para receber o link.', false); return; }
     showMsg('Enviando...', true);
     try {
-      var redirect = location.origin + location.pathname.replace(/login\.html$/, 'index.html');
+      var redirect = location.origin + '/';
       var r = await sb.auth.signInWithOtp({ email: email, options: { emailRedirectTo: redirect, shouldCreateUser: false } });
       if (r.error) throw r.error;
       showMsg('Link enviado! Confira seu e-mail.', true);
