@@ -58,24 +58,6 @@ GVSI.views = GVSI.views || {};
       if (pr && pr.catch) pr.catch(function () {});          // autoplay bloqueado: ignora
     } catch (e) {}
   };
-  // Destrava o áudio no 1º gesto do usuário (política de autoplay dos navegadores).
-  // Prime MUDO: assim não solta bip no clique de enviar — só habilita tocar depois.
-  (function () {
-    var EVTS = ['pointerdown', 'keydown', 'click', 'touchstart'];
-    function unlock() {
-      if (G._audioReady) return;
-      try {
-        if (!G._ping) { G._ping = new Audio('assets/ping.mp3'); G._ping.preload = 'auto'; G._ping.volume = 0.6; }
-        var a = G._ping; a.muted = true;
-        var fin = function () { try { a.pause(); a.currentTime = 0; } catch (e) {} a.muted = false; G._audioReady = true;
-          EVTS.forEach(function (ev) { window.removeEventListener(ev, unlock); }); };
-        var pr = a.play();
-        if (pr && pr.then) pr.then(fin).catch(function () { a.muted = false; });
-        else fin();
-      } catch (e) {}
-    }
-    EVTS.forEach(function (ev) { window.addEventListener(ev, unlock, { passive: true }); });
-  })();
   G.confirmDialog = function (opts) {
     return new Promise(function (resolve) {
       opts = opts || {};
