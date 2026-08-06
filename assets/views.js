@@ -16,7 +16,7 @@
       view.innerHTML =
         '<header class="lg:hidden fixed top-0 left-0 right-0 z-50 bg-surface shadow-[0px_4px_20px_rgba(0,0,0,0.05)] h-14 flex items-center justify-between px-container-margin">' +
           '<span class="w-9"></span>' +
-          '<div class="flex items-center"><img src="assets/logo-colorida.png" alt="GVSI" class="h-10 w-auto dark:hidden"><img src="assets/logo-dark.svg" alt="GVSI" class="h-10 w-auto hidden dark:block"></div>' +
+          '<div class="flex items-center"><img src="assets/logo-light.svg" alt="GVSI" class="h-10 w-auto dark:hidden"><img src="assets/logo-dark.svg" alt="GVSI" class="h-10 w-auto hidden dark:block"></div>' +
           '<button type="button" data-theme-toggle class="text-primary flex items-center" aria-label="Tema"><span class="material-symbols-outlined" data-theme-icon>dark_mode</span></button>' +
         '</header>' +
         '<div class="lg:pl-[360px] min-h-screen">' +
