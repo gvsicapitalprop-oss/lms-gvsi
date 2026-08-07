@@ -100,26 +100,48 @@ GVSI.views = GVSI.views || {};
     return new Promise(function (resolve) {
       opts = opts || {};
       var overlay = document.createElement('div');
-      overlay.className = 'fixed inset-0 z-[95] flex items-end sm:items-center justify-center p-container-margin bg-black/40';
+      overlay.className = 'gvsi-sheet-overlay fixed inset-0 z-[95] flex items-end sm:items-center justify-center p-0 sm:p-container-margin bg-black/50';
       var sheet = document.createElement('div');
-      sheet.className = 'w-full max-w-sm bg-surface-container-lowest rounded-2xl shadow-xl border border-outline-variant/40 p-lg space-y-xs';
-      var head = '<h3 class="font-headline-sm text-headline-sm text-on-surface">' + G.esc(opts.title || 'Escolha uma opção') + '</h3>';
-      if (opts.text) head += '<p class="text-body-sm text-on-surface-variant pb-xs">' + G.esc(opts.text) + '</p>';
+      sheet.className = 'gvsi-sheet w-full max-w-md bg-surface-container-lowest rounded-t-3xl sm:rounded-3xl shadow-2xl border border-outline-variant/40 p-lg space-y-md max-h-[90vh] overflow-y-auto custom-scrollbar';
+      // cabeçalho com ícone (círculo vermelho se for ação perigosa)
+      var iconWrap = '';
+      if (opts.icon) {
+        var hc = opts.danger ? 'bg-error/10 text-error' : 'bg-primary/10 text-primary';
+        iconWrap = '<span class="w-12 h-12 rounded-full ' + hc + ' flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-[26px]">' + opts.icon + '</span></span>';
+      }
+      var head = '<div class="flex items-start gap-md">' + iconWrap +
+        '<div class="min-w-0"><h3 class="font-headline-sm text-headline-sm text-on-surface">' + G.esc(opts.title || 'Escolha uma opção') + '</h3>' +
+        (opts.text ? '<p class="text-body-sm text-on-surface-variant mt-1">' + G.esc(opts.text) + '</p>' : '') + '</div></div>';
       sheet.innerHTML = head;
-      function close(v) { overlay.remove(); resolve(v); }
+      var list = document.createElement('div'); list.className = 'space-y-sm';
+      var closing = false;
+      function close(v) {
+        if (closing) return; closing = true;
+        document.removeEventListener('keydown', onKey);
+        overlay.classList.add('gvsi-sheet-closing');
+        setTimeout(function () { overlay.remove(); }, 130);
+        resolve(v);
+      }
       (opts.options || []).forEach(function (o) {
         var b = document.createElement('button'); b.type = 'button';
-        b.className = 'w-full text-left min-h-12 py-2 px-3 rounded-xl font-label-md text-label-md flex items-center gap-sm transition ' + (o.danger ? 'text-error hover:bg-error/10' : 'text-on-surface hover:bg-surface-container-high');
-        b.innerHTML = (o.icon ? '<span class="material-symbols-outlined text-[20px] shrink-0">' + o.icon + '</span>' : '') + '<span>' + G.esc(o.label) + '</span>';
+        b.className = 'w-full text-left rounded-2xl border p-md flex items-center gap-md transition active:scale-[0.99] ' +
+          (o.danger ? 'border-error/30 bg-error/5 hover:bg-error/10' : 'border-outline-variant/60 bg-surface-container-low hover:bg-surface-container-high');
+        var ic = o.icon ? '<span class="w-11 h-11 rounded-full flex items-center justify-center shrink-0 ' + (o.danger ? 'bg-error/15 text-error' : 'bg-primary/10 text-primary') + '"><span class="material-symbols-outlined text-[24px]">' + o.icon + '</span></span>' : '';
+        var txt = '<span class="min-w-0 flex-1"><span class="block font-bold ' + (o.danger ? 'text-error' : 'text-on-surface') + '">' + G.esc(o.label) + '</span>' +
+          (o.desc ? '<span class="block text-body-sm text-on-surface-variant mt-1">' + G.esc(o.desc) + '</span>' : '') + '</span>';
+        b.innerHTML = ic + txt + '<span class="material-symbols-outlined text-outline shrink-0">chevron_right</span>';
         b.onclick = function () { close(o.value); };
-        sheet.appendChild(b);
+        list.appendChild(b);
       });
+      sheet.appendChild(list);
       var cancel = document.createElement('button'); cancel.type = 'button';
-      cancel.className = 'w-full h-11 mt-xs rounded-xl border border-outline-variant text-on-surface-variant font-label-md';
-      cancel.textContent = 'Cancelar'; cancel.onclick = function () { close(null); };
+      cancel.className = 'w-full h-12 rounded-2xl border border-outline-variant text-on-surface font-bold active:scale-[0.99] transition hover:bg-surface-container-high';
+      cancel.textContent = opts.cancel || 'Cancelar'; cancel.onclick = function () { close(null); };
       sheet.appendChild(cancel);
       overlay.appendChild(sheet); document.body.appendChild(overlay);
       overlay.onclick = function (e) { if (e.target === overlay) close(null); };
+      function onKey(e) { if (e.key === 'Escape') close(null); }
+      document.addEventListener('keydown', onKey);
     });
   };
   G.navigate = function (path) { if (location.pathname === path) { render(); } else { history.pushState(null, '', path); render(); } };

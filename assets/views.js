@@ -422,11 +422,12 @@
           if (isAdmin) {
             choice = await G.chooseAction({
               title: 'Apagar mensagem',
-              text: 'De ' + (m.author_name || 'Membro') + '. Não pode ser desfeito.',
+              text: 'De ' + (m.author_name || 'Membro') + '. Esta ação não pode ser desfeita.',
+              icon: 'delete', danger: true,
               options: [
-                { label: 'Apagar só esta mensagem', value: 'one', icon: 'delete', danger: true },
-                { label: 'Apagar tudo desta pessoa neste tópico', value: 'topic', icon: 'delete_sweep', danger: true },
-                { label: 'Apagar tudo desta pessoa em todos os grupos', value: 'all', icon: 'delete_forever', danger: true }
+                { label: 'Apagar só esta mensagem', desc: 'Remove apenas este balão.', value: 'one', icon: 'delete' },
+                { label: 'Apagar tudo desta pessoa neste tópico', desc: 'Remove todas as mensagens dela aqui neste grupo.', value: 'topic', icon: 'delete_sweep', danger: true },
+                { label: 'Apagar tudo desta pessoa em todos os grupos', desc: 'Remove tudo que ela enviou na comunidade inteira.', value: 'all', icon: 'delete_forever', danger: true }
               ]
             });
           } else {
@@ -856,14 +857,14 @@
               '<button type="button" data-edit-open class="relative shrink-0 active:scale-95 transition-transform" aria-label="Alterar foto"><span id="pf-avatar" class="w-24 h-24 rounded-full bg-surface-container-high ring-4 ring-primary-container/20 flex items-center justify-center text-outline overflow-hidden"><span class="material-symbols-outlined text-[48px]">person</span></span><span class="absolute bottom-0 right-0 bg-primary text-on-primary p-1.5 rounded-full border-2 border-surface-container-lowest shadow-sm"><span class="material-symbols-outlined text-[16px]">photo_camera</span></span></button>' +
               '<div class="flex-1 text-center md:text-left space-y-xs min-w-0"><div class="flex items-center justify-center md:justify-start gap-sm flex-wrap"><h2 id="pf-name" class="font-headline-md text-headline-md text-on-surface">Carregando…</h2><span id="pf-role" class="hidden bg-primary/10 text-primary px-2 py-0.5 rounded-full font-label-md text-label-md border border-primary/20"></span></div><p id="pf-sub" class="font-body-md text-body-md text-on-surface-variant break-words"> </p><div class="pt-sm"><button type="button" data-edit-open class="inline-flex items-center gap-xs bg-primary/10 text-primary px-4 py-2 rounded-full font-label-md text-label-md border border-primary/20 active:scale-95 transition-transform"><span class="material-symbols-outlined text-[16px]">edit</span> Editar perfil</button></div></div>' +
             '</div>' +
-            '<div class="bg-surface-container-high rounded-xl p-lg shadow-sm border border-outline-variant/20 flex flex-col justify-center items-center text-center space-y-md"><div class="grid grid-cols-2 gap-md w-full"><div class="flex flex-col items-center"><span id="pf-msgcount" class="font-headline-sm text-headline-sm text-primary">0</span><span class="font-label-md text-label-md text-on-surface-variant">Mensagens</span></div><div class="flex flex-col items-center"><span class="font-headline-sm text-headline-sm text-secondary">0</span><span class="font-label-md text-label-md text-on-surface-variant">Conquistas</span></div></div><a href="#conquistas" class="w-full h-12 bg-primary text-on-primary rounded-xl font-label-md text-label-md hover:bg-primary/90 active:scale-[0.98] transition-all flex items-center justify-center">Ver conquistas</a></div>' +
+            '<div class="bg-surface-container-high rounded-xl p-lg shadow-sm border border-outline-variant/20 flex flex-col justify-center items-center text-center space-y-md"><div class="flex flex-wrap justify-center gap-x-lg gap-y-sm w-full"><div class="flex flex-col items-center min-w-[90px]"><span id="pf-msgcount" class="font-headline-sm text-headline-sm text-primary">0</span><span class="text-body-sm text-on-surface-variant text-center leading-tight">Mensagens</span></div><div class="flex flex-col items-center min-w-[90px]"><span class="font-headline-sm text-headline-sm text-secondary">0</span><span class="text-body-sm text-on-surface-variant text-center leading-tight">Conquistas</span></div></div><a href="#conquistas" class="w-full h-12 bg-primary text-on-primary rounded-xl font-label-md text-label-md hover:bg-primary/90 active:scale-[0.98] transition-all flex items-center justify-center">Ver conquistas</a></div>' +
           '</section>' +
           '<section class="bg-surface-container-low rounded-xl p-lg border border-outline-variant/20 space-y-md">' +
             '<div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">format_size</span><h3 class="font-headline-sm text-headline-sm text-on-surface">Tamanho da letra</h3></div>' +
             '<p class="text-body-sm text-on-surface-variant">Deixe o texto do app maior ou menor, do jeito que ficar melhor pra você ler.</p>' +
             '<div class="flex items-center gap-md">' +
               '<button type="button" id="fs-dec" class="h-14 flex-1 rounded-xl border border-outline-variant bg-surface text-on-surface flex items-center justify-center gap-xs active:scale-95 transition" aria-label="Diminuir a letra"><span class="material-symbols-outlined">text_decrease</span><span class="font-label-md text-label-md">Menor</span></button>' +
-              '<span id="fs-val" class="w-20 text-center font-headline-sm text-headline-sm text-primary tabular-nums">100%</span>' +
+              '<span id="fs-val" class="w-24 shrink-0 text-center font-headline-sm text-headline-sm text-primary tabular-nums">100%</span>' +
               '<button type="button" id="fs-inc" class="h-14 flex-1 rounded-xl border border-outline-variant bg-surface text-on-surface flex items-center justify-center gap-xs active:scale-95 transition" aria-label="Aumentar a letra"><span class="material-symbols-outlined">text_increase</span><span class="font-label-md text-label-md">Maior</span></button>' +
             '</div>' +
             '<button type="button" id="fs-reset" class="text-primary text-label-md font-label-md underline">Voltar ao tamanho padrão</button>' +
@@ -938,7 +939,7 @@
       });
       // #10 — controle de tamanho da letra (escala só o texto, via --fs)
       (function () {
-        var STEPS = [0.9, 1, 1.15, 1.3, 1.45, 1.6];
+        var STEPS = [0.9, 1, 1.1, 1.2, 1.3];
         function curFs() { var f = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--fs')); return f > 0 ? f : 1; }
         function nearestIdx(f) { var bi = 1, bd = 9; STEPS.forEach(function (s, i) { var d = Math.abs(s - f); if (d < bd) { bd = d; bi = i; } }); return bi; }
         var idx = nearestIdx(curFs());

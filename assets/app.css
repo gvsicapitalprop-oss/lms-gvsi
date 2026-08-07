@@ -169,6 +169,14 @@ body {
 }
 .animate-record { animation: pulse-record 2s infinite ease-in-out; }
 
+/* ---- Folha de ações (G.chooseAction) — entrada/saída suaves ---- */
+@keyframes gvsi-overlay-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes gvsi-sheet-up { from { opacity: 0; transform: translateY(16px) scale(0.98); } to { opacity: 1; transform: none; } }
+.gvsi-sheet-overlay { animation: gvsi-overlay-in .14s ease-out; }
+.gvsi-sheet { animation: gvsi-sheet-up .2s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.gvsi-sheet-closing { animation: gvsi-overlay-in .13s ease-in reverse forwards; }
+@media (prefers-reduced-motion: reduce) { .gvsi-sheet-overlay, .gvsi-sheet, .gvsi-sheet-closing { animation: none; } }
+
 /* ---- Compositor WYSIWYG (contenteditable) — item #3 ---- */
 .ce-input { line-height: 1.4; outline: none; }
 .ce-input:empty::before {
