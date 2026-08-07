@@ -268,6 +268,9 @@ GVSI.views = GVSI.views || {};
         var h = it.querySelector('h3'); var pv = it.querySelector('.topic-preview');
         steps.push({ el: it, title: h ? h.textContent : 'Grupo', text: (pv && pv.dataset.desc) || 'Toque neste grupo para abrir a conversa.' });
       });
+      var prof = document.querySelector('[data-side-profile]');
+      if (!prof || prof.offsetParent === null) prof = document.querySelector('nav a[href="/perfil"]');
+      if (prof && prof.offsetParent !== null) steps.push({ el: prof, title: 'O seu perfil', text: 'Aqui fica o seu perfil. Toque para trocar a sua foto, ver as suas mensagens e mudar o tamanho da letra, do jeito que ficar melhor pra você ler.' });
       steps.push({ el: null, title: 'Pronto, é só isso!', text: 'Agora é só escolher um grupo e começar. Quando quiser rever, toque no botão "Tutorial" no canto da tela.' });
       run(steps);
     }
