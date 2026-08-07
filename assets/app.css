@@ -202,3 +202,12 @@ body {
 .text-headline-md { font-size: calc(24px * var(--fs, 1)) !important; line-height: calc(32px * var(--fs, 1)) !important; }
 .text-headline-lg { font-size: calc(32px * var(--fs, 1)) !important; line-height: calc(40px * var(--fs, 1)) !important; }
 .text-headline-lg-mobile { font-size: calc(26px * var(--fs, 1)) !important; line-height: calc(32px * var(--fs, 1)) !important; }
+
+/* ---- Efeito de troca de tema (claro <-> escuro) ---- */
+/* reveal circular (View Transitions): desliga o cross-fade padrão pra ver o corte */
+::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+::view-transition-new(root) { z-index: 1; }
+::view-transition-old(root) { z-index: 0; }
+/* fallback (navegadores sem View Transitions): transição suave das cores */
+html.theme-anim, html.theme-anim * { transition: background-color .35s ease, color .35s ease, border-color .35s ease, fill .35s ease, box-shadow .35s ease !important; }
+@media (prefers-reduced-motion: reduce) { html.theme-anim, html.theme-anim * { transition: none !important; } }

@@ -324,9 +324,22 @@ GVSI.views = GVSI.views || {};
       var tt = e.target.closest && e.target.closest('[data-theme-toggle]');
       if (tt) {
         var next = root.classList.contains('dark') ? 'light' : 'dark';
-        root.classList.toggle('dark', next === 'dark');
-        try { localStorage.setItem('gvsi-theme', next); } catch (er) {}
-        G.updateThemeIcons();
+        var applyTheme = function () { root.classList.toggle('dark', next === 'dark'); try { localStorage.setItem('gvsi-theme', next); } catch (er) {} G.updateThemeIcons(); };
+        var reduce = false; try { reduce = matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (x) {}
+        if (document.startViewTransition && !reduce) {
+          // reveal circular saindo do botão de tema
+          var cx = (e.clientX ? e.clientX : window.innerWidth - 40), cy = (e.clientY ? e.clientY : 40);
+          var endR = Math.hypot(Math.max(cx, window.innerWidth - cx), Math.max(cy, window.innerHeight - cy));
+          var vt = document.startViewTransition(applyTheme);
+          vt.ready.then(function () {
+            document.documentElement.animate(
+              { clipPath: ['circle(0px at ' + cx + 'px ' + cy + 'px)', 'circle(' + endR + 'px at ' + cx + 'px ' + cy + 'px)'] },
+              { duration: 480, easing: 'ease-in-out', pseudoElement: '::view-transition-new(root)' }
+            );
+          }).catch(function () {});
+        } else {
+          root.classList.add('theme-anim'); applyTheme(); setTimeout(function () { root.classList.remove('theme-anim'); }, 420);
+        }
         return;
       }
       var so = e.target.closest && e.target.closest('[data-signout]');
