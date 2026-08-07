@@ -164,6 +164,66 @@ GVSI.views = GVSI.views || {};
     try { document.title = 'VOCÊ FOI DEMITIDO'; } catch (e) {}
   };
 
+  // ---- 1º acesso: criar senha (item #13). Campos VISÍVEIS + aviso de maiúscula. ----
+  G.showSetPassword = function () {
+    if (document.getElementById('setpw-screen')) return;
+    var ov = document.createElement('div');
+    ov.id = 'setpw-screen';
+    ov.className = 'fixed inset-0 z-[100] bg-background overflow-y-auto flex items-start sm:items-center justify-center p-container-margin';
+    ov.innerHTML =
+      '<div class="w-full max-w-md my-auto py-lg space-y-lg">' +
+        '<div class="text-center space-y-sm">' +
+          '<span class="inline-flex w-16 h-16 rounded-full bg-primary/10 text-primary items-center justify-center"><span class="material-symbols-outlined text-[34px]">lock_open</span></span>' +
+          '<h1 class="font-headline-md text-headline-md text-on-surface">Crie a sua senha</h1>' +
+          '<p class="text-body-md text-on-surface-variant">Este é o seu primeiro acesso. Escolha uma senha para usar quando entrar nas próximas vezes.</p>' +
+        '</div>' +
+        '<div class="bg-surface-container-lowest border border-outline-variant/40 rounded-2xl shadow-sm p-lg space-y-md">' +
+          '<div><label for="spw1" class="block text-label-md font-label-md text-on-surface-variant mb-xs">Sua senha</label><input id="spw1" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" class="w-full bg-surface-container-low border border-outline-variant rounded-xl py-4 px-4 text-body-lg text-on-surface focus:ring-2 focus:ring-primary" placeholder="Digite uma senha"></div>' +
+          '<div><label for="spw2" class="block text-label-md font-label-md text-on-surface-variant mb-xs">Repita a senha</label><input id="spw2" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" class="w-full bg-surface-container-low border border-outline-variant rounded-xl py-4 px-4 text-body-lg text-on-surface focus:ring-2 focus:ring-primary" placeholder="Digite a mesma senha de novo"></div>' +
+          '<div id="spw-caps" class="hidden items-center gap-sm bg-tertiary-container/40 text-on-tertiary-container rounded-xl px-3 py-2 text-body-sm"><span class="material-symbols-outlined text-[20px]">keyboard_capslock</span><span>Sua senha tem <b>LETRA MAIÚSCULA</b>. Guarde bem — vai precisar digitar igual depois.</span></div>' +
+          '<p id="spw-msg" class="text-body-md text-center min-h-6"></p>' +
+          '<button id="spw-save" type="button" disabled class="w-full h-14 bg-primary text-on-primary rounded-xl font-headline-sm text-headline-sm flex items-center justify-center gap-sm shadow-md active:scale-[0.98] transition disabled:opacity-50">Salvar e entrar</button>' +
+        '</div>' +
+        '<p class="text-center text-body-sm text-on-surface-variant">A senha aparece na tela de propósito, pra você conferir o que está digitando.</p>' +
+      '</div>';
+    document.body.appendChild(ov);
+    var p1 = ov.querySelector('#spw1'), p2 = ov.querySelector('#spw2');
+    var caps = ov.querySelector('#spw-caps'), msg = ov.querySelector('#spw-msg'), btn = ov.querySelector('#spw-save');
+    var MIN = 6;
+    function validate() {
+      var a = p1.value, b = p2.value;
+      caps.classList.toggle('hidden', !/[A-Z]/.test(a));
+      caps.style.display = /[A-Z]/.test(a) ? 'flex' : '';
+      var ok = false, m = '', cls = 'text-error';
+      if (!a) { m = ''; }
+      else if (a.length < MIN) { m = 'A senha precisa ter pelo menos ' + MIN + ' caracteres.'; }
+      else if (!b) { m = ''; }
+      else if (a !== b) { m = 'As duas senhas não estão iguais.'; }
+      else { ok = true; m = 'Tudo certo! Pode salvar.'; cls = 'text-primary'; }
+      msg.textContent = m; msg.className = 'text-body-md text-center min-h-6 ' + cls;
+      btn.disabled = !ok;
+      return ok;
+    }
+    p1.addEventListener('input', validate); p2.addEventListener('input', validate);
+    btn.addEventListener('click', async function () {
+      if (!validate()) return;
+      btn.disabled = true; btn.textContent = 'Salvando...';
+      try {
+        var up = await G.sb.auth.updateUser({ password: p1.value });
+        if (up.error) throw up.error;
+        try { await G.sb.from('lms_students').update({ needs_password: false }).eq('id', (G.me && G.me.id)); } catch (e) {}
+        if (G.me) G.me.needs_password = false;
+        ov.remove();
+        if (G.toast) G.toast('Senha criada! Bem-vindo(a) à comunidade.');
+      } catch (e) {
+        msg.textContent = (e && e.message) ? e.message : 'Não foi possível salvar. Tente de novo.';
+        msg.className = 'text-body-md text-center text-error';
+        btn.disabled = false; btn.textContent = 'Salvar e entrar';
+      }
+    });
+    try { p1.focus(); } catch (e) {}
+  };
+
   // ---- Tema ----
   G.updateThemeIcons = function () {
     var dark = document.documentElement.classList.contains('dark');
@@ -349,7 +409,7 @@ GVSI.views = GVSI.views || {};
     if (!session) { location.replace('/login'); return; }
     var user = (await G.sb.auth.getUser()).data.user;
     // perfil próprio + garante registro em lms_students
-    var pr = await G.sb.from('lms_students').select('id,full_name,email,bio,phone,avatar_url,role').eq('id', user.id).maybeSingle();
+    var pr = await G.sb.from('lms_students').select('id,full_name,email,bio,phone,avatar_url,role,needs_password').eq('id', user.id).maybeSingle();
     G.me = pr.data || { id: user.id, email: user.email, full_name: null, avatar_url: null, role: 'student' };
     if (!pr.data) {
       try { await G.sb.from('lms_students').upsert({ id: user.id, email: user.email, full_name: (user.user_metadata && user.user_metadata.full_name) || (user.email || '').split('@')[0] }, { onConflict: 'id', ignoreDuplicates: true }); } catch (e) {}
@@ -374,5 +434,6 @@ GVSI.views = GVSI.views || {};
     document.addEventListener('visibilitychange', function () { if (!document.hidden) refreshSidebar(); });
     if (location.pathname === '/') { var _r; try { _r = localStorage.getItem('gvsi-route'); } catch (e) {} if (_r && _r.charAt(0) === '/' && _r !== '/') history.replaceState(null, '', _r); }
     render();
+    if (G.me && G.me.needs_password) G.showSetPassword(); // 1º acesso → cria senha
   });
 })();
