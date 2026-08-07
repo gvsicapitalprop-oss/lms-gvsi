@@ -19,7 +19,7 @@
           '<div class="flex items-center"><img src="assets/logo-light.svg?v=2" alt="GVSI" class="h-10 w-auto dark:hidden"><img src="assets/logo-dark.svg?v=2" alt="GVSI" class="h-10 w-auto hidden dark:block"></div>' +
           '<button type="button" data-theme-toggle class="text-primary flex items-center" aria-label="Tema"><span class="material-symbols-outlined" data-theme-icon>dark_mode</span></button>' +
         '</header>' +
-        '<div class="lg:pl-[360px] min-h-screen">' +
+        '<div class="lg:pl-[var(--side-w)] min-h-screen">' +
           '<div class="lg:hidden pt-14 pb-16"><div class="px-container-margin py-lg">' +
             '<div class="mb-lg relative"><span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline">search</span>' +
             '<input id="topic-search" class="w-full bg-surface-container-low border border-outline-variant rounded-xl py-3 pl-12 pr-4 focus:ring-2 focus:ring-primary focus:border-primary transition-all text-body-md text-on-surface" placeholder="Procurar tópicos na comunidade" type="text"></div>' +
@@ -38,6 +38,7 @@
         '</nav>';
       G.renderTopicList(document.getElementById('topic-list'), '');
       G.applyUnread();
+      G.loadLastMessages(); // #13: preenche última mensagem + horário na tela inicial
       var search = document.getElementById('topic-search');
       if (search) search.addEventListener('input', function (e) {
         var v = e.target.value.trim().toLowerCase(), vis = 0;
@@ -63,12 +64,15 @@
       if (S.picker && S.picker.parentNode) S.picker.remove();
       if (S.reactPop && S.reactPop.parentNode) S.reactPop.remove();
       if (S.mentionMenu && S.mentionMenu.parentNode) S.mentionMenu.remove();
+      if (S.msgMenu && S.msgMenu.parentNode) S.msgMenu.remove();
       ['img-lightbox', 'img-editor'].forEach(function (id) { var el = document.getElementById(id); if (el) el.remove(); });
       if (S.recTimer) clearInterval(S.recTimer);
       if (S.recStream) { try { S.recStream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {} }
       if (S.onPickerDoc) document.removeEventListener('click', S.onPickerDoc);
       if (S.onReactPopDoc) document.removeEventListener('click', S.onReactPopDoc);
       if (S.onMentionDoc) document.removeEventListener('click', S.onMentionDoc);
+      if (S.onMsgMenuDoc) document.removeEventListener('click', S.onMsgMenuDoc);
+      if (S.onMsgMenuScroll) window.removeEventListener('scroll', S.onMsgMenuScroll, true);
       S = null;
     }
     return {
@@ -81,7 +85,7 @@
         var self = S;
 
         view.innerHTML =
-          '<header class="fixed top-0 left-0 right-0 lg:left-[360px] z-40 bg-surface shadow-[0px_4px_20px_rgba(0,0,0,0.05)] flex items-center justify-between px-container-margin h-16 lg:h-[89px]">' +
+          '<header class="fixed top-0 left-0 right-0 lg:left-[var(--side-w)] z-40 bg-surface shadow-[0px_4px_20px_rgba(0,0,0,0.05)] flex items-center justify-between px-container-margin h-16 lg:h-[89px]">' +
             '<div class="flex items-center gap-md min-w-0">' +
               '<a class="lg:hidden text-primary flex items-center" href="/" aria-label="Voltar"><span class="material-symbols-outlined">arrow_back</span></a>' +
               '<div class="flex flex-col min-w-0 justify-center"><h1 id="chat-title" class="font-headline-sm text-headline-sm font-bold text-primary leading-tight truncate">GVSI Comunidade</h1><span id="chat-subtitle" class="text-body-sm text-on-surface-variant leading-tight">Grupo da comunidade</span></div>' +
@@ -90,19 +94,22 @@
               '<button type="button" data-theme-toggle class="lg:hidden text-primary flex items-center" aria-label="Tema"><span class="material-symbols-outlined" data-theme-icon>dark_mode</span></button>' +
             '</div>' +
           '</header>' +
-          '<main id="chat-scroll" class="lg:pl-[360px] h-[100dvh] pt-16 lg:pt-[89px] pb-64 lg:pb-52 flex flex-col overflow-y-auto custom-scrollbar">' +
+          '<main id="chat-scroll" class="lg:pl-[var(--side-w)] h-[100dvh] pt-16 lg:pt-[89px] pb-64 lg:pb-52 flex flex-col overflow-y-auto custom-scrollbar">' +
             '<div id="chat-messages" class="hidden w-full max-w-3xl mx-auto flex flex-col gap-lg px-container-margin py-lg"></div>' +
             '<div id="chat-loading" class="flex-grow flex items-center justify-center text-on-surface-variant text-body-sm gap-sm"><span class="material-symbols-outlined animate-spin">progress_activity</span> Carregando…</div>' +
             '<div id="chat-empty" class="hidden flex-grow flex flex-col items-center justify-center text-center gap-md py-xl px-container-margin"><div class="w-20 h-20 rounded-full bg-surface-container-high flex items-center justify-center text-primary"><span class="material-symbols-outlined text-[40px]">forum</span></div><div class="space-y-xs max-w-xs"><h2 class="font-headline-sm text-headline-sm text-on-surface">Ainda não há mensagens</h2><p class="text-body-sm text-on-surface-variant">Seja o primeiro a enviar uma mensagem neste grupo.</p></div></div>' +
           '</main>' +
-          '<div id="chat-composer" class="fixed bottom-16 lg:bottom-0 left-0 right-0 lg:left-[360px] px-container-margin pb-md lg:pb-lg z-40">' +
-            '<form id="chat-form" class="glass-input rounded-2xl p-sm flex flex-col gap-sm shadow-xl border border-outline-variant/40 max-w-3xl mx-auto">' +
+          '<div id="chat-composer" class="fixed bottom-16 lg:bottom-0 left-0 right-0 lg:left-[var(--side-w)] px-container-margin pb-md lg:pb-lg z-40">' +
+            '<div class="max-w-3xl mx-auto flex justify-end">' +
+                '<button type="button" id="scroll-bottom-btn" class="hidden mb-2 w-11 h-11 rounded-full bg-surface-container-highest text-on-surface shadow-lg border border-outline-variant/50 flex items-center justify-center active:scale-95 transition" aria-label="Ir para a última mensagem" title="Ir para a última mensagem"><span class="material-symbols-outlined">keyboard_double_arrow_down</span></button>' +
+              '</div>' +
+              '<form id="chat-form" class="glass-input rounded-2xl p-sm flex flex-col gap-sm shadow-xl border border-outline-variant/40 max-w-3xl mx-auto">' +
               '<div id="composer-normal" class="flex flex-col gap-sm">' +
                 '<div id="reply-preview" class="hidden items-start gap-sm bg-surface-container-high border-l-4 border-primary rounded-lg px-sm py-2">' +
                   '<div class="flex-1 min-w-0"><p id="reply-author" class="text-label-md font-label-md text-primary truncate"></p><p id="reply-snippet" class="text-body-sm text-on-surface-variant truncate"></p></div>' +
                   '<button type="button" id="reply-cancel" class="w-9 h-9 shrink-0 rounded-full hover:bg-surface-container-highest flex items-center justify-center text-on-surface-variant" aria-label="Cancelar resposta"><span class="material-symbols-outlined text-[20px]">close</span></button>' +
                 '</div>' +
-                '<input id="chat-input" maxlength="65536" class="w-full bg-surface-container-low border border-outline-variant rounded-xl px-md py-3 text-body-md focus:ring-2 focus:ring-primary/20 placeholder:text-on-surface-variant text-on-surface" placeholder="Escreva uma mensagem..." type="text" autocomplete="off">' +
+                '<div id="chat-input" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Escreva uma mensagem" data-placeholder="Escreva uma mensagem..." class="ce-input w-full bg-surface-container-low border border-outline-variant rounded-xl px-md py-3 text-body-md focus:ring-2 focus:ring-primary/20 text-on-surface min-h-[3rem] max-h-40 overflow-y-auto custom-scrollbar whitespace-pre-wrap break-words"></div>' +
                 '<div class="flex items-center gap-xs -my-xs">' +
                   '<button type="button" id="fmt-bold" class="h-11 px-3 rounded-lg hover:bg-surface-container-high flex items-center justify-center text-on-surface-variant" aria-label="Negrito" title="Negrito (**texto**)"><span class="material-symbols-outlined text-[22px]">format_bold</span></button>' +
                   '<button type="button" id="fmt-italic" class="h-11 px-3 rounded-lg hover:bg-surface-container-high flex items-center justify-center text-on-surface-variant" aria-label="Itálico" title="Itálico (*texto*)"><span class="material-symbols-outlined text-[22px]">format_italic</span></button>' +
@@ -124,7 +131,7 @@
               '</div>' +
             '</form>' +
           '</div>' +
-          '<div id="chat-readonly" class="hidden fixed bottom-16 lg:bottom-0 left-0 right-0 lg:left-[360px] px-container-margin pb-md lg:pb-lg z-40"><div class="max-w-3xl mx-auto flex items-center justify-center gap-sm bg-surface-container-high text-on-surface-variant rounded-2xl p-md border border-outline-variant/40 text-body-sm"><span class="material-symbols-outlined text-[20px]">lock</span>Somente administradores podem publicar neste tópico.</div></div>' +
+          '<div id="chat-readonly" class="hidden fixed bottom-16 lg:bottom-0 left-0 right-0 lg:left-[var(--side-w)] px-container-margin pb-md lg:pb-lg z-40"><div class="max-w-3xl mx-auto flex items-center justify-center gap-sm bg-surface-container-high text-on-surface-variant rounded-2xl p-md border border-outline-variant/40 text-body-sm"><span class="material-symbols-outlined text-[20px]">lock</span>Somente administradores podem publicar neste tópico.</div></div>' +
           '<nav class="lg:hidden fixed bottom-0 left-0 right-0 z-50 rounded-t-xl bg-surface shadow-[0px_-4px_20px_rgba(0,0,0,0.05)] flex justify-around items-center h-16 px-2">' +
             '<a class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1" href="/"><span class="material-symbols-outlined">groups</span><span class="font-label-md text-label-md">Grupos</span></a>' +
             '<a class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1" href="/perfil"><span class="material-symbols-outlined">person</span><span class="font-label-md text-label-md">Meu Perfil</span></a>' +
@@ -137,8 +144,55 @@
         var scrollEl = document.getElementById('chat-scroll');
         var form = document.getElementById('chat-form');
         var input = document.getElementById('chat-input');
+        // ---- compositor WYSIWYG (contenteditable): negrito/itálico REAIS, sem asteriscos visíveis ----
+        // serializa o conteúdo pra markdown (**negrito**, *itálico*); nunca lança (fallback = texto puro)
+        function ceSerialize(el) {
+          try {
+            var out = '';
+            (function walk(node) {
+              for (var i = 0; i < node.childNodes.length; i++) {
+                var c = node.childNodes[i];
+                if (c.nodeType === 3) { out += c.nodeValue; continue; }
+                if (c.nodeType !== 1) continue;
+                var tag = c.nodeName.toLowerCase();
+                if (tag === 'br') { out += '\n'; continue; }
+                var fw = c.style && c.style.fontWeight;
+                var bold = tag === 'strong' || tag === 'b' || fw === 'bold' || /^[6-9]00$/.test(fw || '');
+                var ital = tag === 'em' || tag === 'i' || (c.style && c.style.fontStyle === 'italic');
+                var block = tag === 'div' || tag === 'p';
+                if (block && out && out.slice(-1) !== '\n') out += '\n';
+                if (bold) out += '**';
+                if (ital) out += '*';
+                walk(c);
+                if (ital) out += '*';
+                if (bold) out += '**';
+              }
+            })(el);
+            return out;
+          } catch (e) { return el.textContent || ''; }
+        }
+        function ceText(el) { return el.textContent || ''; }
+        function ceClear(el) { el.innerHTML = ''; }
+        // caret <-> deslocamento no texto visível
+        function ceCaret(el) {
+          var sel = window.getSelection(); if (!sel || !sel.rangeCount) return null;
+          var rg = sel.getRangeAt(0); if (!el.contains(rg.startContainer)) return null;
+          function off(node, o) { var r = document.createRange(); r.selectNodeContents(el); try { r.setEnd(node, o); } catch (x) { return el.textContent.length; } return r.toString().length; }
+          return { start: off(rg.startContainer, rg.startOffset), end: off(rg.endContainer, rg.endOffset) };
+        }
+        function ceSetCaret(el, start, end) {
+          if (end == null) end = start;
+          var w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null), n, acc = 0, sN = null, sO = 0, eN = null, eO = 0;
+          while ((n = w.nextNode())) { var len = n.nodeValue.length; if (sN == null && acc + len >= start) { sN = n; sO = start - acc; } if (eN == null && acc + len >= end) { eN = n; eO = end - acc; } acc += len; }
+          el.focus(); if (sN == null) return; if (eN == null) { eN = sN; eO = sO; }
+          var rg = document.createRange(); try { rg.setStart(sN, sO); rg.setEnd(eN, eO); } catch (e) { return; }
+          var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(rg);
+        }
         function scrollBottom() { scrollEl.scrollTop = scrollEl.scrollHeight; }
         function nearBottom() { return (scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight) < 160; }
+        var scrollBtn = document.getElementById('scroll-bottom-btn');
+        function updateScrollBtn() { if (scrollBtn) scrollBtn.classList.toggle('hidden', nearBottom()); }
+        if (scrollBtn) scrollBtn.addEventListener('click', function () { try { scrollEl.scrollTo({ top: scrollEl.scrollHeight, behavior: 'smooth' }); } catch (e) { scrollBottom(); } scrollBtn.classList.add('hidden'); });
 
         // perfil próprio (nome/avatar) já está em G.me
         // resolve tópico
@@ -241,12 +295,13 @@
         function pickMention(i) {
           var row = mentionRows[i]; if (!row || !mentionCtx) return;
           var token = row.kind === 'topic' ? ('#' + row.slug) : ('@' + String(row.full_name || 'membro').trim().split(/\s+/)[0]);
-          var v = input.value; input.value = v.slice(0, mentionCtx.start) + token + ' ' + v.slice(mentionCtx.end);
-          var pos = mentionCtx.start + token.length + 1; input.focus(); try { input.setSelectionRange(pos, pos); } catch (x) {}
+          ceSetCaret(input, mentionCtx.start, mentionCtx.end);
+          try { document.execCommand('insertText', false, token + ' '); } catch (x) {}
           hideMention();
         }
         function onMentionType() {
-          var pos = input.selectionStart, text = input.value.slice(0, pos);
+          var o = ceCaret(input); if (!o) { hideMention(); return; }
+          var pos = o.start, text = ceText(input).slice(0, pos);
           var mm = text.match(/(^|\s)([@#])([^\s@#]*)$/);
           if (!mm) { hideMention(); return; }
           var trigger = mm[2], q = mm[3];
@@ -267,12 +322,19 @@
         }
         input.addEventListener('input', onMentionType);
         input.addEventListener('keydown', function (e) {
-          if (mentionMenu.classList.contains('hidden') || !mentionRows.length) return;
-          if (e.key === 'ArrowDown') { e.preventDefault(); setMentionActive(mentionActive + 1); }
-          else if (e.key === 'ArrowUp') { e.preventDefault(); setMentionActive(mentionActive - 1); }
-          else if (e.key === 'Enter') { e.preventDefault(); pickMention(mentionActive); }
-          else if (e.key === 'Escape') { e.preventDefault(); hideMention(); }
+          if (!mentionMenu.classList.contains('hidden') && mentionRows.length) {
+            if (e.key === 'ArrowDown') { e.preventDefault(); setMentionActive(mentionActive + 1); return; }
+            if (e.key === 'ArrowUp') { e.preventDefault(); setMentionActive(mentionActive - 1); return; }
+            if (e.key === 'Enter') { e.preventDefault(); pickMention(mentionActive); return; }
+            if (e.key === 'Escape') { e.preventDefault(); hideMention(); return; }
+            return;
+          }
+          if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (typeof form.requestSubmit === 'function') form.requestSubmit(); else form.dispatchEvent(new Event('submit', { cancelable: true })); }
         });
+        // colar sempre como texto puro (evita HTML gigante/estilos), respeitando o teto
+        input.addEventListener('paste', function (e) { e.preventDefault(); var t = ''; try { t = (e.clipboardData || window.clipboardData).getData('text'); } catch (x) {} t = (t || '').slice(0, 65536); try { document.execCommand('insertText', false, t); } catch (x) { } });
+        // ao esvaziar, tira <br>/blocos órfãos pra o placeholder (:empty) voltar
+        input.addEventListener('input', function () { if (!input.textContent) input.innerHTML = ''; });
         self.onMentionDoc = function (e) { if (mentionMenu.classList.contains('hidden')) return; if (!mentionMenu.contains(e.target) && e.target !== input) hideMention(); };
         document.addEventListener('click', self.onMentionDoc);
         // ---- render de mensagem ----
@@ -301,21 +363,30 @@
           if (qEl) qEl.addEventListener('click', function () { var t = msgsEl.querySelector('[data-msg-id="' + qEl.getAttribute('data-goto') + '"]'); if (t) { t.scrollIntoView({ behavior: 'smooth', block: 'center' }); t.style.transition = 'background-color .3s'; t.style.backgroundColor = 'rgba(37,99,235,0.15)'; setTimeout(function () { t.style.backgroundColor = ''; }, 900); } });
           var mimg = container.querySelector('.msg-img');
           if (mimg) mimg.addEventListener('click', function () { openLightbox(mimg.getAttribute('data-full'), m); });
-          var ageMs = Date.now() - new Date(m.created_at).getTime();
-          var within = ageMs < 1800000;
-          var canEdit = mine && (within || isAdmin) && m.kind !== 'audio';
-          var canDelete = isAdmin || (mine && within);
-          var canReply = !isSupport && !(topic && topic.post_policy === 'readonly' && !isAdmin);
-          var canBanU = !!(G.me && G.me.canBan) && !mine && !!m.author_id && !isSupport;
-          var actions = document.createElement('div');
-          actions.className = 'flex flex-wrap items-center gap-md mt-xs ' + (mine ? 'mr-sm justify-end' : 'ml-sm');
-          var ra = document.createElement('button'); ra.type = 'button'; ra.className = 'react-add text-body-sm text-on-surface-variant hover:text-primary flex items-center gap-1 py-1'; ra.innerHTML = '<span class="material-symbols-outlined text-[20px]">add_reaction</span>Reagir'; ra.addEventListener('click', function (e) { e.stopPropagation(); openPicker(ra, m.id); }); actions.appendChild(ra);
-          if (canReply) { var rb = document.createElement('button'); rb.type = 'button'; rb.className = 'text-body-sm text-on-surface-variant hover:text-primary flex items-center gap-1 py-1'; rb.innerHTML = '<span class="material-symbols-outlined text-[20px]">reply</span>Responder'; rb.addEventListener('click', function () { startReply(m); }); actions.appendChild(rb); }
-          if (canEdit) { var eb = document.createElement('button'); eb.type = 'button'; eb.className = 'text-body-sm text-on-surface-variant hover:text-primary flex items-center gap-1 py-1'; eb.innerHTML = '<span class="material-symbols-outlined text-[20px]">edit</span>Editar'; eb.addEventListener('click', function () { startEdit(m); }); actions.appendChild(eb); }
-          if (canDelete) { var db = document.createElement('button'); db.type = 'button'; db.className = 'text-body-sm text-on-surface-variant hover:text-error flex items-center gap-1 py-1'; db.innerHTML = '<span class="material-symbols-outlined text-[20px]">delete</span>Apagar'; db.addEventListener('click', function () { doDelete(m); }); actions.appendChild(db); }
-          if (canBanU) { var bnb = document.createElement('button'); bnb.type = 'button'; bnb.className = 'text-body-sm text-error/80 hover:text-error flex items-center gap-1 py-1'; bnb.innerHTML = '<span class="material-symbols-outlined text-[20px]">gavel</span>Banir'; bnb.addEventListener('click', function () { doBan(m); }); actions.appendChild(bnb); }
-          container.appendChild(actions);
-          if (mine && !isAdmin && within) setTimeout(function () { if (typeof eb !== 'undefined' && eb && eb.parentNode) eb.remove(); if (typeof db !== 'undefined' && db && db.parentNode) db.remove(); }, 1800000 - ageMs);
+          // #12 — ações (Reagir/Responder/Editar/Apagar/Banir) só no clique direito (desktop) ou toque longo (mobile)
+          container._m = m;
+          if (!container._menuBound) {
+            container._menuBound = true;
+            var buildItems = function () {
+              var mm = container._m; var mineM = !!(me.id && mm.author_id === me.id);
+              var age = Date.now() - new Date(mm.created_at).getTime(); var withinM = age < 1800000;
+              var cEdit = mineM && (withinM || isAdmin) && mm.kind !== 'audio';
+              var cDelete = isAdmin || (mineM && withinM);
+              var cReply = !isSupport && !(topic && topic.post_policy === 'readonly' && !isAdmin);
+              var cBan = !!(G.me && G.me.canBan) && !mineM && !!mm.author_id && !isSupport;
+              var it = [{ icon: 'add_reaction', label: 'Reagir', run: function () { openPicker(container, mm.id); } }];
+              if (cReply) it.push({ icon: 'reply', label: 'Responder', run: function () { startReply(mm); } });
+              if (cEdit) it.push({ icon: 'edit', label: 'Editar', run: function () { startEdit(mm); } });
+              if (cDelete) it.push({ icon: 'delete', label: 'Apagar', danger: true, run: function () { doDelete(mm); } });
+              if (cBan) it.push({ icon: 'gavel', label: 'Banir usuário', danger: true, run: function () { doBan(mm); } });
+              return it;
+            };
+            container.addEventListener('contextmenu', function (e) { e.preventDefault(); openMsgMenu(e.clientX, e.clientY, buildItems()); });
+            var lpT = null, lpX = 0, lpY = 0, lpMoved = false;
+            container.addEventListener('touchstart', function (e) { if (!e.touches[0]) return; lpMoved = false; lpX = e.touches[0].clientX; lpY = e.touches[0].clientY; lpT = setTimeout(function () { if (!lpMoved) openMsgMenu(lpX, lpY, buildItems()); }, 500); }, { passive: true });
+            container.addEventListener('touchmove', function (e) { if (e.touches[0] && (Math.abs(e.touches[0].clientX - lpX) > 10 || Math.abs(e.touches[0].clientY - lpY) > 10)) { lpMoved = true; if (lpT) { clearTimeout(lpT); lpT = null; } } }, { passive: true });
+            ['touchend', 'touchcancel'].forEach(function (ev) { container.addEventListener(ev, function () { if (lpT) { clearTimeout(lpT); lpT = null; } }); });
+          }
         }
         function bubble(m) {
           if (m.kind === 'system') {
@@ -332,7 +403,7 @@
           return wrap;
         }
         function markRead() { if (!me.id || !topic) return; clearTimeout(self.readT); self.readT = setTimeout(function () { if (self.destroyed) return; sb.from('comu_topic_reads').upsert({ topic_id: topic.id, user_id: me.id, last_read_at: new Date().toISOString() }, { onConflict: 'topic_id,user_id' }).then(function () { G.applyUnread(); }, function () {}); }, 600); }
-        function addMessage(m, scroll, live) { if (!m || seen[m.id]) return; seen[m.id] = true; msgsEl.appendChild(bubble(m)); renderReactions(m.id); emptyEl.classList.add('hidden'); msgsEl.classList.remove('hidden'); if (scroll) scrollBottom(); markRead(); if (live && me.id && m.author_id !== me.id) G.playPing(); }
+        function addMessage(m, scroll, live) { if (!m || seen[m.id]) return; seen[m.id] = true; msgsEl.appendChild(bubble(m)); renderReactions(m.id); emptyEl.classList.add('hidden'); msgsEl.classList.remove('hidden'); if (scroll) scrollBottom(); else updateScrollBtn(); markRead(); if (live && me.id && m.author_id !== me.id) G.playPing(); }
         function startEdit(m) {
           var wrap = msgsEl.querySelector('[data-msg-id="' + m.id + '"]'); if (!wrap) return;
           var body = wrap.querySelector('.msg-body'); var isMine = me.id && m.author_id === me.id; body.innerHTML = '';
@@ -487,13 +558,32 @@
         document.body.appendChild(picker);
         function hidePicker() { picker.classList.add('hidden'); pickerTarget = null; pickerMode = 'react'; }
         function openPicker(anchor, id, mode) { pickerMode = mode || 'react'; pickerTarget = id || null; picker.classList.remove('hidden'); var r = anchor.getBoundingClientRect(); var pr = picker.getBoundingClientRect(); var top = r.top - pr.height - 6; if (top < 8) top = r.bottom + 6; var left = r.left; if (left + pr.width > window.innerWidth - 8) left = window.innerWidth - 8 - pr.width; picker.style.top = top + 'px'; picker.style.left = Math.max(8, left) + 'px'; }
-        function insertAtCursor(el, text) { if (!el) return; var s = el.selectionStart == null ? el.value.length : el.selectionStart; var e = el.selectionEnd == null ? el.value.length : el.selectionEnd; el.value = el.value.slice(0, s) + text + el.value.slice(e); var p = s + text.length; el.focus(); try { el.setSelectionRange(p, p); } catch (x) {} }
-        function wrapSel(pre, post) { var s = input.selectionStart == null ? input.value.length : input.selectionStart; var e = input.selectionEnd == null ? input.value.length : input.selectionEnd; var v = input.value; var sel = v.slice(s, e) || 'texto'; input.value = v.slice(0, s) + pre + sel + post + v.slice(e); input.focus(); try { input.setSelectionRange(s + pre.length, s + pre.length + sel.length); } catch (x) {} }
+        function insertAtCursor(el, text) { if (!el) return; el.focus(); try { document.execCommand('insertText', false, text); } catch (e) { el.appendChild(document.createTextNode(text)); } el.dispatchEvent(new Event('input')); }
+        function formatCmd(cmd) { input.focus(); var o = ceCaret(input); if (o && o.start === o.end) { try { document.execCommand('insertText', false, 'texto'); } catch (e) {} var o2 = ceCaret(input); if (o2) ceSetCaret(input, Math.max(0, o2.start - 5), o2.end); } try { document.execCommand('styleWithCSS', false, false); } catch (e) {} try { document.execCommand(cmd, false, null); } catch (e) {} input.dispatchEvent(new Event('input')); }
         self.onPickerDoc = function (e) { if (picker.classList.contains('hidden')) return; if (!picker.contains(e.target) && !(e.target.closest && e.target.closest('.react-add')) && !(e.target.closest && e.target.closest('#btn-emoji'))) hidePicker(); };
         document.addEventListener('click', self.onPickerDoc);
+        // ---- menu de contexto da mensagem (clique direito / toque longo) — itens #12 ----
+        var msgMenu = document.createElement('div'); self.msgMenu = msgMenu;
+        msgMenu.className = 'hidden fixed z-[86] bg-surface-container-highest border border-outline-variant rounded-xl shadow-lg py-1 min-w-[210px] max-w-[80vw] overflow-hidden';
+        document.body.appendChild(msgMenu);
+        function hideMsgMenu() { msgMenu.classList.add('hidden'); msgMenu.innerHTML = ''; }
+        function openMsgMenu(x, y, items) {
+          if (!items || !items.length) return;
+          msgMenu.innerHTML = '';
+          items.forEach(function (it) { var b = document.createElement('button'); b.type = 'button'; b.className = 'w-full flex items-center gap-md px-4 py-3 text-left text-body-md active:bg-surface-container-high hover:bg-surface-container-high ' + (it.danger ? 'text-error' : 'text-on-surface'); b.innerHTML = '<span class="material-symbols-outlined text-[22px]">' + it.icon + '</span>' + it.label; b.addEventListener('click', function (e) { e.stopPropagation(); hideMsgMenu(); it.run(); }); msgMenu.appendChild(b); });
+          msgMenu.classList.remove('hidden');
+          var pr = msgMenu.getBoundingClientRect();
+          var left = Math.min(x, window.innerWidth - 8 - pr.width); if (left < 8) left = 8;
+          var top = Math.min(y, window.innerHeight - 8 - pr.height); if (top < 8) top = 8;
+          msgMenu.style.left = left + 'px'; msgMenu.style.top = top + 'px';
+        }
+        self.onMsgMenuDoc = function (e) { if (msgMenu.classList.contains('hidden')) return; if (!msgMenu.contains(e.target)) hideMsgMenu(); };
+        document.addEventListener('click', self.onMsgMenuDoc);
+        self.onMsgMenuScroll = function () { hideMsgMenu(); };
+        window.addEventListener('scroll', self.onMsgMenuScroll, true);
         // toolbar do compositor: negrito / itálico / emoji
-        var fbEl = document.getElementById('fmt-bold'); if (fbEl) fbEl.addEventListener('click', function () { wrapSel('**', '**'); });
-        var fiEl = document.getElementById('fmt-italic'); if (fiEl) fiEl.addEventListener('click', function () { wrapSel('*', '*'); });
+        var fbEl = document.getElementById('fmt-bold'); if (fbEl) fbEl.addEventListener('click', function () { formatCmd('bold'); });
+        var fiEl = document.getElementById('fmt-italic'); if (fiEl) fiEl.addEventListener('click', function () { formatCmd('italic'); });
         var beEl = document.getElementById('btn-emoji'); if (beEl) beEl.addEventListener('click', function (ev) { ev.stopPropagation(); if (picker.classList.contains('hidden') || pickerMode !== 'insert') openPicker(beEl, null, 'insert'); else hidePicker(); });
         var reactionsMap = self.reactionsMap;
         var reactorNames = self.reactorNames || (self.reactorNames = {}); // user_id -> nome
@@ -580,7 +670,7 @@
             if (older.length < CH_PAGE) noOlder = true;
             loadingOlder = false;
           }
-          scrollEl.addEventListener('scroll', function () { if (scrollEl.scrollTop < 120 && !noOlder) loadOlder(); });
+          scrollEl.addEventListener('scroll', function () { if (scrollEl.scrollTop < 120 && !noOlder) loadOlder(); updateScrollBtn(); });
           if (isSupport) {
             // Suporte (1:1): postgres_changes basta (sem fan-out)
             self.channels.push(sb.channel('comu-' + topic.id)
@@ -663,14 +753,15 @@
         form.addEventListener('submit', async function (e) {
           e.preventDefault();
           if (self.recording) { finishRecording(); return; }
-          var body = input.value.trim(); if (!body || !topic || !me.id) { input.value = ''; return; }
-          input.value = '';
+          var body = ceSerialize(input).trim(); if (body.length > 65536) body = body.slice(0, 65536);
+          if (!body || !topic || !me.id) { ceClear(input); return; }
+          var prevHTML = input.innerHTML; ceClear(input);
           var rs = replyState;
           var ins;
           if (isSupport) ins = await sb.rpc('comu_send_support_message', { p_body: body, p_kind: 'text', p_author_name: me.full_name || 'Membro' });
           else ins = await sb.from('comu_messages').insert(Object.assign({ topic_id: topic.id, author_id: me.id, kind: 'text', body: body, author_name: me.full_name || 'Membro', author_avatar: me.avatar_url || null }, rs ? { reply_to: rs.id, reply_author: rs.author, reply_snippet: rs.snippet } : {})).select().single();
           if (ins.error) {
-            console.error(ins.error); input.value = body;             // não perde o texto digitado
+            console.error(ins.error); input.innerHTML = prevHTML;      // não perde o texto digitado
             var em = ins.error.message || '';
             if (/rápido demais|rate/i.test(em)) G.toast('Você está enviando rápido demais. Espere alguns segundos.');
             else if (/Storage|embutida/i.test(em)) G.toast('Mídia deve ir como arquivo, não embutida.');
@@ -679,7 +770,7 @@
             return;
           }
           clearReply();
-          if (!self.destroyed) addMessage(ins.data, true); if (isSupport) refreshTicketInfo();
+          if (!self.destroyed) { addMessage(ins.data, true); requestAnimationFrame(function () { scrollBottom(); requestAnimationFrame(scrollBottom); }); } if (isSupport) refreshTicketInfo();
         });
       }
     };
@@ -693,14 +784,14 @@
     render: async function (view, params) {
       var slug = params.topico; var me = G.me || {}; var back = '/chat/' + encodeURIComponent(slug || '');
       view.innerHTML =
-        '<header class="fixed top-0 left-0 right-0 lg:left-[360px] z-40 bg-surface shadow-[0px_4px_20px_rgba(0,0,0,0.05)] flex items-center justify-between px-container-margin h-14">' +
+        '<header class="fixed top-0 left-0 right-0 lg:left-[var(--side-w)] z-40 bg-surface shadow-[0px_4px_20px_rgba(0,0,0,0.05)] flex items-center justify-between px-container-margin h-14">' +
           '<a class="text-primary flex items-center" href="' + back + '" aria-label="Fechar"><span class="material-symbols-outlined">close</span></a>' +
           '<h1 class="font-headline-sm text-headline-sm font-bold text-primary">Enviar Mídia</h1>' +
           '<button type="button" data-theme-toggle class="lg:hidden text-primary flex items-center" aria-label="Tema"><span class="material-symbols-outlined" data-theme-icon>dark_mode</span></button>' +
           '<div class="hidden lg:block w-9"></div>' +
         '</header>' +
-        '<main class="lg:pl-[360px] pt-20 pb-28 px-container-margin"><div class="max-w-3xl mx-auto space-y-lg">' +
-          '<section class="grid grid-cols-3 gap-sm">' +
+        '<main class="lg:pl-[var(--side-w)] pt-20 pb-28 px-container-margin"><div class="max-w-3xl mx-auto space-y-lg">' +
+          '<section id="act-grid" class="grid grid-cols-3 gap-sm">' +
             '<button type="button" id="act-camera" class="bg-surface-container-high rounded-xl p-md flex flex-col items-center justify-center gap-sm shadow-sm active:scale-[0.98] transition-all"><div class="w-14 h-14 rounded-full bg-primary text-on-primary flex items-center justify-center shadow-lg"><span class="material-symbols-outlined text-3xl">photo_camera</span></div><div class="text-center"><h3 class="font-headline-sm text-headline-sm text-primary">Foto</h3><p class="text-body-sm text-on-surface-variant">Câmera/galeria</p></div></button>' +
             '<button type="button" id="act-video" class="bg-tertiary-container rounded-xl p-md flex flex-col items-center justify-center gap-sm shadow-sm active:scale-[0.98] transition-all"><div class="w-14 h-14 rounded-full bg-tertiary text-on-tertiary flex items-center justify-center shadow-lg"><span class="material-symbols-outlined text-3xl">videocam</span></div><div class="text-center"><h3 class="font-headline-sm text-headline-sm text-on-tertiary-container">Vídeo</h3><p class="text-body-sm text-on-tertiary-container/80">Câmera/galeria</p></div></button>' +
             '<button type="button" id="act-audio" class="bg-secondary-container rounded-xl p-md flex flex-col items-center justify-center gap-sm shadow-sm active:scale-95"><div class="w-14 h-14 rounded-full bg-secondary text-on-secondary flex items-center justify-center shadow-lg"><span class="material-symbols-outlined text-3xl">mic</span></div><div class="text-center"><h3 class="font-headline-sm text-headline-sm text-on-secondary-container">Áudio</h3><p class="text-body-sm text-on-secondary-container/80">Arquivo</p></div></button>' +
@@ -708,23 +799,28 @@
           '<input id="file-camera" type="file" accept="image/*" class="hidden"><input id="file-video" type="file" accept="video/*" class="hidden"><input id="file-audio" type="file" accept="audio/*" class="hidden">' +
           '<section class="bg-surface-container-low rounded-xl p-lg border border-outline-variant shadow-sm space-y-md">' +
             '<div id="preview-empty" class="flex flex-col items-center justify-center text-center gap-sm py-lg"><span class="material-symbols-outlined text-[40px] text-outline">image</span><p class="text-body-sm text-on-surface-variant max-w-xs">Escolha uma foto ou um áudio para pré-visualizar aqui.</p></div>' +
-            '<div id="preview" class="hidden"><div class="flex gap-md items-start"><div id="preview-thumb" class="w-24 h-24 rounded-lg overflow-hidden flex-shrink-0 bg-surface-container-high flex items-center justify-center text-outline"></div><div class="flex-grow min-w-0 space-y-sm"><div class="flex items-center justify-between gap-sm"><span id="preview-name" class="font-label-md text-label-md text-on-surface-variant truncate">arquivo</span><button type="button" id="preview-remove" class="text-error text-xs hover:underline font-semibold shrink-0">Remover</button></div><textarea id="caption" class="w-full bg-transparent border-none focus:ring-0 text-body-md placeholder:text-outline p-0 resize-none h-16 text-on-surface" placeholder="Adicione uma legenda (opcional)..."></textarea></div></div><audio id="preview-audio" controls class="hidden w-full mt-sm"></audio><video id="preview-video" controls class="hidden w-full mt-sm rounded-lg" style="max-height:16rem"></video></div>' +
+            '<div id="preview" class="hidden"><div class="flex gap-md items-start"><div id="preview-thumb" class="w-24 h-24 rounded-lg overflow-hidden flex-shrink-0 bg-surface-container-high flex items-center justify-center text-outline"></div><div class="flex-grow min-w-0 space-y-sm"><div class="flex items-center justify-between gap-sm"><span id="preview-name" class="font-label-md text-label-md text-on-surface-variant truncate">arquivo</span><button type="button" id="preview-remove" class="text-error text-xs hover:underline font-semibold shrink-0">Remover</button></div><textarea id="caption" class="w-full bg-transparent border-none focus:ring-0 text-body-md placeholder:text-outline p-0 resize-none h-16 text-on-surface" placeholder="Adicione uma legenda (opcional)..."></textarea></div></div><img id="preview-image" alt="" class="hidden w-full mt-md rounded-xl border border-outline-variant/40 bg-surface-container-high" style="max-height:24rem;object-fit:contain"><audio id="preview-audio" controls class="hidden w-full mt-sm"></audio><video id="preview-video" controls class="hidden w-full mt-sm rounded-lg" style="max-height:16rem"></video></div>' +
           '</section>' +
         '</div></main>' +
-        '<div class="fixed bottom-0 left-0 right-0 lg:left-[360px] z-40 bg-surface shadow-[0px_-4px_20px_rgba(0,0,0,0.05)] rounded-t-xl px-container-margin py-md"><div class="max-w-3xl mx-auto flex items-center justify-between gap-md"><p id="target-label" class="hidden md:flex items-center gap-xs text-body-sm text-on-surface-variant"><span class="material-symbols-outlined text-[18px]">groups</span> Compartilhar no grupo</p><button id="btn-send" type="button" disabled class="flex-grow md:flex-none bg-primary text-on-primary h-12 px-xl rounded-full font-headline-sm text-headline-sm flex items-center justify-center gap-sm shadow-md active:scale-95 transition-all disabled:opacity-50"><span id="btn-send-label">Enviar para o grupo</span><span class="material-symbols-outlined">send</span></button></div></div>';
+        '<div class="fixed bottom-0 left-0 right-0 lg:left-[var(--side-w)] z-40 bg-surface shadow-[0px_-4px_20px_rgba(0,0,0,0.05)] rounded-t-xl px-container-margin py-md"><div class="max-w-3xl mx-auto flex items-center justify-between gap-md"><p id="target-label" class="hidden md:flex items-center gap-xs text-body-sm text-on-surface-variant"><span class="material-symbols-outlined text-[18px]">groups</span> Compartilhar no grupo</p><button id="btn-send" type="button" disabled class="flex-grow md:flex-none bg-primary text-on-primary h-12 px-xl rounded-full font-headline-sm text-headline-sm flex items-center justify-center gap-sm shadow-md active:scale-95 transition-all disabled:opacity-50"><span id="btn-send-label">Enviar para o grupo</span><span class="material-symbols-outlined">send</span></button></div></div>';
 
       var topic = null;
       if (slug) { var tr = await sb.from('comu_topics').select('id,name,slug,post_policy').eq('slug', slug).maybeSingle(); topic = tr.data; if (topic) document.getElementById('target-label').innerHTML = '<span class="material-symbols-outlined text-[18px]">groups</span> ' + esc(topic.name); }
       var selectedFile = null, selectedKind = null;
       function humanSize(n) { return n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.round(n / 1024) + ' KB'; }
-      function clearSel() { selectedFile = null; selectedKind = null; document.getElementById('preview').classList.add('hidden'); document.getElementById('preview-empty').classList.remove('hidden'); document.getElementById('btn-send').disabled = true; var a = document.getElementById('preview-audio'); a.classList.add('hidden'); a.src = ''; var v = document.getElementById('preview-video'); if (v) { v.classList.add('hidden'); v.removeAttribute('src'); } }
-      function showSel(file, kind) { selectedFile = file; selectedKind = kind; document.getElementById('preview-empty').classList.add('hidden'); document.getElementById('preview').classList.remove('hidden'); document.getElementById('preview-name').textContent = file.name + ' · ' + humanSize(file.size); var thumb = document.getElementById('preview-thumb'), audio = document.getElementById('preview-audio'), video = document.getElementById('preview-video'); var url = URL.createObjectURL(file); audio.classList.add('hidden'); if (video) video.classList.add('hidden'); if (kind === 'image') { thumb.innerHTML = '<img src="' + url + '" class="w-full h-full object-cover" alt="">'; } else if (kind === 'video') { thumb.innerHTML = '<span class="material-symbols-outlined text-[32px]">movie</span>'; if (video) { video.src = url; video.classList.remove('hidden'); } } else { thumb.innerHTML = '<span class="material-symbols-outlined text-[32px]">graphic_eq</span>'; audio.src = url; audio.classList.remove('hidden'); } document.getElementById('btn-send').disabled = false; }
+      function clearSel() { selectedFile = null; selectedKind = null; document.getElementById('preview').classList.add('hidden'); document.getElementById('preview-empty').classList.remove('hidden'); document.getElementById('btn-send').disabled = true; var a = document.getElementById('preview-audio'); a.classList.add('hidden'); a.src = ''; var v = document.getElementById('preview-video'); if (v) { v.classList.add('hidden'); v.removeAttribute('src'); } var pim = document.getElementById('preview-image'); if (pim) { pim.classList.add('hidden'); pim.removeAttribute('src'); } }
+      function showSel(file, kind) { selectedFile = file; selectedKind = kind; document.getElementById('preview-empty').classList.add('hidden'); document.getElementById('preview').classList.remove('hidden'); document.getElementById('preview-name').textContent = file.name + ' · ' + humanSize(file.size); var thumb = document.getElementById('preview-thumb'), audio = document.getElementById('preview-audio'), video = document.getElementById('preview-video'); var url = URL.createObjectURL(file); var image = document.getElementById('preview-image'); audio.classList.add('hidden'); if (video) video.classList.add('hidden'); if (image) image.classList.add('hidden'); if (kind === 'image') { thumb.innerHTML = '<img src="' + url + '" class="w-full h-full object-cover" alt="">'; if (image) { image.src = url; image.classList.remove('hidden'); } } else if (kind === 'video') { thumb.innerHTML = '<span class="material-symbols-outlined text-[32px]">movie</span>'; if (video) { video.src = url; video.classList.remove('hidden'); } } else { thumb.innerHTML = '<span class="material-symbols-outlined text-[32px]">graphic_eq</span>'; audio.src = url; audio.classList.remove('hidden'); } document.getElementById('btn-send').disabled = false; }
       document.getElementById('act-camera').addEventListener('click', function () { document.getElementById('file-camera').click(); });
       document.getElementById('act-video').addEventListener('click', function () { document.getElementById('file-video').click(); });
       document.getElementById('act-audio').addEventListener('click', function () { document.getElementById('file-audio').click(); });
       document.getElementById('file-camera').addEventListener('change', function () { if (this.files[0]) showSel(this.files[0], 'image'); });
       document.getElementById('file-video').addEventListener('change', function () { if (this.files[0]) showSel(this.files[0], 'video'); });
       document.getElementById('file-audio').addEventListener('change', function () { if (this.files[0]) showSel(this.files[0], 'audio'); });
+      // #7 — membros enviam FOTO e ÁUDIO; VÍDEO só admin
+      if (me.role !== 'admin') {
+        var ag = document.getElementById('act-grid'); if (ag) ag.className = 'grid grid-cols-2 gap-sm';
+        var av = document.getElementById('act-video'); if (av) av.classList.add('hidden');
+      }
       document.getElementById('preview-remove').addEventListener('click', clearSel);
       document.getElementById('btn-send').addEventListener('click', async function () {
         if (!selectedFile || !topic) return; var btn = document.getElementById('btn-send'); btn.disabled = true; document.getElementById('btn-send-label').textContent = 'Enviando...';
@@ -753,7 +849,7 @@
       var me = G.me || {};
       view.innerHTML =
         '<header class="lg:hidden fixed top-0 left-0 right-0 z-50 bg-surface shadow-[0px_4px_20px_rgba(0,0,0,0.05)] h-14 flex items-center justify-between px-container-margin"><a href="/" class="text-primary flex items-center" aria-label="Voltar"><span class="material-symbols-outlined">arrow_back</span></a><h1 class="font-headline-sm text-headline-sm font-bold text-primary">Meu Perfil</h1><button type="button" data-theme-toggle class="text-primary flex items-center" aria-label="Tema"><span class="material-symbols-outlined" data-theme-icon>dark_mode</span></button></header>' +
-        '<div class="lg:pl-[360px] min-h-screen"><div class="pt-14 lg:pt-lg pb-20 lg:pb-8 px-container-margin max-w-3xl mx-auto space-y-lg">' +
+        '<div class="lg:pl-[var(--side-w)] min-h-screen"><div class="pt-14 lg:pt-lg pb-20 lg:pb-8 px-container-margin max-w-3xl mx-auto space-y-lg">' +
           '<h1 class="hidden lg:block font-headline-md text-headline-md text-on-surface pt-sm">Meu Perfil</h1>' +
           '<section class="grid grid-cols-1 md:grid-cols-3 gap-md">' +
             '<div class="md:col-span-2 bg-surface-container-lowest rounded-xl p-lg shadow-[0px_4px_20px_rgba(0,0,0,0.05)] flex flex-col items-center md:flex-row md:items-start gap-lg border border-outline-variant/30">' +
@@ -761,6 +857,16 @@
               '<div class="flex-1 text-center md:text-left space-y-xs min-w-0"><div class="flex items-center justify-center md:justify-start gap-sm flex-wrap"><h2 id="pf-name" class="font-headline-md text-headline-md text-on-surface">Carregando…</h2><span id="pf-role" class="hidden bg-primary/10 text-primary px-2 py-0.5 rounded-full font-label-md text-label-md border border-primary/20"></span></div><p id="pf-sub" class="font-body-md text-body-md text-on-surface-variant break-words"> </p><div class="pt-sm"><button type="button" data-edit-open class="inline-flex items-center gap-xs bg-primary/10 text-primary px-4 py-2 rounded-full font-label-md text-label-md border border-primary/20 active:scale-95 transition-transform"><span class="material-symbols-outlined text-[16px]">edit</span> Editar perfil</button></div></div>' +
             '</div>' +
             '<div class="bg-surface-container-high rounded-xl p-lg shadow-sm border border-outline-variant/20 flex flex-col justify-center items-center text-center space-y-md"><div class="grid grid-cols-2 gap-md w-full"><div class="flex flex-col items-center"><span id="pf-msgcount" class="font-headline-sm text-headline-sm text-primary">0</span><span class="font-label-md text-label-md text-on-surface-variant">Mensagens</span></div><div class="flex flex-col items-center"><span class="font-headline-sm text-headline-sm text-secondary">0</span><span class="font-label-md text-label-md text-on-surface-variant">Conquistas</span></div></div><a href="#conquistas" class="w-full h-12 bg-primary text-on-primary rounded-xl font-label-md text-label-md hover:bg-primary/90 active:scale-[0.98] transition-all flex items-center justify-center">Ver conquistas</a></div>' +
+          '</section>' +
+          '<section class="bg-surface-container-low rounded-xl p-lg border border-outline-variant/20 space-y-md">' +
+            '<div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">format_size</span><h3 class="font-headline-sm text-headline-sm text-on-surface">Tamanho da letra</h3></div>' +
+            '<p class="text-body-sm text-on-surface-variant">Deixe o texto do app maior ou menor, do jeito que ficar melhor pra você ler.</p>' +
+            '<div class="flex items-center gap-md">' +
+              '<button type="button" id="fs-dec" class="h-14 flex-1 rounded-xl border border-outline-variant bg-surface text-on-surface flex items-center justify-center gap-xs active:scale-95 transition" aria-label="Diminuir a letra"><span class="material-symbols-outlined">text_decrease</span><span class="font-label-md text-label-md">Menor</span></button>' +
+              '<span id="fs-val" class="w-20 text-center font-headline-sm text-headline-sm text-primary tabular-nums">100%</span>' +
+              '<button type="button" id="fs-inc" class="h-14 flex-1 rounded-xl border border-outline-variant bg-surface text-on-surface flex items-center justify-center gap-xs active:scale-95 transition" aria-label="Aumentar a letra"><span class="material-symbols-outlined">text_increase</span><span class="font-label-md text-label-md">Maior</span></button>' +
+            '</div>' +
+            '<button type="button" id="fs-reset" class="text-primary text-label-md font-label-md underline">Voltar ao tamanho padrão</button>' +
           '</section>' +
           '<section class="space-y-md"><h3 class="font-headline-sm text-headline-sm text-on-surface">Recursos</h3><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-md">' +
             '<a href="/chat/suporte" class="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-xl flex flex-col gap-md min-h-[12rem] hover:shadow-md active:scale-[0.98] transition-all"><div class="bg-primary/10 text-primary p-2 rounded-lg w-fit"><span class="material-symbols-outlined">support_agent</span></div><div><h4 class="font-headline-sm text-headline-sm text-on-surface">Suporte GVSI</h4><p class="font-body-sm text-body-sm text-on-surface-variant">Fale com a equipe de suporte.</p></div></a>' +
@@ -781,7 +887,7 @@
         '<nav class="lg:hidden fixed bottom-0 left-0 right-0 z-50 rounded-t-xl bg-surface shadow-[0px_-4px_20px_rgba(0,0,0,0.05)] h-16 flex justify-around items-center px-2"><a class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1" href="/"><span class="material-symbols-outlined">groups</span><span class="font-label-md text-label-md">Grupos</span></a><a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-full px-4 py-1" href="/perfil"><span class="material-symbols-outlined fill">person</span><span class="font-label-md text-label-md">Meu Perfil</span></a></nav>' +
         '<div id="edit-modal" class="hidden fixed inset-0 z-[60] items-center justify-center p-container-margin bg-black/40"><div class="w-full max-w-md bg-surface-container-lowest rounded-2xl shadow-xl border border-outline-variant/40 p-lg space-y-md max-h-[90vh] overflow-y-auto custom-scrollbar"><div class="flex items-center justify-between"><h3 class="font-headline-sm text-headline-sm text-on-surface">Editar perfil</h3><button type="button" data-edit-close class="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high" aria-label="Fechar"><span class="material-symbols-outlined">close</span></button></div>' +
           '<form id="edit-form" class="space-y-md"><div class="flex items-center gap-md"><span class="w-16 h-16 rounded-full bg-surface-container-high flex items-center justify-center text-outline overflow-hidden shrink-0"><span id="ef-avatar-icon" class="material-symbols-outlined text-[32px]">person</span><img id="ef-avatar-preview" class="hidden w-16 h-16 object-cover" alt=""></span><button type="button" id="ef-avatar-btn" class="text-primary text-label-md font-label-md flex items-center gap-xs"><span class="material-symbols-outlined text-[18px]">photo_camera</span> Alterar foto</button><input id="ef-avatar-input" type="file" accept="image/*" class="hidden"></div>' +
-          '<div><label for="ef-name" class="block text-label-md font-label-md text-on-surface-variant mb-xs">Nome</label><input id="ef-name" type="text" class="w-full bg-surface-container-low border border-outline-variant rounded-xl py-3 px-4 focus:ring-2 focus:ring-primary text-body-md text-on-surface" placeholder="Seu nome"></div>' +
+          '<div><label for="ef-name" class="block text-label-md font-label-md text-on-surface-variant mb-xs">Nome</label><input id="ef-name" type="text" readonly aria-readonly="true" tabindex="-1" class="w-full bg-surface-container-high border border-outline-variant rounded-xl py-3 px-4 text-body-md text-on-surface-variant cursor-not-allowed" placeholder="Seu nome"><p class="text-body-sm text-on-surface-variant mt-xs flex items-center gap-xs"><span class="material-symbols-outlined text-[16px]">lock</span>O nome é definido pela comunidade e não pode ser alterado.</p></div>' +
           '<div><label for="ef-bio" class="block text-label-md font-label-md text-on-surface-variant mb-xs">Bio</label><textarea id="ef-bio" rows="2" class="w-full bg-surface-container-low border border-outline-variant rounded-xl py-3 px-4 focus:ring-2 focus:ring-primary text-body-md text-on-surface resize-none" placeholder="Fale um pouco sobre você"></textarea></div>' +
           '<div><label for="ef-phone" class="block text-label-md font-label-md text-on-surface-variant mb-xs">Telefone</label><input id="ef-phone" type="tel" class="w-full bg-surface-container-low border border-outline-variant rounded-xl py-3 px-4 focus:ring-2 focus:ring-primary text-body-md text-on-surface" placeholder="(00) 00000-0000"></div>' +
           '<p id="ef-msg" class="hidden text-body-sm text-center"></p>' +
@@ -823,13 +929,26 @@
       });
       document.getElementById('edit-form').addEventListener('submit', async function (e) {
         e.preventDefault();
-        var payload = { full_name: document.getElementById('ef-name').value.trim() || null, bio: document.getElementById('ef-bio').value.trim() || null, phone: document.getElementById('ef-phone').value.trim() || null, avatar_url: me.avatar_url || null };
+        var payload = { bio: document.getElementById('ef-bio').value.trim() || null, phone: document.getElementById('ef-phone').value.trim() || null, avatar_url: me.avatar_url || null }; // #8: nome é travado, não é enviado
         document.getElementById('ef-save').disabled = true;
         var up = await sb.from('lms_students').update(payload).eq('id', me.id).select().single();
         document.getElementById('ef-save').disabled = false;
         if (up.error) { efMsg('Erro ao salvar: ' + up.error.message, false); return; }
         Object.assign(me, up.data); G.me = me; fillUI(); closeEdit(); G.toast('Perfil atualizado ✅');
       });
+      // #10 — controle de tamanho da letra (escala só o texto, via --fs)
+      (function () {
+        var STEPS = [0.9, 1, 1.15, 1.3, 1.45, 1.6];
+        function curFs() { var f = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--fs')); return f > 0 ? f : 1; }
+        function nearestIdx(f) { var bi = 1, bd = 9; STEPS.forEach(function (s, i) { var d = Math.abs(s - f); if (d < bd) { bd = d; bi = i; } }); return bi; }
+        var idx = nearestIdx(curFs());
+        function apply() { var f = STEPS[idx]; document.documentElement.style.setProperty('--fs', f); try { localStorage.setItem('gvsi-fs', f); } catch (e) {} var v = document.getElementById('fs-val'); if (v) v.textContent = Math.round(f * 100) + '%'; }
+        apply();
+        var dec = document.getElementById('fs-dec'), inc = document.getElementById('fs-inc'), rst = document.getElementById('fs-reset');
+        if (dec) dec.addEventListener('click', function () { idx = Math.max(0, idx - 1); apply(); });
+        if (inc) inc.addEventListener('click', function () { idx = Math.min(STEPS.length - 1, idx + 1); apply(); });
+        if (rst) rst.addEventListener('click', function () { idx = 1; apply(); });
+      })();
       document.querySelectorAll('[data-soon]').forEach(function (b) { b.addEventListener('click', function (e) { e.preventDefault(); G.toast('Em breve.'); }); });
     }
   };
@@ -848,8 +967,8 @@
         S = { destroyed: false, channels: [], currentTicket: null, filter: 'todos', seen: Object.create(null), convoChannel: null, tags: [], contactTags: {} };
         var self = S;
         view.innerHTML =
-          '<header class="fixed top-0 left-0 right-0 z-50 bg-surface shadow-[0px_4px_20px_rgba(0,0,0,0.05)] h-14 flex items-center justify-between px-container-margin"><button type="button" id="suporte-back" class="flex items-center gap-sm text-primary" aria-label="Voltar"><span class="material-symbols-outlined">arrow_back</span><span class="font-headline-sm text-headline-sm font-bold">Suporte · Atendimento</span></button><div class="flex items-center gap-xs"><button type="button" data-theme-toggle class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors" aria-label="Tema"><span class="material-symbols-outlined" data-theme-icon>dark_mode</span></button><button type="button" data-signout class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-error/10 hover:text-error transition-colors" aria-label="Sair"><span class="material-symbols-outlined">logout</span></button></div></header>' +
-          '<div class="pt-14 h-[100dvh] flex">' +
+          '<header class="fixed top-0 left-0 right-0 lg:left-[var(--side-w)] z-50 bg-surface shadow-[0px_4px_20px_rgba(0,0,0,0.05)] h-14 flex items-center justify-between px-container-margin"><button type="button" id="suporte-back" class="flex items-center gap-sm text-primary" aria-label="Voltar"><span class="material-symbols-outlined">arrow_back</span><span class="font-headline-sm text-headline-sm font-bold">Suporte · Atendimento</span></button><div class="flex items-center gap-xs"><button type="button" data-theme-toggle class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors" aria-label="Tema"><span class="material-symbols-outlined" data-theme-icon>dark_mode</span></button><button type="button" data-signout class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-error/10 hover:text-error transition-colors" aria-label="Sair"><span class="material-symbols-outlined">logout</span></button></div></header>' +
+          '<div class="pt-14 lg:pl-[var(--side-w)] h-[100dvh] flex">' +
             '<aside id="list-panel" class="w-full lg:w-[380px] lg:border-r border-outline-variant flex flex-col shrink-0"><div class="p-sm flex gap-1 border-b border-outline-variant"><button data-filter="todos" class="flex-1 py-2 rounded-lg text-label-md font-label-md bg-primary text-on-primary transition-colors">Todos</button><button data-filter="pendentes" class="flex-1 py-2 rounded-lg text-label-md font-label-md text-on-surface-variant hover:bg-surface-container-high transition-colors">Pendentes</button><button data-filter="resolvidos" class="flex-1 py-2 rounded-lg text-label-md font-label-md text-on-surface-variant hover:bg-surface-container-high transition-colors">Resolvidos</button></div><div id="ticket-list" class="flex-1 overflow-y-auto custom-scrollbar"><p class="p-lg text-center text-on-surface-variant text-body-sm">Carregando…</p></div></aside>' +
             '<section id="convo-panel" class="hidden lg:flex flex-1 flex-col min-w-0"><div id="convo-empty" class="flex-1 flex flex-col items-center justify-center text-center gap-md p-xl text-on-surface-variant"><span class="material-symbols-outlined text-[48px]">forum</span><p class="text-body-md max-w-xs">Selecione uma conversa para ver o histórico e responder.</p></div>' +
               '<div id="convo-main" class="hidden flex-1 flex-col min-h-0"><div class="min-h-16 shrink-0 border-b border-outline-variant px-md py-2 flex items-center"><div class="max-w-3xl mx-auto w-full flex items-center gap-md"><button id="convo-back" class="lg:hidden text-primary flex items-center" aria-label="Voltar"><span class="material-symbols-outlined">arrow_back</span></button><span id="convo-avatar" class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center text-outline shrink-0 overflow-hidden"><span class="material-symbols-outlined">person</span></span><div class="flex-1 min-w-0"><h2 id="convo-name" class="font-bold text-on-surface truncate"></h2><p id="convo-protocol" class="text-body-sm text-outline truncate"></p><div id="convo-tags" class="flex flex-wrap items-center gap-1 mt-1"></div></div><button type="button" id="btn-tags" class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors shrink-0" aria-label="Tags do contato"><span class="material-symbols-outlined">sell</span></button><button id="btn-resolve" class="bg-primary text-on-primary rounded-full px-4 py-2 text-label-md font-label-md active:scale-95 transition disabled:opacity-60 flex items-center gap-xs"><span class="material-symbols-outlined text-[18px]">check_circle</span><span id="btn-resolve-label">Marcar como resolvido</span></button></div></div>' +

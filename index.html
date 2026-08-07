@@ -2,12 +2,14 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport">
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport">
 <base href="/">
 <title>GVSI Comunidade</title>
 <link rel="icon" type="image/png" href="assets/favicon.png">
 <link rel="apple-touch-icon" href="assets/favicon.png">
 <script>(function(){try{var t=localStorage.getItem('gvsi-theme');if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';if(t==='dark')document.documentElement.classList.add('dark');}catch(e){}})();</script>
+<style>:root{--side-w:360px;--fs:1}</style>
+<script>(function(){try{var d=document.documentElement;var w=parseInt(localStorage.getItem('gvsi-side-w'),10);if(w>=260&&w<=560)d.style.setProperty('--side-w',w+'px');var f=parseFloat(localStorage.getItem('gvsi-fs'));if(f>=0.9&&f<=1.6)d.style.setProperty('--fs',f);}catch(e){}})();</script>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <script src="assets/tailwind-config.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -17,7 +19,7 @@
 <body class="bg-background text-on-background font-body-md min-h-screen">
 
 <!-- Sidebar (desktop) — persiste em toda navegação -->
-<aside class="hidden lg:flex lg:flex-col fixed inset-y-0 left-0 w-[360px] bg-surface border-r border-outline-variant z-40">
+<aside class="hidden lg:flex lg:flex-col fixed inset-y-0 left-0 w-[var(--side-w)] bg-surface border-r border-outline-variant z-40">
 <a href="/" class="flex items-center px-lg py-5 border-b border-outline-variant shrink-0 bg-surface-container-low">
 <img src="assets/logo-light.svg?v=2" alt="GVSI Capital Prop" class="h-12 w-auto dark:hidden">
 <img src="assets/logo-dark.svg?v=2" alt="GVSI Capital Prop" class="h-12 w-auto hidden dark:block">
@@ -34,6 +36,9 @@
 <button type="button" data-signout class="w-11 h-11 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-error/10 hover:text-error transition-colors" aria-label="Sair">
 <span class="material-symbols-outlined text-[24px]">logout</span>
 </button>
+</div>
+<div id="side-resizer" role="separator" aria-orientation="vertical" aria-label="Redimensionar largura da lista" title="Arraste para redimensionar" class="absolute top-0 right-0 h-full w-2 cursor-col-resize z-50 group flex items-stretch justify-end">
+<span class="w-1 bg-outline-variant/40 group-hover:bg-primary/70 transition-colors"></span>
 </div>
 </aside>
 
@@ -58,7 +63,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="assets/supabase.js"></script>
 <script src="assets/topics.js"></script>
-<script src="assets/spa.js?v=7"></script>
-<script src="assets/views.js?v=7"></script>
+<script src="assets/spa.js?v=8"></script>
+<script src="assets/views.js?v=8"></script>
 </body>
 </html>

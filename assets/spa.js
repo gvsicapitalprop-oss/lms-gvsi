@@ -40,12 +40,34 @@ GVSI.views = GVSI.views || {};
     try { return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); }
     catch (e) { return ''; }
   };
+  // Rótulo curto p/ menu inicial (item #13): hoje -> HH:MM; senão -> DD/MM.
+  G.shortWhen = function (iso) {
+    if (!iso) return '';
+    try {
+      var d = new Date(iso), now = new Date();
+      if (d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate())
+        return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    } catch (e) { return ''; }
+  };
   var _toastT;
   G.toast = function (msg) {
     var el = document.getElementById('toast'); if (!el) return;
     el.textContent = msg; el.classList.remove('hidden');
     clearTimeout(_toastT); _toastT = setTimeout(function () { el.classList.add('hidden'); }, 2600);
   };
+  // ---- Divisória arrastável da lista lateral (desktop) — item #1 ----
+  G.initSideResizer = function () {
+    var r = document.getElementById('side-resizer'); if (!r || r._wired) return; r._wired = true;
+    var MIN = 260, MAX = 560, dragging = false;
+    function setW(px) { px = Math.max(MIN, Math.min(MAX, px)); document.documentElement.style.setProperty('--side-w', px + 'px'); return px; }
+    r.addEventListener('pointerdown', function (e) { dragging = true; try { r.setPointerCapture(e.pointerId); } catch (x) {} document.body.style.userSelect = 'none'; document.body.style.cursor = 'col-resize'; e.preventDefault(); });
+    r.addEventListener('pointermove', function (e) { if (dragging) setW(e.clientX); });
+    function end(e) { if (!dragging) return; dragging = false; try { r.releasePointerCapture(e.pointerId); } catch (x) {} document.body.style.userSelect = ''; document.body.style.cursor = ''; var w = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--side-w'), 10); if (w) { try { localStorage.setItem('gvsi-side-w', w); } catch (x) {} } }
+    r.addEventListener('pointerup', end); r.addEventListener('pointercancel', end);
+    r.addEventListener('dblclick', function () { setW(360); try { localStorage.setItem('gvsi-side-w', 360); } catch (x) {} });
+  };
+  if (document.readyState !== 'loading') G.initSideResizer(); else document.addEventListener('DOMContentLoaded', G.initSideResizer);
   // Som de notificação ao chegar mensagem nova de outra pessoa.
   G.playPing = function () {
     var now = Date.now();
@@ -173,11 +195,12 @@ GVSI.views = GVSI.views || {};
     return who + G.esc((m.body || '').replace(/\s+/g, ' ').trim());
   }
   function topicPreview(slug) { return msgPreviewHtml(G.lastMsgs[slug]); }
+  function topicTime(slug) { var m = G.lastMsgs[slug]; return m && m.created_at ? G.shortWhen(m.created_at) : ''; }
   G.applyTopicPreviews = function () {
-    document.querySelectorAll('#side-topics .topic-item').forEach(function (item) {
-      var p = item.querySelector('.topic-preview'); if (!p) return;
-      var html = topicPreview(item.dataset.slug);
-      if (html) p.innerHTML = html; else p.textContent = p.dataset.desc || '';
+    document.querySelectorAll('.topic-item').forEach(function (item) {
+      var p = item.querySelector('.topic-preview');
+      if (p) { var html = topicPreview(item.dataset.slug); if (html) p.innerHTML = html; else p.textContent = p.dataset.desc || ''; }
+      var t = item.querySelector('.topic-time'); if (t) t.textContent = topicTime(item.dataset.slug);
     });
   };
   G.loadLastMessages = async function () {
@@ -197,8 +220,8 @@ GVSI.views = GVSI.views || {};
       (active ? 'bg-surface-container-high' : 'hover:bg-surface-container-low') + '">' +
       '<div class="w-12 h-12 rounded-full ' + tone.bg + ' flex items-center justify-center ' + tone.fg + ' shrink-0"><span class="material-symbols-outlined text-[24px]">' + t.icon + '</span></div>' +
       '<div class="flex-1 min-w-0"><h3 class="font-bold text-on-surface truncate">' + G.esc(t.name) + '</h3><p class="topic-preview text-body-sm text-on-surface-variant truncate" data-desc="' + G.esc(t.desc) + '">' + (topicPreview(t.id) || G.esc(t.desc)) + '</p></div>' +
-      '<span class="unread-badge hidden min-w-[24px] h-6 px-1.5 rounded-full bg-primary text-on-primary text-[13px] font-bold flex items-center justify-center">0</span>' +
-      '<span class="material-symbols-outlined text-outline">chevron_right</span></a>';
+      '<div class="flex flex-col items-end gap-1 shrink-0 ml-1"><span class="topic-time text-[12px] text-on-surface-variant/80 tabular-nums whitespace-nowrap">' + topicTime(t.id) + '</span>' +
+      '<span class="unread-badge hidden min-w-[24px] h-6 px-1.5 rounded-full bg-primary text-on-primary text-[13px] font-bold flex items-center justify-center">0</span></div></a>';
   }
   var TOPIC_GROUPS = [
     { title: 'Ajuda', slugs: ['suporte'] },
@@ -243,9 +266,9 @@ GVSI.views = GVSI.views || {};
     document.querySelectorAll('[data-side-name]').forEach(function (el) { el.textContent = m.full_name || 'Meu Perfil'; });
   };
   function setActive(route) {
-    // o console de suporte é tela cheia própria → esconde a sidebar de tópicos
+    // sidebar de tópicos sempre visível (o console de suporte agora fica ao lado dela — item #2)
     var shellAside = document.querySelector('aside.fixed.inset-y-0');
-    if (shellAside) shellAside.style.display = (route.name === 'suporte') ? 'none' : '';
+    if (shellAside) shellAside.style.display = '';
     // tópico ativo na sidebar
     var activeSlug = route.name === 'chat' ? route.params.topico : '';
     document.querySelectorAll('#side-topics .topic-item').forEach(function (a) {

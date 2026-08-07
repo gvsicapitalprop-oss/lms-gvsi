@@ -122,7 +122,7 @@ html {
 body {
   font-family: 'Inter', sans-serif;
   min-height: 100dvh;
-  font-size: 18px; /* base legível p/ público 70+: texto sem classe de tamanho (ex.: balões de mensagem) herda 18px */
+  font-size: calc(18px * var(--fs, 1)); /* base legível p/ público 70+: texto sem classe de tamanho herda isso; escala com o controle de tamanho (--fs) */
 }
 
 /* ---- Balão de mensagem enviada (reutilizado quando houver mensagens reais) ---- */
@@ -168,3 +168,29 @@ body {
   100% { transform: scale(1); opacity: 1; }
 }
 .animate-record { animation: pulse-record 2s infinite ease-in-out; }
+
+/* ---- Compositor WYSIWYG (contenteditable) — item #3 ---- */
+.ce-input { line-height: 1.4; outline: none; }
+.ce-input:empty::before {
+  content: attr(data-placeholder);
+  color: rgb(var(--c-on-surface-variant));
+  pointer-events: none;
+}
+.ce-input strong, .ce-input b { font-weight: 700; }
+.ce-input em, .ce-input i { font-style: italic; }
+.ce-input p, .ce-input div { margin: 0; }
+
+/* ---- Divisória arrastável da lista (item #1) ---- */
+#side-resizer { touch-action: none; }
+
+/* ---- Controle de tamanho da letra (item #10) ----
+   O Play CDN fixa os tokens de fontSize em px (ele resolve o calc na geração),
+   então sobrepomos aqui, num CSS de verdade, com calc(var(--fs)) !important. */
+.text-body-md { font-size: calc(18px * var(--fs, 1)) !important; line-height: calc(28px * var(--fs, 1)) !important; }
+.text-body-lg { font-size: calc(20px * var(--fs, 1)) !important; line-height: calc(30px * var(--fs, 1)) !important; }
+.text-body-sm { font-size: calc(16px * var(--fs, 1)) !important; line-height: calc(24px * var(--fs, 1)) !important; }
+.text-label-md { font-size: calc(14px * var(--fs, 1)) !important; line-height: calc(18px * var(--fs, 1)) !important; }
+.text-headline-sm { font-size: calc(22px * var(--fs, 1)) !important; line-height: calc(30px * var(--fs, 1)) !important; }
+.text-headline-md { font-size: calc(24px * var(--fs, 1)) !important; line-height: calc(32px * var(--fs, 1)) !important; }
+.text-headline-lg { font-size: calc(32px * var(--fs, 1)) !important; line-height: calc(40px * var(--fs, 1)) !important; }
+.text-headline-lg-mobile { font-size: calc(26px * var(--fs, 1)) !important; line-height: calc(32px * var(--fs, 1)) !important; }
