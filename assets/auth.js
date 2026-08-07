@@ -19,6 +19,14 @@
     return data.user;
   }
 
+  // Nome padrão apresentável a partir do e-mail (ex.: ana.analista@ -> "Ana Analista"). Item #8.
+  function prettyName(email) {
+    var lp = (email ? String(email).split("@")[0] : "") || "Membro";
+    lp = lp.replace(/[._-]+/g, " ").replace(/\s+/g, " ").trim();
+    lp = lp.split(" ").map(function (w) { return w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w; }).join(" ");
+    return lp || "Membro";
+  }
+
   // Cria o registro em lms_students se ainda não existir (sem sobrescrever).
   async function ensureProfile() {
     const user = await getUser();
@@ -28,7 +36,7 @@
       {
         id: user.id,
         email: user.email,
-        full_name: meta.full_name || (user.email ? user.email.split("@")[0] : "Membro"),
+        full_name: meta.full_name || prettyName(user.email),
       },
       { onConflict: "id", ignoreDuplicates: true }
     );
