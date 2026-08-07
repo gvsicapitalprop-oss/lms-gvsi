@@ -225,47 +225,62 @@ GVSI.views = GVSI.views || {};
     try { p1.focus(); } catch (e) {}
   };
 
-  // ---- Onboarding guiado no 1º acesso (tour de boas-vindas, público 70+) ----
-  G.showOnboarding = function (onDone) {
+  // ---- Onboarding guiado: painel aberto, ilumina cada grupo de verdade (coach-marks) ----
+  G.showOnboarding = function () {
     if (document.getElementById('onb-screen')) return;
-    var steps = [
-      { icon: 'waving_hand', title: 'Bem-vindo à Comunidade GVSI!', text: 'Aqui você conversa com a comunidade, tira dúvidas e acompanha os avisos. Vamos dar uma olhada rápida, é bem simples.' },
-      { icon: 'groups', title: 'Os grupos', text: 'No menu você escolhe um grupo (Chat Geral, Prints, Resultados e outros) e toca pra abrir a conversa.' },
-      { icon: 'send', title: 'Escrever e enviar', text: 'Escreva sua mensagem no campo de baixo e toque no botão azul de enviar. Dá pra mandar foto e áudio também.' },
-      { icon: 'support_agent', title: 'Precisa de ajuda?', text: 'Toque em "Suporte" pra falar direto com a nossa equipe, sempre que precisar.' },
-      { icon: 'format_size', title: 'Deixe a letra do seu tamanho', text: 'No seu Perfil dá pra aumentar ou diminuir o tamanho da letra, pra ler bem confortável.' }
-    ];
-    var i = 0;
-    var ov = document.createElement('div');
-    ov.id = 'onb-screen';
-    ov.className = 'fixed inset-0 z-[101] bg-background flex items-center justify-center p-container-margin';
-    ov.innerHTML =
-      '<div class="w-full max-w-md flex flex-col items-center text-center gap-lg">' +
-        '<div class="w-24 h-24 rounded-full bg-primary/10 text-primary flex items-center justify-center"><span id="onb-icon" class="material-symbols-outlined" style="font-size:52px"></span></div>' +
-        '<div class="space-y-sm px-sm"><h1 id="onb-title" class="font-headline-md text-headline-md text-on-surface"></h1><p id="onb-text" class="text-body-lg text-on-surface-variant"></p></div>' +
-        '<div id="onb-dots" class="flex items-center gap-2"></div>' +
-        '<div class="w-full flex items-center gap-sm">' +
-          '<button id="onb-back" type="button" class="h-12 px-5 rounded-xl border border-outline-variant text-on-surface font-label-md active:scale-95 transition">Voltar</button>' +
-          '<button id="onb-next" type="button" class="flex-1 h-12 bg-primary text-on-primary rounded-xl font-headline-sm text-headline-sm active:scale-[0.98] transition">Próximo</button>' +
-        '</div>' +
-        '<button id="onb-skip" type="button" class="text-body-sm text-on-surface-variant underline">Pular</button>' +
-      '</div>';
-    document.body.appendChild(ov);
-    var iconEl = ov.querySelector('#onb-icon'), titleEl = ov.querySelector('#onb-title'), textEl = ov.querySelector('#onb-text');
-    var dots = ov.querySelector('#onb-dots'), back = ov.querySelector('#onb-back'), next = ov.querySelector('#onb-next'), skip = ov.querySelector('#onb-skip');
-    dots.innerHTML = steps.map(function (_, k) { return '<span class="w-2.5 h-2.5 rounded-full bg-outline-variant"></span>'; }).join('');
-    function done() { try { localStorage.setItem('gvsi-onboarded', '1'); } catch (e) {} ov.remove(); if (typeof onDone === 'function') onDone(); }
-    function paint() {
-      var s = steps[i];
-      iconEl.textContent = s.icon; titleEl.textContent = s.title; textEl.textContent = s.text;
-      [].forEach.call(dots.children, function (d, k) { d.className = 'w-2.5 h-2.5 rounded-full ' + (k === i ? 'bg-primary' : 'bg-outline-variant'); });
-      back.style.visibility = (i === 0) ? 'hidden' : 'visible';
-      next.textContent = (i === steps.length - 1) ? 'Começar a usar' : 'Próximo';
+    if (location.pathname !== '/') G.navigate('/');
+    setTimeout(start, 160); // deixa a home/sidebar montar
+    function pickGroupItems() {
+      var mob = [].slice.call(document.querySelectorAll('#topic-list .topic-item')).filter(function (e) { return e.offsetParent !== null; });
+      if (mob.length) return mob;
+      return [].slice.call(document.querySelectorAll('#side-topics .topic-item')).filter(function (e) { return e.offsetParent !== null; });
     }
-    back.addEventListener('click', function () { if (i > 0) { i--; paint(); } });
-    next.addEventListener('click', function () { if (i < steps.length - 1) { i++; paint(); } else done(); });
-    skip.addEventListener('click', done);
-    paint();
+    function start() {
+      var items = pickGroupItems();
+      var steps = [{ el: null, title: 'Bem-vindo à Comunidade GVSI!', text: 'Vou te apresentar rapidinho cada grupo, pra você saber onde fica cada coisa. É só ir tocando em "Próximo".' }];
+      items.forEach(function (it) {
+        var h = it.querySelector('h3'); var pv = it.querySelector('.topic-preview');
+        steps.push({ el: it, title: h ? h.textContent : 'Grupo', text: (pv && pv.dataset.desc) || 'Toque neste grupo para abrir a conversa.' });
+      });
+      steps.push({ el: null, title: 'Pronto, é só isso!', text: 'Agora é só escolher um grupo e começar. Quando quiser rever, toque no botão "Tutorial" no canto da tela.' });
+      run(steps);
+    }
+    function run(steps) {
+      var i = 0;
+      var ov = document.createElement('div'); ov.id = 'onb-screen'; ov.className = 'fixed inset-0 z-[101]';
+      var hole = document.createElement('div'); hole.style.cssText = 'position:fixed;border-radius:14px;box-shadow:0 0 0 9999px rgba(0,0,0,.72);transition:all .25s ease;pointer-events:none;display:none;';
+      var ring = document.createElement('div'); ring.style.cssText = 'position:fixed;border-radius:14px;border:3px solid rgb(var(--c-primary));box-shadow:0 0 0 4px rgb(var(--c-primary) / .3);transition:all .25s ease;pointer-events:none;display:none;';
+      var card = document.createElement('div'); card.className = 'fixed z-[102] w-[min(92vw,360px)] bg-surface-container-lowest border border-outline-variant/50 rounded-2xl shadow-2xl p-lg';
+      ov.appendChild(hole); ov.appendChild(ring); document.body.appendChild(ov); document.body.appendChild(card);
+      function done() { try { localStorage.setItem('gvsi-onboarded', '1'); } catch (e) {} window.removeEventListener('resize', reflow); window.removeEventListener('scroll', reflow, true); ov.remove(); card.remove(); }
+      function reflow() { var s = steps[i]; if (s && s.el) placeOn(s.el); }
+      function placeOn(el) {
+        var r = el.getBoundingClientRect(); var pad = 6;
+        hole.style.display = 'block'; ring.style.display = 'block';
+        [hole, ring].forEach(function (b) { b.style.left = (r.left - pad) + 'px'; b.style.top = (r.top - pad) + 'px'; b.style.width = (r.width + pad * 2) + 'px'; b.style.height = (r.height + pad * 2) + 'px'; });
+        card.style.transform = 'none';
+        var cw = card.offsetWidth, ch = card.offsetHeight, vw = window.innerWidth, vh = window.innerHeight, m = 12, left, top;
+        if (r.right + m + cw <= vw - 8) { left = r.right + m; top = Math.min(Math.max(8, r.top), vh - ch - 8); }
+        else if (r.bottom + m + ch <= vh - 8) { left = Math.min(Math.max(8, r.left), vw - cw - 8); top = r.bottom + m; }
+        else { left = Math.min(Math.max(8, r.left), vw - cw - 8); top = Math.max(8, r.top - ch - m); }
+        card.style.left = left + 'px'; card.style.top = top + 'px';
+      }
+      function place() {
+        var s = steps[i];
+        card.innerHTML = '<h3 class="font-headline-sm text-headline-sm text-on-surface mb-xs">' + G.esc(s.title) + '</h3>' +
+          '<p class="text-body-md text-on-surface-variant">' + G.esc(s.text) + '</p>' +
+          '<div class="flex items-center justify-between mt-md gap-sm"><button type="button" class="onb-skip text-body-sm text-on-surface-variant underline shrink-0">Pular</button>' +
+          '<div class="flex gap-sm">' + (i > 0 ? '<button type="button" class="onb-back h-11 px-4 rounded-xl border border-outline-variant text-on-surface font-label-md">Voltar</button>' : '') +
+          '<button type="button" class="onb-next h-11 px-5 rounded-xl bg-primary text-on-primary font-label-md">' + (i === steps.length - 1 ? 'Concluir' : 'Próximo') + '</button></div></div>';
+        card.querySelector('.onb-next').onclick = function () { if (i < steps.length - 1) { i++; place(); } else done(); };
+        var bk = card.querySelector('.onb-back'); if (bk) bk.onclick = function () { if (i > 0) { i--; place(); } };
+        card.querySelector('.onb-skip').onclick = done;
+        if (s.el) { ov.style.background = 'transparent'; try { s.el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) {} setTimeout(function () { placeOn(s.el); }, 260); }
+        else { ov.style.background = 'rgba(0,0,0,.72)'; hole.style.display = 'none'; ring.style.display = 'none'; card.style.left = '50%'; card.style.top = '50%'; card.style.transform = 'translate(-50%,-50%)'; }
+      }
+      window.addEventListener('resize', reflow); window.addEventListener('scroll', reflow, true);
+      place();
+    }
   };
 
   // ---- Tema ----
