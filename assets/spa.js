@@ -180,7 +180,7 @@ GVSI.views = GVSI.views || {};
         '<div class="bg-surface-container-lowest border border-outline-variant/40 rounded-2xl shadow-sm p-lg space-y-md">' +
           '<div><label for="spw1" class="block text-label-md font-label-md text-on-surface-variant mb-xs">Sua senha</label><input id="spw1" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" class="w-full bg-surface-container-low border border-outline-variant rounded-xl py-4 px-4 text-body-lg text-on-surface focus:ring-2 focus:ring-primary" placeholder="Digite uma senha"></div>' +
           '<div><label for="spw2" class="block text-label-md font-label-md text-on-surface-variant mb-xs">Repita a senha</label><input id="spw2" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" class="w-full bg-surface-container-low border border-outline-variant rounded-xl py-4 px-4 text-body-lg text-on-surface focus:ring-2 focus:ring-primary" placeholder="Digite a mesma senha de novo"></div>' +
-          '<div id="spw-caps" class="hidden items-center gap-sm bg-tertiary-container/40 text-on-tertiary-container rounded-xl px-3 py-2 text-body-sm"><span class="material-symbols-outlined text-[20px]">keyboard_capslock</span><span>Sua senha tem <b>LETRA MAIÚSCULA</b>. Guarde bem — vai precisar digitar igual depois.</span></div>' +
+          '<div id="spw-caps" class="hidden items-center gap-sm bg-tertiary-container/40 text-on-tertiary-container rounded-xl px-3 py-2 text-body-sm"><span class="material-symbols-outlined text-[20px]">keyboard_capslock</span><span>Sua senha tem <b>LETRA MAIÚSCULA</b>. Guarde bem, vai precisar digitar igual depois.</span></div>' +
           '<p id="spw-msg" class="text-body-md text-center min-h-6"></p>' +
           '<button id="spw-save" type="button" disabled class="w-full h-14 bg-primary text-on-primary rounded-xl font-headline-sm text-headline-sm flex items-center justify-center gap-sm shadow-md active:scale-[0.98] transition disabled:opacity-50">Salvar e entrar</button>' +
         '</div>' +
@@ -215,6 +215,7 @@ GVSI.views = GVSI.views || {};
         if (G.me) G.me.needs_password = false;
         ov.remove();
         if (G.toast) G.toast('Senha criada! Bem-vindo(a) à comunidade.');
+        if (G.showOnboarding) G.showOnboarding(); // tour guiado no 1º acesso
       } catch (e) {
         msg.textContent = (e && e.message) ? e.message : 'Não foi possível salvar. Tente de novo.';
         msg.className = 'text-body-md text-center text-error';
@@ -222,6 +223,49 @@ GVSI.views = GVSI.views || {};
       }
     });
     try { p1.focus(); } catch (e) {}
+  };
+
+  // ---- Onboarding guiado no 1º acesso (tour de boas-vindas, público 70+) ----
+  G.showOnboarding = function (onDone) {
+    if (document.getElementById('onb-screen')) return;
+    var steps = [
+      { icon: 'waving_hand', title: 'Bem-vindo à Comunidade GVSI!', text: 'Aqui você conversa com a comunidade, tira dúvidas e acompanha os avisos. Vamos dar uma olhada rápida, é bem simples.' },
+      { icon: 'groups', title: 'Os grupos', text: 'No menu você escolhe um grupo (Chat Geral, Prints, Resultados e outros) e toca pra abrir a conversa.' },
+      { icon: 'send', title: 'Escrever e enviar', text: 'Escreva sua mensagem no campo de baixo e toque no botão azul de enviar. Dá pra mandar foto e áudio também.' },
+      { icon: 'support_agent', title: 'Precisa de ajuda?', text: 'Toque em "Suporte" pra falar direto com a nossa equipe, sempre que precisar.' },
+      { icon: 'format_size', title: 'Deixe a letra do seu tamanho', text: 'No seu Perfil dá pra aumentar ou diminuir o tamanho da letra, pra ler bem confortável.' }
+    ];
+    var i = 0;
+    var ov = document.createElement('div');
+    ov.id = 'onb-screen';
+    ov.className = 'fixed inset-0 z-[101] bg-background flex items-center justify-center p-container-margin';
+    ov.innerHTML =
+      '<div class="w-full max-w-md flex flex-col items-center text-center gap-lg">' +
+        '<div class="w-24 h-24 rounded-full bg-primary/10 text-primary flex items-center justify-center"><span id="onb-icon" class="material-symbols-outlined" style="font-size:52px"></span></div>' +
+        '<div class="space-y-sm px-sm"><h1 id="onb-title" class="font-headline-md text-headline-md text-on-surface"></h1><p id="onb-text" class="text-body-lg text-on-surface-variant"></p></div>' +
+        '<div id="onb-dots" class="flex items-center gap-2"></div>' +
+        '<div class="w-full flex items-center gap-sm">' +
+          '<button id="onb-back" type="button" class="h-12 px-5 rounded-xl border border-outline-variant text-on-surface font-label-md active:scale-95 transition">Voltar</button>' +
+          '<button id="onb-next" type="button" class="flex-1 h-12 bg-primary text-on-primary rounded-xl font-headline-sm text-headline-sm active:scale-[0.98] transition">Próximo</button>' +
+        '</div>' +
+        '<button id="onb-skip" type="button" class="text-body-sm text-on-surface-variant underline">Pular</button>' +
+      '</div>';
+    document.body.appendChild(ov);
+    var iconEl = ov.querySelector('#onb-icon'), titleEl = ov.querySelector('#onb-title'), textEl = ov.querySelector('#onb-text');
+    var dots = ov.querySelector('#onb-dots'), back = ov.querySelector('#onb-back'), next = ov.querySelector('#onb-next'), skip = ov.querySelector('#onb-skip');
+    dots.innerHTML = steps.map(function (_, k) { return '<span class="w-2.5 h-2.5 rounded-full bg-outline-variant"></span>'; }).join('');
+    function done() { try { localStorage.setItem('gvsi-onboarded', '1'); } catch (e) {} ov.remove(); if (typeof onDone === 'function') onDone(); }
+    function paint() {
+      var s = steps[i];
+      iconEl.textContent = s.icon; titleEl.textContent = s.title; textEl.textContent = s.text;
+      [].forEach.call(dots.children, function (d, k) { d.className = 'w-2.5 h-2.5 rounded-full ' + (k === i ? 'bg-primary' : 'bg-outline-variant'); });
+      back.style.visibility = (i === 0) ? 'hidden' : 'visible';
+      next.textContent = (i === steps.length - 1) ? 'Começar a usar' : 'Próximo';
+    }
+    back.addEventListener('click', function () { if (i > 0) { i--; paint(); } });
+    next.addEventListener('click', function () { if (i < steps.length - 1) { i++; paint(); } else done(); });
+    skip.addEventListener('click', done);
+    paint();
   };
 
   // ---- Tema ----
