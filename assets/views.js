@@ -959,7 +959,7 @@
   // =====================================================================
   GVSI.views.suporte = (function () {
     var S = null;
-    function cleanup() { if (!S) return; S.destroyed = true; (S.channels || []).forEach(function (c) { try { sb.removeChannel(c); } catch (e) {} }); S = null; }
+    function cleanup() { if (!S) return; S.destroyed = true; (S.channels || []).forEach(function (c) { try { sb.removeChannel(c); } catch (e) {} }); if (S.supMenu && S.supMenu.parentNode) S.supMenu.remove(); if (S.supPicker && S.supPicker.parentNode) S.supPicker.remove(); if (S.onSupDoc) document.removeEventListener('click', S.onSupDoc); S = null; }
     return {
       destroy: cleanup,
       render: async function (view) {
@@ -1037,6 +1037,36 @@
             el.addEventListener('click', function () { openTicket(tk); }); list.appendChild(el);
           });
         }
+        // ---- ações nas mensagens do suporte (reagir/editar/apagar) — igual aos grupos ----
+        self.reactMap = self.reactMap || {}; self.msgById = self.msgById || {};
+        var supMenu = document.createElement('div'); self.supMenu = supMenu;
+        supMenu.className = 'hidden fixed z-[86] bg-surface-container-highest border border-outline-variant rounded-xl shadow-lg py-1 min-w-[200px] max-w-[80vw] overflow-hidden';
+        var supPicker = document.createElement('div'); self.supPicker = supPicker;
+        supPicker.className = 'hidden fixed z-[88] bg-surface-container-highest border border-outline-variant rounded-2xl shadow-lg p-2 flex flex-wrap items-center gap-1 max-w-[320px] max-h-[46vh] overflow-y-auto custom-scrollbar';
+        ['❤️', '👍', '👎', '😂', '🙏', '🔥', '✅', '❌', '👏', '🎉', '😢', '😮', '🤝', '💯'].forEach(function (em) { var b = document.createElement('button'); b.type = 'button'; b.className = 'text-[26px] hover:scale-125 transition-transform px-2 py-1'; b.textContent = em; b.addEventListener('click', function (e) { e.stopPropagation(); if (supPicker._t) toggleReactSup(supPicker._t, em); hideSupPicker(); }); supPicker.appendChild(b); });
+        document.body.appendChild(supMenu); document.body.appendChild(supPicker);
+        function hideSupMenu() { supMenu.classList.add('hidden'); supMenu.innerHTML = ''; }
+        function hideSupPicker() { supPicker.classList.add('hidden'); supPicker._t = null; }
+        function openSupMenu(x, y, items) { if (!items.length) return; supMenu.innerHTML = ''; items.forEach(function (it) { var b = document.createElement('button'); b.type = 'button'; b.className = 'w-full flex items-center gap-md px-4 py-3 text-left text-body-md hover:bg-surface-container-high ' + (it.danger ? 'text-error' : 'text-on-surface'); b.innerHTML = '<span class="material-symbols-outlined text-[22px]">' + it.icon + '</span>' + it.label; b.addEventListener('click', function (e) { e.stopPropagation(); hideSupMenu(); it.run(); }); supMenu.appendChild(b); }); supMenu.classList.remove('hidden'); var pr = supMenu.getBoundingClientRect(); var l = Math.min(x, window.innerWidth - 8 - pr.width); if (l < 8) l = 8; var t = Math.min(y, window.innerHeight - 8 - pr.height); if (t < 8) t = 8; supMenu.style.left = l + 'px'; supMenu.style.top = t + 'px'; }
+        function openSupPicker(anchor, id) { supPicker._t = id; supPicker.classList.remove('hidden'); var r = anchor.getBoundingClientRect(), pr = supPicker.getBoundingClientRect(); var top = r.top - pr.height - 6; if (top < 8) top = r.bottom + 6; var left = r.left; if (left + pr.width > window.innerWidth - 8) left = window.innerWidth - 8 - pr.width; supPicker.style.top = top + 'px'; supPicker.style.left = Math.max(8, left) + 'px'; }
+        self.onSupDoc = function (e) { if (!supMenu.classList.contains('hidden') && !supMenu.contains(e.target)) hideSupMenu(); if (!supPicker.classList.contains('hidden') && !supPicker.contains(e.target)) hideSupPicker(); };
+        document.addEventListener('click', self.onSupDoc);
+        function contentHtml(msg) {
+          if (msg.kind === 'image' && msg.media_url) return '<img src="' + esc(msg.media_url) + '" class="rounded-lg max-w-full">';
+          if (msg.kind === 'video' && msg.media_url) return '<video controls preload="metadata" src="' + esc(msg.media_url) + '" class="rounded-lg max-w-full" style="max-height:20rem"></video>';
+          if (msg.kind === 'audio' && msg.media_url) return '<audio controls src="' + esc(msg.media_url) + '" class="max-w-full"></audio>';
+          var mine = msg.author_id === me.id; var edited = msg.status === 'edited' ? ' <span class="text-[12px] opacity-80">(editado)</span>' : '';
+          return '<p class="font-body-md whitespace-pre-wrap break-words ' + (mine ? '' : 'text-on-surface') + '">' + G.fmt(msg.body || '') + edited + '</p>';
+        }
+        function renderReactSup(id) { var row = document.querySelector('[data-react-sup="' + id + '"]'); if (!row) return; var data = self.reactMap[id] || {}; row.innerHTML = ''; Object.keys(data).forEach(function (em) { var users = data[em]; if (!users || !users.length) return; var mineR = users.indexOf(me.id) !== -1; var chip = document.createElement('button'); chip.type = 'button'; chip.className = 'px-3 py-1 rounded-full text-body-sm flex items-center gap-1 border transition-colors ' + (mineR ? 'bg-primary/15 border-primary/40 text-primary' : 'bg-surface-container-high border-outline-variant/50 text-on-surface-variant'); chip.innerHTML = '<span>' + em + '</span><span class="font-bold">' + users.length + '</span>'; chip.addEventListener('click', function () { toggleReactSup(id, em); }); row.appendChild(chip); }); }
+        async function toggleReactSup(id, em) { if (!me.id) return; var data = self.reactMap[id] || (self.reactMap[id] = {}); var have = (data[em] || []).indexOf(me.id) !== -1; Object.keys(data).forEach(function (e) { var i = data[e].indexOf(me.id); if (i !== -1) data[e].splice(i, 1); }); if (!have) (data[em] = data[em] || []).push(me.id); renderReactSup(id); await sb.from('comu_message_reactions').delete().eq('message_id', id).eq('user_id', me.id); if (!have) await sb.from('comu_message_reactions').insert({ message_id: id, user_id: me.id, reaction: em, user_name: me.full_name || null }); }
+        async function loadReactSup(ids) { if (!ids || !ids.length) return; var r = await sb.from('comu_message_reactions').select('message_id,user_id,reaction').in('message_id', ids); if (self.destroyed) return; (r.data || []).forEach(function (x) { var d = self.reactMap[x.message_id] || (self.reactMap[x.message_id] = {}); var u = d[x.reaction] || (d[x.reaction] = []); if (u.indexOf(x.user_id) === -1) u.push(x.user_id); }); ids.forEach(renderReactSup); }
+        function applyReactSup(type, row) { if (!row || !row.message_id) return; if (!document.querySelector('[data-react-sup="' + row.message_id + '"]')) return; var d = self.reactMap[row.message_id] || (self.reactMap[row.message_id] = {}); var u = d[row.reaction] || (d[row.reaction] = []); if (type === 'INSERT') { if (u.indexOf(row.user_id) === -1) u.push(row.user_id); } else { d[row.reaction] = u.filter(function (x) { return x !== row.user_id; }); } renderReactSup(row.message_id); }
+        function startEditSup(id) { var m = self.msgById[id]; if (!m) return; var bubble = document.querySelector('#convo-messages [data-msg-id="' + id + '"] .sup-bubble'); if (!bubble) return; bubble.innerHTML = '<textarea class="w-full bg-black/20 text-white rounded-lg p-2 text-body-md" rows="2"></textarea><div class="flex gap-2 justify-end mt-1"><button type="button" class="ed-cancel h-9 px-3 rounded-lg bg-white/20 text-white text-body-sm">Cancelar</button><button type="button" class="ed-save h-9 px-3 rounded-lg bg-white text-primary text-body-sm font-bold">Salvar</button></div>'; var ta = bubble.querySelector('textarea'); ta.value = m.body || ''; ta.focus(); bubble.querySelector('.ed-cancel').onclick = function () { bubble.innerHTML = contentHtml(m); }; bubble.querySelector('.ed-save').onclick = async function () { var nv = ta.value.trim(); if (!nv) return; var up = await sb.from('comu_messages').update({ body: nv, status: 'edited' }).eq('id', id).select().single(); if (up.error) { G.toast('Erro ao editar: ' + up.error.message); return; } m.body = nv; m.status = 'edited'; self.msgById[id] = m; bubble.innerHTML = contentHtml(m); }; }
+        async function doDeleteSup(id) { var ok = await G.confirmDialog({ title: 'Apagar esta mensagem?', text: 'Essa ação não pode ser desfeita.', ok: 'Apagar', danger: true }); if (!ok) return; var del = await sb.from('comu_messages').delete().eq('id', id); if (del.error) { G.toast('Não foi possível apagar: ' + del.error.message); return; } var w = document.querySelector('#convo-messages [data-msg-id="' + id + '"]'); if (w) w.remove(); }
+        function supItems(id) { var m = self.msgById[id]; if (!m) return []; var mine = m.author_id === me.id; var items = [{ icon: 'add_reaction', label: 'Reagir', run: function () { var b = document.querySelector('#convo-messages [data-msg-id="' + id + '"] .sup-bubble'); openSupPicker(b || document.body, id); } }]; if (mine && m.kind === 'text') items.push({ icon: 'edit', label: 'Editar', run: function () { startEditSup(id); } }); items.push({ icon: 'delete', label: 'Apagar', danger: true, run: function () { doDeleteSup(id); } }); return items; }
+        function bindSupActions(bubble, id) { bubble.addEventListener('contextmenu', function (e) { e.preventDefault(); openSupMenu(e.clientX, e.clientY, supItems(id)); }); var lpT = null, lx = 0, ly = 0, mv = false; bubble.addEventListener('touchstart', function (e) { if (!e.touches[0]) return; mv = false; lx = e.touches[0].clientX; ly = e.touches[0].clientY; lpT = setTimeout(function () { if (!mv) openSupMenu(lx, ly, supItems(id)); }, 500); }, { passive: true }); bubble.addEventListener('touchmove', function (e) { if (e.touches[0] && (Math.abs(e.touches[0].clientX - lx) > 10 || Math.abs(e.touches[0].clientY - ly) > 10)) { mv = true; if (lpT) { clearTimeout(lpT); lpT = null; } } }, { passive: true }); ['touchend', 'touchcancel'].forEach(function (ev) { bubble.addEventListener(ev, function () { if (lpT) { clearTimeout(lpT); lpT = null; } }); }); }
+        function updateMsgSup(msg) { if (!msg || !msg.id) return; self.msgById[msg.id] = msg; var bubble = document.querySelector('#convo-messages [data-msg-id="' + msg.id + '"] .sup-bubble'); if (bubble) bubble.innerHTML = contentHtml(msg); }
         function addMsg(msg) {
           if (self.seen[msg.id]) return; self.seen[msg.id] = true;
           var container = document.getElementById('convo-messages');
@@ -1044,20 +1074,51 @@
             var note = document.createElement('div'); note.className = 'w-full text-center text-body-sm text-on-surface-variant bg-surface-container-high rounded-2xl px-4 py-3 my-xs';
             note.textContent = msg.body || ''; container.appendChild(note); return;
           }
+          self.msgById[msg.id] = msg;
           var mine = msg.author_id === me.id;
-          var content;
-          if (msg.kind === 'image' && msg.media_url) content = '<img src="' + esc(msg.media_url) + '" class="rounded-lg max-w-full">';
-          else if (msg.kind === 'video' && msg.media_url) content = '<video controls preload="metadata" src="' + esc(msg.media_url) + '" class="rounded-lg max-w-full" style="max-height:20rem"></video>';
-          else if (msg.kind === 'audio' && msg.media_url) content = '<audio controls src="' + esc(msg.media_url) + '" class="max-w-full"></audio>';
-          else content = '<p class="font-body-md whitespace-pre-wrap break-words ' + (mine ? '' : 'text-on-surface') + '">' + esc(msg.body) + '</p>';
-          var wrap = document.createElement('div');
-          if (mine) { wrap.className = 'flex flex-col items-end gap-xs max-w-[80%] self-end'; wrap.innerHTML = '<div class="message-gradient-outgoing text-white rounded-xl rounded-tr-none p-md shadow">' + content + '</div>'; }
-          else { var _a = msg.author_avatar || (self.currentTicket && self.currentTicket.member && self.currentTicket.member.avatar_url) || ''; var _ah = _a ? '<img src="' + esc(_a) + '" class="w-8 h-8 rounded-full object-cover shrink-0">' : '<span class="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center text-outline shrink-0"><span class="material-symbols-outlined text-[18px]">person</span></span>'; wrap.className = 'flex items-start gap-sm max-w-[80%]'; wrap.innerHTML = _ah + '<div class="flex flex-col min-w-0"><span class="text-label-md font-label-md text-on-surface-variant ml-sm">' + esc(msg.author_name || 'Membro') + '</span><div class="bg-surface-container-lowest border border-outline-variant/30 rounded-xl rounded-tl-none p-md">' + content + '</div></div>'; }
+          var wrap = document.createElement('div'); wrap.setAttribute('data-msg-id', msg.id);
+          var bubble = document.createElement('div'); bubble.className = 'sup-bubble ' + (mine ? 'message-gradient-outgoing text-white rounded-xl rounded-tr-none p-md shadow' : 'bg-surface-container-lowest border border-outline-variant/30 rounded-xl rounded-tl-none p-md');
+          bubble.innerHTML = contentHtml(msg);
+          var react = document.createElement('div'); react.setAttribute('data-react-sup', msg.id); react.className = 'flex flex-wrap items-center gap-xs mt-xs ' + (mine ? 'justify-end' : '');
+          if (mine) { wrap.className = 'flex flex-col items-end gap-xs max-w-[80%] self-end'; wrap.appendChild(bubble); wrap.appendChild(react); }
+          else {
+            wrap.className = 'flex flex-col items-start gap-xs max-w-[80%]';
+            var row = document.createElement('div'); row.className = 'flex items-start gap-sm';
+            var _a = msg.author_avatar || (self.currentTicket && self.currentTicket.member && self.currentTicket.member.avatar_url) || '';
+            row.innerHTML = _a ? '<img src="' + esc(_a) + '" class="w-8 h-8 rounded-full object-cover shrink-0">' : '<span class="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center text-outline shrink-0"><span class="material-symbols-outlined text-[18px]">person</span></span>';
+            var col = document.createElement('div'); col.className = 'flex flex-col min-w-0'; col.innerHTML = '<span class="text-label-md font-label-md text-on-surface-variant ml-sm">' + esc(msg.author_name || 'Membro') + '</span>';
+            col.appendChild(bubble); row.appendChild(col); wrap.appendChild(row); wrap.appendChild(react);
+          }
+          bindSupActions(bubble, msg.id);
           container.appendChild(wrap);
+          renderReactSup(msg.id);
         }
         function scrollConvo() { var s = document.getElementById('convo-scroll'); s.scrollTop = s.scrollHeight; }
         function updateResolveBtn() { var lbl = document.getElementById('btn-resolve-label'), b = document.getElementById('btn-resolve'); if (self.currentTicket && self.currentTicket.status === 'aberto') { lbl.textContent = 'Marcar como resolvido'; b.disabled = false; } else { lbl.textContent = 'Resolvido'; b.disabled = true; } }
-        function subscribeConvo(ticketId) { if (self.convoChannel) sb.removeChannel(self.convoChannel); self.convoChannel = sb.channel('ticket-' + ticketId).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comu_messages', filter: 'ticket_id=eq.' + ticketId }, function (p) { addMsg(p.new); scrollConvo(); }).subscribe(); self.channels.push(self.convoChannel); }
+        function subscribeConvo(ticketId) {
+          if (self.convoChannel) sb.removeChannel(self.convoChannel);
+          self.convoChannel = sb.channel('ticket-' + ticketId)
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comu_messages', filter: 'ticket_id=eq.' + ticketId }, function (p) { addMsg(p.new); scrollConvo(); })
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'comu_messages', filter: 'ticket_id=eq.' + ticketId }, function (p) { updateMsgSup(p.new); })
+            .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'comu_messages' }, function (p) { if (p.old && p.old.id) { var w = document.querySelector('#convo-messages [data-msg-id="' + p.old.id + '"]'); if (w) w.remove(); } })
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comu_message_reactions' }, function (p) { applyReactSup('INSERT', p.new); })
+            .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'comu_message_reactions' }, function (p) { applyReactSup('DELETE', p.old); })
+            .subscribe();
+          self.channels.push(self.convoChannel);
+        }
+        function updateConvoComposer() {
+          var open = !!(self.currentTicket && self.currentTicket.status === 'aberto');
+          var form = document.getElementById('convo-form');
+          var note = document.getElementById('convo-closed');
+          if (!note && form && form.parentNode) {
+            note = document.createElement('div'); note.id = 'convo-closed';
+            note.className = 'hidden shrink-0 border-t border-outline-variant p-md';
+            note.innerHTML = '<div class="max-w-3xl mx-auto flex items-center justify-center gap-sm text-on-surface-variant text-body-sm text-center"><span class="material-symbols-outlined text-[20px]">lock</span>Conversa finalizada. Para falar de novo, o membro precisa iniciar um novo atendimento.</div>';
+            form.parentNode.insertBefore(note, form.nextSibling);
+          }
+          if (form) form.style.display = open ? '' : 'none';
+          if (note) note.classList.toggle('hidden', open);
+        }
         async function openTicket(tk) {
           self.currentTicket = tk; self.seen = Object.create(null);
           document.getElementById('convo-empty').classList.add('hidden'); var cm = document.getElementById('convo-main'); cm.classList.remove('hidden'); cm.classList.add('flex');
@@ -1065,7 +1126,7 @@
           var m = tk.member || {}; document.getElementById('convo-name').textContent = m.full_name || 'Membro'; document.getElementById('convo-protocol').textContent = tk.protocol + ' · ' + statusLabel(tk.status); updateResolveBtn(); refreshConvoTags(); var _av = document.getElementById('convo-avatar'); if (_av) _av.innerHTML = m.avatar_url ? '<img src="' + esc(m.avatar_url) + '" class="w-full h-full object-cover">' : '<span class="material-symbols-outlined">person</span>';
           document.getElementById('convo-messages').innerHTML = '';
           var r = await sb.from('comu_messages').select('*').eq('ticket_id', tk.id).order('created_at', { ascending: true }); if (self.destroyed) return;
-          (r.data || []).forEach(addMsg); scrollConvo(); subscribeConvo(tk.id); loadTickets();
+          (r.data || []).forEach(addMsg); loadReactSup((r.data || []).map(function (m) { return m.id; })); scrollConvo(); subscribeConvo(tk.id); updateConvoComposer(); loadTickets();
         }
         function closeConvo() {
           if (self.convoChannel) { try { sb.removeChannel(self.convoChannel); } catch (e) {} self.convoChannel = null; }
@@ -1080,12 +1141,13 @@
         document.getElementById('suporte-back').addEventListener('click', function () { if (self.currentTicket) closeConvo(); else G.navigate('/'); });
         document.getElementById('convo-back').addEventListener('click', closeConvo);
         document.getElementById('convo-form').addEventListener('submit', async function (e) {
-          e.preventDefault(); var body = document.getElementById('convo-input').value.trim(); if (!body || !self.currentTicket) return; document.getElementById('convo-input').value = '';
+          e.preventDefault(); if (self.currentTicket && self.currentTicket.status !== 'aberto') { G.toast('Conversa finalizada. Não dá pra enviar aqui.'); return; } var body = document.getElementById('convo-input').value.trim(); if (!body || !self.currentTicket) return; document.getElementById('convo-input').value = '';
           var ins = await sb.from('comu_messages').insert({ topic_id: supportTopicId, author_id: me.id, ticket_id: self.currentTicket.id, kind: 'text', body: body, author_name: me.full_name || 'Suporte', author_avatar: me.avatar_url || null }).select().single();
           if (ins.error) { console.error(ins.error); document.getElementById('convo-input').value = body; return; } addMsg(ins.data); scrollConvo();
         });
         async function sendMedia(file, kind) {
           if (!file || !self.currentTicket) return;
+          if (self.currentTicket.status !== 'aberto') { G.toast('Conversa finalizada. Não dá pra enviar aqui.'); return; }
           var ext = (file.name.split('.').pop() || (kind === 'image' ? 'jpg' : kind === 'video' ? 'mp4' : 'm4a')).toLowerCase();
           var path = 'suporte/' + self.currentTicket.id + '/' + Date.now() + '.' + ext;
           var up = await sb.storage.from('comu-media').upload(path, file, { upsert: true, contentType: file.type || undefined });
@@ -1103,7 +1165,7 @@
           if (!self.currentTicket || self.currentTicket.status !== 'aberto') return;
           var tid = self.currentTicket.id;
           var up = await sb.from('comu_support_tickets').update({ status: 'resolvido', resolved_at: new Date().toISOString() }).eq('id', tid).select('*, member:lms_students!user_id(full_name,avatar_url,email)').single();
-          if (up.error) { console.error(up.error); return; } self.currentTicket = up.data; document.getElementById('convo-protocol').textContent = self.currentTicket.protocol + ' · ' + statusLabel(self.currentTicket.status); updateResolveBtn(); loadTickets();
+          if (up.error) { console.error(up.error); return; } self.currentTicket = up.data; document.getElementById('convo-protocol').textContent = self.currentTicket.protocol + ' · ' + statusLabel(self.currentTicket.status); updateResolveBtn(); updateConvoComposer(); loadTickets();
           var sysIns = await sb.from('comu_messages').insert({ topic_id: supportTopicId, author_id: me.id, ticket_id: tid, kind: 'system', body: 'Conversa finalizada pelo suporte. Se precisar de algo, é só enviar uma nova mensagem que iniciamos um novo atendimento.', author_name: 'Suporte' }).select().single();
           if (!sysIns.error) { addMsg(sysIns.data); scrollConvo(); }
         });

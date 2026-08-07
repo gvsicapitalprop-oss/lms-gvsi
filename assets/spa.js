@@ -395,6 +395,9 @@ GVSI.views = GVSI.views || {};
     // sidebar de tópicos sempre visível (o console de suporte agora fica ao lado dela — item #2)
     var shellAside = document.querySelector('aside.fixed.inset-y-0');
     if (shellAside) shellAside.style.display = '';
+    // botão flutuante "Tutorial": só nas telas calmas (home/perfil), pra não cobrir o Enviar
+    var fab = document.getElementById('onb-fab');
+    if (fab) { if (!fab._wired) { fab._wired = true; fab.addEventListener('click', function () { if (G.showOnboarding) G.showOnboarding(); }); } fab.style.display = (route.name === 'grupos' || route.name === 'perfil') ? 'flex' : 'none'; }
     // tópico ativo na sidebar
     var activeSlug = route.name === 'chat' ? route.params.topico : '';
     document.querySelectorAll('#side-topics .topic-item').forEach(function (a) {
