@@ -174,12 +174,15 @@ GVSI.views = GVSI.views || {};
       '<div class="w-full max-w-md my-auto py-lg space-y-lg">' +
         '<div class="text-center space-y-sm">' +
           '<h1 class="font-headline-md text-headline-md text-on-surface">Complete seu cadastro</h1>' +
-          '<p class="text-body-md text-on-surface-variant">É rapidinho: escolha uma foto, confirme seu nome e crie a sua senha.</p>' +
+          '<p class="text-body-md text-on-surface-variant text-balance">É rapidinho: escolha uma foto, confirme seu nome e crie a sua senha.</p>' +
         '</div>' +
         '<div class="bg-surface-container-lowest border border-outline-variant/40 rounded-2xl shadow-sm p-lg space-y-md">' +
-          '<div class="flex flex-col items-center gap-xs">' +
-            '<button type="button" id="spw-avatar-btn" class="relative shrink-0 active:scale-95 transition-transform" aria-label="Escolher foto"><span id="spw-avatar" class="w-24 h-24 rounded-full bg-surface-container-high flex items-center justify-center text-outline overflow-hidden"><span class="material-symbols-outlined text-[44px]">person</span></span><span class="absolute bottom-0 right-0 bg-primary text-on-primary p-1.5 rounded-full border-2 border-surface-container-lowest shadow-sm"><span class="material-symbols-outlined text-[18px]">photo_camera</span></span></button>' +
-            '<span class="text-body-sm text-on-surface-variant">Toque para escolher sua foto (opcional)</span>' +
+          '<div><label class="block text-label-md font-label-md text-on-surface-variant mb-xs">Foto de perfil</label>' +
+            '<button type="button" id="spw-avatar-btn" class="w-full flex items-center gap-md border rounded-xl p-3 text-left transition active:scale-[0.99] border-primary/40 bg-primary/5 hover:bg-primary/10" aria-label="Escolher foto">' +
+              '<span id="spw-avatar" class="w-16 h-16 rounded-full bg-surface-container-high flex items-center justify-center text-primary overflow-hidden shrink-0"><span class="material-symbols-outlined text-[30px]">add_a_photo</span></span>' +
+              '<span class="flex-1 min-w-0"><span id="spw-avatar-txt" class="block text-body-md font-bold text-on-surface">Toque para adicionar sua foto</span><span class="block text-body-sm text-on-surface-variant">Ajuda a comunidade a te reconhecer</span></span>' +
+              '<span class="material-symbols-outlined text-primary shrink-0">photo_camera</span>' +
+            '</button>' +
             '<input id="spw-avatar-input" type="file" accept="image/*" class="hidden">' +
           '</div>' +
           '<div><label for="spw-name" class="block text-label-md font-label-md text-on-surface-variant mb-xs">Seu nome</label><input id="spw-name" type="text" autocomplete="name" class="w-full bg-surface-container-low border border-outline-variant rounded-xl py-4 px-4 text-body-lg text-on-surface focus:ring-2 focus:ring-primary" placeholder="Como você quer ser chamado(a)"></div>' +
@@ -189,16 +192,18 @@ GVSI.views = GVSI.views || {};
           '<p id="spw-msg" class="text-body-md text-center min-h-6"></p>' +
           '<button id="spw-save" type="button" disabled class="w-full h-14 bg-primary text-on-primary rounded-xl font-headline-sm text-headline-sm flex items-center justify-center gap-sm shadow-md active:scale-[0.98] transition disabled:opacity-50">Salvar e entrar</button>' +
         '</div>' +
-        '<p class="text-center text-body-sm text-on-surface-variant">A senha aparece na tela de propósito, pra você conferir o que está digitando.</p>' +
+        '<p class="text-center text-body-sm text-on-surface-variant text-balance">A senha aparece na tela de propósito, pra você conferir o que está digitando.</p>' +
       '</div>';
     document.body.appendChild(ov);
     var nameEl = ov.querySelector('#spw-name'), p1 = ov.querySelector('#spw1'), p2 = ov.querySelector('#spw2');
     var caps = ov.querySelector('#spw-caps'), msg = ov.querySelector('#spw-msg'), btn = ov.querySelector('#spw-save');
     var avBtn = ov.querySelector('#spw-avatar-btn'), avInput = ov.querySelector('#spw-avatar-input'), avEl = ov.querySelector('#spw-avatar'), avatarFile = null;
     nameEl.value = (G.me && G.me.full_name) || '';
-    if (G.me && G.me.avatar_url) avEl.innerHTML = '<img src="' + G.esc(G.me.avatar_url) + '" class="w-full h-full object-cover" alt="">';
+    var avTxt = ov.querySelector('#spw-avatar-txt');
+    function avChosen() { if (avTxt) avTxt.textContent = 'Foto escolhida — toque para trocar'; avBtn.className = 'w-full flex items-center gap-md border rounded-xl p-3 text-left transition active:scale-[0.99] border-outline-variant bg-surface-container-low hover:bg-surface-container'; }
+    if (G.me && G.me.avatar_url) { avEl.innerHTML = '<img src="' + G.esc(G.me.avatar_url) + '" class="w-full h-full object-cover" alt="">'; avChosen(); }
     avBtn.addEventListener('click', function () { avInput.click(); });
-    avInput.addEventListener('change', function () { var f = this.files[0]; if (!f) return; avatarFile = f; avEl.innerHTML = '<img src="' + URL.createObjectURL(f) + '" class="w-full h-full object-cover" alt="">'; });
+    avInput.addEventListener('change', function () { var f = this.files[0]; if (!f) return; avatarFile = f; avEl.innerHTML = '<img src="' + URL.createObjectURL(f) + '" class="w-full h-full object-cover" alt="">'; avChosen(); });
     var MIN = 6;
     function validate() {
       var a = p1.value, b = p2.value, nm = nameEl.value.trim();
