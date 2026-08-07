@@ -43,27 +43,16 @@
 </div>
 <div>
 <label class="block text-label-md font-label-md text-on-surface-variant mb-xs" for="password">Senha</label>
-<input id="password" type="password" required minlength="6" autocomplete="current-password" class="w-full bg-surface-container-low border border-outline-variant rounded-xl py-3 px-4 focus:ring-2 focus:ring-primary focus:border-primary transition-all text-body-md text-on-surface" placeholder="••••••••">
+<input id="password" type="password" autocomplete="current-password" class="w-full bg-surface-container-low border border-outline-variant rounded-xl py-3 px-4 focus:ring-2 focus:ring-primary focus:border-primary transition-all text-body-md text-on-surface" placeholder="No primeiro acesso, deixe em branco">
 </div>
 <button id="submit-btn" type="submit" class="w-full h-12 bg-primary text-on-primary rounded-xl font-headline-sm text-headline-sm flex items-center justify-center gap-sm shadow-md active:scale-[0.98] transition-all disabled:opacity-60">
 <span id="submit-label">Entrar</span>
 </button>
 </form>
 
-<div class="flex items-center gap-sm">
-<span class="flex-1 h-px bg-outline-variant"></span>
-<span class="text-label-md text-on-surface-variant">ou</span>
-<span class="flex-1 h-px bg-outline-variant"></span>
-</div>
-
-<button id="magic-btn" type="button" class="w-full h-11 border border-outline-variant text-on-surface rounded-xl font-label-md text-label-md flex items-center justify-center gap-sm hover:bg-surface-container-high active:scale-[0.98] transition-all">
-<span class="material-symbols-outlined text-[18px]">mail</span>
-Entrar com link mágico
-</button>
-
 <div class="flex items-start gap-sm bg-primary/5 border border-primary/20 rounded-xl px-3 py-2 text-body-sm text-on-surface-variant">
 <span class="material-symbols-outlined text-[20px] text-primary shrink-0">tips_and_updates</span>
-<span><b>Primeiro acesso?</b> Você ainda não tem senha. Digite seu e-mail e toque em <b>"Entrar com link mágico"</b> — depois você cria a sua senha.</span>
+<span><b>Primeiro acesso?</b> Digite seu e-mail, <b>deixe a senha em branco</b> e toque em <b>Entrar</b> — você cria a sua senha na próxima tela.</span>
 </div>
 
 <p id="msg" class="hidden text-body-sm text-center"></p>
@@ -94,38 +83,34 @@ Entrar com link mágico
     showMsg('Falha ao conectar no servidor. Recarregue a página.', false);
   }
 
+  // Senha temporária interna do 1º acesso (a pessoa nunca vê nem digita).
+  // No pré-cadastro cada conta nasce com esta senha; ao criar a senha própria, ela é substituída.
+  var FIRST_ACCESS = 'gvsi!acesso-inicial#2026';
+
   $('auth-form').addEventListener('submit', async function (e) {
     e.preventDefault();
     if (!sb) return;
-    var email = $('email').value.trim();
+    var email = $('email').value.trim().toLowerCase();
     var password = $('password').value;
+    if (!email) { showMsg('Digite o seu e-mail.', false); return; }
     $('submit-btn').disabled = true;
     showMsg('Aguarde...', true);
     try {
-      var r = await sb.auth.signInWithPassword({ email: email, password: password });
-      if (r.error) throw r.error;
+      // sem senha digitada => tenta o 1º acesso; com senha => usa a senha da pessoa.
+      var r = await sb.auth.signInWithPassword({ email: email, password: password || FIRST_ACCESS });
+      // digitou uma senha que não bateu? tenta ainda o 1º acesso (pode ser primeiro acesso).
+      if (r.error && password) { r = await sb.auth.signInWithPassword({ email: email, password: FIRST_ACCESS }); }
+      if (r.error) {
+        if (password) { showMsg('E-mail ou senha incorretos.', false); }
+        else { showMsg('Não encontramos esse e-mail (ou a conta já tem senha). Se você já criou a sua senha, digite ela no campo acima.', false); $('password').focus(); }
+        return;
+      }
       await window.GVSIAuth.ensureProfile();
-      location.replace('/');
+      location.replace('/'); // no app, se for 1º acesso, abre a tela de criar senha
     } catch (err) {
       showMsg(err && err.message ? err.message : 'Não foi possível entrar. Verifique seus dados.', false);
     } finally {
       $('submit-btn').disabled = false;
-    }
-  });
-
-  // Link mágico: só para membros existentes (não cria conta)
-  $('magic-btn').addEventListener('click', async function () {
-    if (!sb) return;
-    var email = $('email').value.trim();
-    if (!email) { showMsg('Digite seu e-mail para receber o link.', false); return; }
-    showMsg('Enviando...', true);
-    try {
-      var redirect = location.origin + '/';
-      var r = await sb.auth.signInWithOtp({ email: email, options: { emailRedirectTo: redirect, shouldCreateUser: false } });
-      if (r.error) throw r.error;
-      showMsg('Link enviado! Confira seu e-mail.', true);
-    } catch (err) {
-      showMsg(err && err.message ? err.message : 'Erro ao enviar o link.', false);
     }
   });
 </script>
