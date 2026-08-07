@@ -180,7 +180,7 @@ GVSI.views = GVSI.views || {};
           '<div><label class="block text-label-md font-label-md text-on-surface-variant mb-xs">Foto de perfil</label>' +
             '<button type="button" id="spw-avatar-btn" class="w-full flex items-center gap-md border rounded-xl p-3 text-left transition active:scale-[0.99] border-primary/40 bg-primary/5 hover:bg-primary/10" aria-label="Escolher foto">' +
               '<span id="spw-avatar" class="w-16 h-16 rounded-full bg-surface-container-high flex items-center justify-center text-primary overflow-hidden shrink-0"><span class="material-symbols-outlined text-[30px]">add_a_photo</span></span>' +
-              '<span class="flex-1 min-w-0"><span id="spw-avatar-txt" class="block text-body-md font-bold text-on-surface">Toque para adicionar sua foto</span><span class="block text-body-sm text-on-surface-variant">Ajuda a comunidade a te reconhecer</span></span>' +
+              '<span class="flex-1 min-w-0"><span id="spw-avatar-txt" class="block text-body-md font-bold text-on-surface text-balance">Adicionar sua foto</span><span class="block text-body-sm text-on-surface-variant text-balance">Ajuda a comunidade a te reconhecer</span></span>' +
               '<span class="material-symbols-outlined text-primary shrink-0">photo_camera</span>' +
             '</button>' +
             '<input id="spw-avatar-input" type="file" accept="image/*" class="hidden">' +
@@ -200,7 +200,7 @@ GVSI.views = GVSI.views || {};
     var avBtn = ov.querySelector('#spw-avatar-btn'), avInput = ov.querySelector('#spw-avatar-input'), avEl = ov.querySelector('#spw-avatar'), avatarFile = null;
     nameEl.value = (G.me && G.me.full_name) || '';
     var avTxt = ov.querySelector('#spw-avatar-txt');
-    function avChosen() { if (avTxt) avTxt.textContent = 'Foto escolhida — toque para trocar'; avBtn.className = 'w-full flex items-center gap-md border rounded-xl p-3 text-left transition active:scale-[0.99] border-outline-variant bg-surface-container-low hover:bg-surface-container'; }
+    function avChosen() { if (avTxt) avTxt.textContent = 'Foto escolhida'; avBtn.className = 'w-full flex items-center gap-md border rounded-xl p-3 text-left transition active:scale-[0.99] border-outline-variant bg-surface-container-low hover:bg-surface-container'; }
     if (G.me && G.me.avatar_url) { avEl.innerHTML = '<img src="' + G.esc(G.me.avatar_url) + '" class="w-full h-full object-cover" alt="">'; avChosen(); }
     avBtn.addEventListener('click', function () { avInput.click(); });
     avInput.addEventListener('change', function () { var f = this.files[0]; if (!f) return; avatarFile = f; avEl.innerHTML = '<img src="' + URL.createObjectURL(f) + '" class="w-full h-full object-cover" alt="">'; avChosen(); });
