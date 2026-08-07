@@ -173,12 +173,17 @@ GVSI.views = GVSI.views || {};
     ov.innerHTML =
       '<div class="w-full max-w-md my-auto py-lg space-y-lg">' +
         '<div class="text-center space-y-sm">' +
-          '<span class="inline-flex w-16 h-16 rounded-full bg-primary/10 text-primary items-center justify-center"><span class="material-symbols-outlined text-[34px]">lock_open</span></span>' +
-          '<h1 class="font-headline-md text-headline-md text-on-surface">Crie a sua senha</h1>' +
-          '<p class="text-body-md text-on-surface-variant">Este é o seu primeiro acesso. Escolha uma senha para usar quando entrar nas próximas vezes.</p>' +
+          '<h1 class="font-headline-md text-headline-md text-on-surface">Complete seu cadastro</h1>' +
+          '<p class="text-body-md text-on-surface-variant">É rapidinho: escolha uma foto, confirme seu nome e crie a sua senha.</p>' +
         '</div>' +
         '<div class="bg-surface-container-lowest border border-outline-variant/40 rounded-2xl shadow-sm p-lg space-y-md">' +
-          '<div><label for="spw1" class="block text-label-md font-label-md text-on-surface-variant mb-xs">Sua senha</label><input id="spw1" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" class="w-full bg-surface-container-low border border-outline-variant rounded-xl py-4 px-4 text-body-lg text-on-surface focus:ring-2 focus:ring-primary" placeholder="Digite uma senha"></div>' +
+          '<div class="flex flex-col items-center gap-xs">' +
+            '<button type="button" id="spw-avatar-btn" class="relative shrink-0 active:scale-95 transition-transform" aria-label="Escolher foto"><span id="spw-avatar" class="w-24 h-24 rounded-full bg-surface-container-high flex items-center justify-center text-outline overflow-hidden"><span class="material-symbols-outlined text-[44px]">person</span></span><span class="absolute bottom-0 right-0 bg-primary text-on-primary p-1.5 rounded-full border-2 border-surface-container-lowest shadow-sm"><span class="material-symbols-outlined text-[18px]">photo_camera</span></span></button>' +
+            '<span class="text-body-sm text-on-surface-variant">Toque para escolher sua foto (opcional)</span>' +
+            '<input id="spw-avatar-input" type="file" accept="image/*" class="hidden">' +
+          '</div>' +
+          '<div><label for="spw-name" class="block text-label-md font-label-md text-on-surface-variant mb-xs">Seu nome</label><input id="spw-name" type="text" autocomplete="name" class="w-full bg-surface-container-low border border-outline-variant rounded-xl py-4 px-4 text-body-lg text-on-surface focus:ring-2 focus:ring-primary" placeholder="Como você quer ser chamado(a)"></div>' +
+          '<div><label for="spw1" class="block text-label-md font-label-md text-on-surface-variant mb-xs">Crie uma senha</label><input id="spw1" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" class="w-full bg-surface-container-low border border-outline-variant rounded-xl py-4 px-4 text-body-lg text-on-surface focus:ring-2 focus:ring-primary" placeholder="Digite uma senha"></div>' +
           '<div><label for="spw2" class="block text-label-md font-label-md text-on-surface-variant mb-xs">Repita a senha</label><input id="spw2" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" class="w-full bg-surface-container-low border border-outline-variant rounded-xl py-4 px-4 text-body-lg text-on-surface focus:ring-2 focus:ring-primary" placeholder="Digite a mesma senha de novo"></div>' +
           '<div id="spw-caps" class="hidden items-center gap-sm bg-tertiary-container/40 text-on-tertiary-container rounded-xl px-3 py-2 text-body-sm"><span class="material-symbols-outlined text-[20px]">keyboard_capslock</span><span>Sua senha tem <b>LETRA MAIÚSCULA</b>. Guarde bem, vai precisar digitar igual depois.</span></div>' +
           '<p id="spw-msg" class="text-body-md text-center min-h-6"></p>' +
@@ -187,15 +192,21 @@ GVSI.views = GVSI.views || {};
         '<p class="text-center text-body-sm text-on-surface-variant">A senha aparece na tela de propósito, pra você conferir o que está digitando.</p>' +
       '</div>';
     document.body.appendChild(ov);
-    var p1 = ov.querySelector('#spw1'), p2 = ov.querySelector('#spw2');
+    var nameEl = ov.querySelector('#spw-name'), p1 = ov.querySelector('#spw1'), p2 = ov.querySelector('#spw2');
     var caps = ov.querySelector('#spw-caps'), msg = ov.querySelector('#spw-msg'), btn = ov.querySelector('#spw-save');
+    var avBtn = ov.querySelector('#spw-avatar-btn'), avInput = ov.querySelector('#spw-avatar-input'), avEl = ov.querySelector('#spw-avatar'), avatarFile = null;
+    nameEl.value = (G.me && G.me.full_name) || '';
+    if (G.me && G.me.avatar_url) avEl.innerHTML = '<img src="' + G.esc(G.me.avatar_url) + '" class="w-full h-full object-cover" alt="">';
+    avBtn.addEventListener('click', function () { avInput.click(); });
+    avInput.addEventListener('change', function () { var f = this.files[0]; if (!f) return; avatarFile = f; avEl.innerHTML = '<img src="' + URL.createObjectURL(f) + '" class="w-full h-full object-cover" alt="">'; });
     var MIN = 6;
     function validate() {
-      var a = p1.value, b = p2.value;
+      var a = p1.value, b = p2.value, nm = nameEl.value.trim();
       caps.classList.toggle('hidden', !/[A-Z]/.test(a));
       caps.style.display = /[A-Z]/.test(a) ? 'flex' : '';
       var ok = false, m = '', cls = 'text-error';
-      if (!a) { m = ''; }
+      if (!nm) { m = 'Escreva o seu nome.'; }
+      else if (!a) { m = ''; }
       else if (a.length < MIN) { m = 'A senha precisa ter pelo menos ' + MIN + ' caracteres.'; }
       else if (!b) { m = ''; }
       else if (a !== b) { m = 'As duas senhas não estão iguais.'; }
@@ -204,17 +215,27 @@ GVSI.views = GVSI.views || {};
       btn.disabled = !ok;
       return ok;
     }
-    p1.addEventListener('input', validate); p2.addEventListener('input', validate);
+    nameEl.addEventListener('input', validate); p1.addEventListener('input', validate); p2.addEventListener('input', validate);
     btn.addEventListener('click', async function () {
       if (!validate()) return;
       btn.disabled = true; btn.textContent = 'Salvando...';
       try {
         var up = await G.sb.auth.updateUser({ password: p1.value });
         if (up.error) throw up.error;
-        try { await G.sb.from('lms_students').update({ needs_password: false }).eq('id', (G.me && G.me.id)); } catch (e) {}
-        if (G.me) G.me.needs_password = false;
+        var patch = { full_name: nameEl.value.trim(), needs_password: false };
+        if (avatarFile) {
+          try {
+            var ext = (avatarFile.name.split('.').pop() || 'jpg').toLowerCase();
+            var path = 'avatars/' + G.me.id + '/' + Date.now() + '.' + ext;
+            var upl = await G.sb.storage.from('comu-media').upload(path, avatarFile, { upsert: true, contentType: avatarFile.type || undefined });
+            if (!upl.error) patch.avatar_url = G.sb.storage.from('comu-media').getPublicUrl(path).data.publicUrl;
+          } catch (e) {}
+        }
+        try { await G.sb.from('lms_students').update(patch).eq('id', G.me.id); } catch (e) {}
+        if (G.me) { G.me.full_name = patch.full_name; if (patch.avatar_url) G.me.avatar_url = patch.avatar_url; G.me.needs_password = false; }
+        if (G.updateSidebarProfile) G.updateSidebarProfile();
         ov.remove();
-        if (G.toast) G.toast('Senha criada! Bem-vindo(a) à comunidade.');
+        if (G.toast) G.toast('Tudo pronto! Bem-vindo(a) à comunidade.');
         if (G.showOnboarding) G.showOnboarding(); // tour guiado no 1º acesso
       } catch (e) {
         msg.textContent = (e && e.message) ? e.message : 'Não foi possível salvar. Tente de novo.';
@@ -222,7 +243,7 @@ GVSI.views = GVSI.views || {};
         btn.disabled = false; btn.textContent = 'Salvar e entrar';
       }
     });
-    try { p1.focus(); } catch (e) {}
+    try { nameEl.focus(); } catch (e) {}
   };
 
   // ---- Onboarding guiado: painel aberto, ilumina cada grupo de verdade (coach-marks) ----
