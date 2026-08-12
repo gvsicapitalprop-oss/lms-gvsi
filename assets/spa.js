@@ -542,7 +542,8 @@ GVSI.views = GVSI.views || {};
     G._sidebarPoll = setInterval(refreshSidebar, 15000);
     document.addEventListener('visibilitychange', function () { if (!document.hidden) refreshSidebar(); });
     if (location.pathname === '/') { var _r; try { _r = localStorage.getItem('gvsi-route'); } catch (e) {} if (_r && _r.charAt(0) === '/' && _r !== '/') history.replaceState(null, '', _r); }
-    render();
+    await render();
+    try { if (window.__gvsiContentReady) window.__gvsiContentReady(); } catch (e) {} // avisa o splash: 1º render pronto
     if (G.me && G.me.needs_password) G.showSetPassword(); // 1º acesso → cria senha
   });
 })();
