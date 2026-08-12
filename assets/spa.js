@@ -68,6 +68,9 @@ GVSI.views = GVSI.views || {};
     r.addEventListener('dblclick', function () { setW(360); try { localStorage.setItem('gvsi-side-w', 360); } catch (x) {} });
   };
   if (document.readyState !== 'loading') G.initSideResizer(); else document.addEventListener('DOMContentLoaded', G.initSideResizer);
+  // PWA: guarda (sem mostrar nada) o prompt de instalar, usado pelo link discreto no Perfil.
+  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); G._installPrompt = e; });
+  window.addEventListener('appinstalled', function () { G._installPrompt = null; });
   // Som de notificação ao chegar mensagem nova de outra pessoa.
   G.playPing = function () {
     var now = Date.now();

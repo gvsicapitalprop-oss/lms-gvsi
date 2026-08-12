@@ -882,6 +882,7 @@
             '<button type="button" data-edit-open class="w-full flex items-center justify-between p-lg hover:bg-surface-container-high transition-colors text-left"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">person_edit</span><span class="font-body-md text-body-md text-on-surface">Editar perfil</span></div><span class="material-symbols-outlined text-outline">chevron_right</span></button>' +
             '<button type="button" data-soon class="w-full flex items-center justify-between p-lg hover:bg-surface-container-high transition-colors text-left"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">shield</span><span class="font-body-md text-body-md text-on-surface">Privacidade e segurança</span></div><span class="material-symbols-outlined text-outline">chevron_right</span></button>' +
             '<button type="button" data-soon class="w-full flex items-center justify-between p-lg hover:bg-surface-container-high transition-colors text-left"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">notifications</span><span class="font-body-md text-body-md text-on-surface">Configurações de notificação</span></div><span class="material-symbols-outlined text-outline">chevron_right</span></button>' +
+            '<button type="button" id="pf-install" class="w-full flex items-center justify-between p-lg hover:bg-surface-container-high transition-colors text-left"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">install_mobile</span><span class="font-body-md text-body-md text-on-surface">Instalar o app no celular</span></div><span class="material-symbols-outlined text-outline">chevron_right</span></button>' +
             '<button type="button" data-signout class="w-full flex items-center justify-between p-lg hover:bg-error/10 transition-colors text-left"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-error">logout</span><span class="font-body-md text-body-md text-error">Sair da conta</span></div></button>' +
           '</div></section>' +
         '</div></div>' +
@@ -951,6 +952,18 @@
         if (rst) rst.addEventListener('click', function () { idx = 1; apply(); });
       })();
       document.querySelectorAll('[data-soon]').forEach(function (b) { b.addEventListener('click', function (e) { e.preventDefault(); G.toast('Em breve.'); }); });
+      // Link discreto de instalar o app (PWA)
+      var pfInstall = document.getElementById('pf-install');
+      if (pfInstall) {
+        var already = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+        if (already) pfInstall.style.display = 'none';
+        pfInstall.addEventListener('click', function () {
+          var dp = G._installPrompt;
+          if (dp) { try { dp.prompt(); dp.userChoice.then(function () { G._installPrompt = null; }); } catch (e) {} return; }
+          if (/iphone|ipad|ipod/i.test(navigator.userAgent)) { G.toast('No iPhone: toque em Compartilhar e depois em "Adicionar à Tela de Início".'); return; }
+          G.toast('Abra o menu do navegador e escolha "Instalar aplicativo".');
+        });
+      }
     }
   };
 
