@@ -139,6 +139,7 @@
 
         var titleEl = document.getElementById('chat-title');
         var msgsEl = document.getElementById('chat-messages');
+        msgsEl.addEventListener('click', function (e) { var a = e.target.closest && e.target.closest('.msg-av'); if (!a) return; var w = a.closest('[data-author-id]'); var aid = w && w.getAttribute('data-author-id'); if (aid && G.showMemberCard) G.showMemberCard(aid); });
         var emptyEl = document.getElementById('chat-empty');
         var loadingEl = document.getElementById('chat-loading');
         var scrollEl = document.getElementById('chat-scroll');
@@ -403,7 +404,7 @@
           return wrap;
         }
         function regroup() {
-          if (!document.getElementById('gvsi-grp-style')) { var st = document.createElement('style'); st.id = 'gvsi-grp-style'; st.textContent = '.grouped .msg-head{display:none}.grouped .msg-av{visibility:hidden}.grouped{margin-top:-0.4rem}'; document.head.appendChild(st); }
+          if (!document.getElementById('gvsi-grp-style')) { var st = document.createElement('style'); st.id = 'gvsi-grp-style'; st.textContent = '.grouped .msg-head{display:none}.grouped .msg-av{visibility:hidden}.grouped{margin-top:-0.4rem}.msg-av{cursor:pointer}'; document.head.appendChild(st); }
           var kids = msgsEl.children, prevA = null, prevT = 0;
           for (var i = 0; i < kids.length; i++) {
             var el = kids[i], aid = el.getAttribute('data-author-id');

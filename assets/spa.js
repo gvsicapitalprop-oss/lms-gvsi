@@ -174,6 +174,21 @@ GVSI.views = GVSI.views || {};
     try { document.title = 'Acesso encerrado'; } catch (e) {}
   };
 
+  // Mini-perfil (cartão) ao clicar na foto: foto + nome + bio, via RPC segura (sem e-mail/telefone).
+  G.showMemberCard = async function (userId) {
+    if (!userId || !G.sb) return;
+    if (document.getElementById('member-card')) return;
+    var r; try { r = await G.sb.rpc('comu_member_card', { p_user_id: userId }); } catch (e) { return; }
+    var d = (r && r.data && r.data[0]) || null;
+    if (!d) { if (G.toast) G.toast('Perfil indisponível.'); return; }
+    var ov = document.createElement('div'); ov.id = 'member-card'; ov.className = 'fixed inset-0 z-[96] flex items-center justify-center p-container-margin bg-black/40';
+    var av = d.avatar_url ? '<img src="' + G.esc(d.avatar_url) + '" class="w-24 h-24 rounded-full object-cover mx-auto" alt="">' : '<span class="w-24 h-24 rounded-full bg-surface-container-high flex items-center justify-center text-outline mx-auto"><span class="material-symbols-outlined text-[40px]">person</span></span>';
+    ov.innerHTML = '<div class="w-full max-w-xs bg-surface-container-lowest rounded-2xl shadow-xl border border-outline-variant/40 p-lg text-center space-y-sm">' + av + '<h3 class="font-headline-sm text-headline-sm text-on-surface break-words">' + G.esc(d.full_name || 'Membro') + '</h3>' + (d.bio ? '<p class="text-body-sm text-on-surface-variant text-balance break-words">' + G.esc(d.bio) + '</p>' : '<p class="text-body-sm text-on-surface-variant/60 italic">Sem bio ainda.</p>') + '<button type="button" id="mc-close" class="mt-sm h-10 px-6 rounded-full bg-primary text-on-primary font-label-md active:scale-95 transition">Fechar</button></div>';
+    document.body.appendChild(ov);
+    function close() { ov.remove(); }
+    ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
+    var cb = document.getElementById('mc-close'); if (cb) cb.addEventListener('click', close);
+  };
   // ---- 1º acesso: criar senha (item #13). Campos VISÍVEIS + aviso de maiúscula. ----
   G.showSetPassword = function () {
     if (document.getElementById('setpw-screen')) return;
