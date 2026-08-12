@@ -24,7 +24,7 @@ GVSI.views = GVSI.views || {};
     var out = G.esc(s);
     out = out.replace(/`([^`\n]+)`/g, '<code class="px-1 py-0.5 rounded bg-black/10 dark:bg-white/20 text-[0.92em]">$1</code>');
     out = out.replace(/\*\*\*([^*\n]+?)\*\*\*/g, '<strong><em>$1</em></strong>'); // ***negrito+itálico***
-    out = out.replace(/\*\*([^\n]+?)\*\*/g, function (_m, inner) { return '<strong>' + inner.replace(/(^|[^*])\*([^*<\n]+?)\*(?!\*)/g, '$1<em>$2</em>') + '</strong>'; }); // **negrito** (com *itálico* interno)
+    out = out.replace(/\*\*([^\n]+?)\*\*(?!\*)/g, function (_m, inner) { return '<strong>' + inner.replace(/(^|[^*])\*([^*<\n]+?)\*(?!\*)/g, '$1<em>$2</em>') + '</strong>'; }); // **negrito** (fecha no ÚLTIMO **, deixa *itálico* no fim virar tag)
     out = out.replace(/(^|[^\w*])\*([^*<\n]+?)\*(?![\w*])/g, '$1<em>$2</em>'); // *itálico*
     out = out.replace(/(^|[^\w_])_([^_\n]+)_(?![\w_])/g, '$1<em>$2</em>');   // _itálico_
     out = out.replace(/~~([^~\n]+)~~/g, '<del>$1</del>');                   // ~~tachado~~
