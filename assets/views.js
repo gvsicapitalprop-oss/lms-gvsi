@@ -1286,8 +1286,24 @@
           addMsg(ins.data); scrollConvo();
         }
         document.getElementById('convo-attach').addEventListener('click', function () { document.getElementById('convo-file-media').click(); });
-        // arrastar/soltar ou colar imagem no atendimento
-        (function () { var ci = document.getElementById('convo-input'), main = document.getElementById('convo-main'); function kindOf(f) { var ty = (f && f.type) || ''; return ty.indexOf('image') === 0 ? 'image' : (ty.indexOf('video') === 0 ? 'video' : (ty.indexOf('audio') === 0 ? 'audio' : null)); } if (ci) ci.addEventListener('paste', function (e) { var dt = e.clipboardData; if (dt && dt.files && dt.files.length) { var f = dt.files[0], k = kindOf(f); if (k) { e.preventDefault(); sendMedia(f, k); } } }); if (main) { ['dragover', 'dragenter'].forEach(function (ev) { main.addEventListener(ev, function (e) { e.preventDefault(); }); }); main.addEventListener('drop', function (e) { e.preventDefault(); var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0], k = kindOf(f); if (f && k) sendMedia(f, k); }); } })();
+        // arrastar/soltar ou colar imagem no atendimento (imagem passa pelo editor de pré-envio)
+        (function () {
+          var ci = document.getElementById('convo-input'), main = document.getElementById('convo-main');
+          function kindOf(f) { var ty = (f && f.type) || ''; return ty.indexOf('image') === 0 ? 'image' : (ty.indexOf('video') === 0 ? 'video' : (ty.indexOf('audio') === 0 ? 'audio' : null)); }
+          async function sendAtImage(blob, caption, dims) {
+            if (!self.currentTicket || ['aberto', 'aguardando'].indexOf(self.currentTicket.status) < 0) { G.toast('Conversa finalizada. Não dá pra enviar aqui.'); return false; }
+            var path = 'suporte/' + self.currentTicket.id + '/' + Date.now() + '.jpg';
+            var up = await sb.storage.from('comu-media').upload(path, blob, { contentType: 'image/jpeg', upsert: true });
+            if (up.error) { G.toast('Erro no upload: ' + up.error.message); return false; }
+            var url = sb.storage.from('comu-media').getPublicUrl(path).data.publicUrl;
+            var ins = await sb.from('comu_messages').insert({ topic_id: supportTopicId, author_id: me.id, ticket_id: self.currentTicket.id, kind: 'image', body: caption, media_url: url, media_meta: { w: dims.w, h: dims.h, mime: 'image/jpeg' }, author_name: me.full_name || 'Suporte', author_avatar: me.avatar_url || null }).select().single();
+            if (ins.error) { G.toast('Erro ao enviar: ' + ins.error.message); return false; }
+            addMsg(ins.data); scrollConvo(); return true;
+          }
+          function handleFile(f, k) { if (!f || !k) return; if (k === 'image' && G.imageComposer) G.imageComposer(f, sendAtImage); else sendMedia(f, k); }
+          if (ci) ci.addEventListener('paste', function (e) { var dt = e.clipboardData; if (dt && dt.files && dt.files.length) { var f = dt.files[0], k = kindOf(f); if (k) { e.preventDefault(); handleFile(f, k); } } });
+          if (main) { ['dragover', 'dragenter'].forEach(function (ev) { main.addEventListener(ev, function (e) { e.preventDefault(); }); }); main.addEventListener('drop', function (e) { e.preventDefault(); var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0], k = kindOf(f); handleFile(f, k); }); }
+        })();
         // gravação de voz no atendimento (admin): 1º clique grava, 2º clique envia
         var supRec = { mr: null, stream: null, chunks: [], mime: '', on: false, secs: 0, timer: null };
         function supPickMime() { var c = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg']; for (var i = 0; i < c.length; i++) if (window.MediaRecorder && MediaRecorder.isTypeSupported(c[i])) return c[i]; return ''; }
