@@ -1007,7 +1007,7 @@
 
       function avatarHtml() { return me.avatar_url ? '<img src="' + esc(me.avatar_url) + '" class="w-full h-full object-cover" alt="">' : '<span class="material-symbols-outlined" style="font-size:48px">person</span>'; }
       function fillUI() {
-        document.getElementById('pf-name').textContent = me.full_name || 'Complete seu perfil';
+        document.getElementById('pf-name').textContent = G.shortName(me.full_name) || 'Complete seu perfil';
         document.getElementById('pf-sub').textContent = me.bio || me.email || 'Adicione uma bio ao seu perfil.';
         document.getElementById('pf-avatar').innerHTML = avatarHtml();
         var badge = document.getElementById('pf-role');
