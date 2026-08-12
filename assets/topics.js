@@ -6,7 +6,7 @@
 window.GVSI_TOPICS = [
   { id: "prints",     name: "Prints das Operações",   icon: "monitoring",          tone: "primary",   desc: "Compartilhe entradas, saídas e prints dos seus trades." },
   { id: "tutoriais",  name: "Tutoriais",              icon: "play_circle",         tone: "tertiary",  desc: "Vídeos e materiais de aprendizado." },
-  { id: "suporte",    name: "Suporte",                icon: "support_agent",       tone: "secondary", desc: "Tire dúvidas com a equipe GVSI." },
+  { id: "suporte",    name: "Suporte",                icon: "support_agent",       tone: "secondary", desc: "Tire dúvidas com a equipe do Giovanni." },
   { id: "geral",      name: "Chat Geral",             icon: "forum",               tone: "primary",   desc: "Conversa aberta da comunidade." },
   { id: "resultados", name: "Resultados / Feedbacks", icon: "fact_check",          tone: "tertiary",  desc: "Resultados e feedbacks dos membros." },
   { id: "recados",    name: "Recados",                icon: "notifications_active", tone: "secondary", desc: "Avisos e atualizações importantes." },

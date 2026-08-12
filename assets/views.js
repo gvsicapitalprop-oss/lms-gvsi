@@ -29,7 +29,7 @@
           '</div></div>' +
           '<div class="hidden lg:flex min-h-screen flex-col items-center justify-center text-center gap-md p-xl">' +
             '<div class="w-20 h-20 rounded-full bg-surface-container-high flex items-center justify-center text-primary"><span class="material-symbols-outlined text-[40px]">forum</span></div>' +
-            '<div class="space-y-xs max-w-sm"><h2 class="font-headline-md text-headline-md text-on-surface">Bem-vindo à Comunidade GVSI</h2><p class="text-body-md text-on-surface-variant">Selecione um tópico na barra lateral para começar a conversar.</p></div>' +
+            '<div class="space-y-xs max-w-sm"><h2 class="font-headline-md text-headline-md text-on-surface">Bem-vindo à Comunidade do Giovanni</h2><p class="text-body-md text-on-surface-variant">Selecione um tópico na barra lateral para começar a conversar.</p></div>' +
           '</div>' +
         '</div>' +
         '<nav class="lg:hidden fixed bottom-0 left-0 right-0 z-50 rounded-t-xl bg-surface shadow-[0px_-4px_20px_rgba(0,0,0,0.05)] flex justify-around items-center h-16 px-2">' +
@@ -88,7 +88,7 @@
           '<header class="fixed top-0 left-0 right-0 lg:left-[var(--side-w)] z-40 bg-surface shadow-[0px_4px_20px_rgba(0,0,0,0.05)] flex items-center justify-between px-container-margin h-16 lg:h-[89px]">' +
             '<div class="flex items-center gap-md min-w-0">' +
               '<a class="lg:hidden text-primary flex items-center" href="/" aria-label="Voltar"><span class="material-symbols-outlined">arrow_back</span></a>' +
-              '<div class="flex flex-col min-w-0 justify-center"><h1 id="chat-title" class="font-headline-sm text-headline-sm font-bold text-primary leading-tight truncate">GVSI Comunidade</h1><span id="chat-subtitle" class="text-body-sm text-on-surface-variant leading-tight">Grupo da comunidade</span></div>' +
+              '<div class="flex flex-col min-w-0 justify-center"><h1 id="chat-title" class="font-headline-sm text-headline-sm font-bold text-primary leading-tight truncate">Comunidade do Giovanni</h1><span id="chat-subtitle" class="text-body-sm text-on-surface-variant leading-tight">Grupo da comunidade</span></div>' +
             '</div>' +
             '<div class="flex items-center gap-xs">' +
               '<button type="button" data-theme-toggle class="lg:hidden text-primary flex items-center" aria-label="Tema"><span class="material-symbols-outlined" data-theme-icon>dark_mode</span></button>' +
@@ -199,7 +199,7 @@
         var topic = null;
         if (slug) { var tr = await sb.from('comu_topics').select('id,name,slug,post_policy').eq('slug', slug).maybeSingle(); topic = tr.data; }
         if (self.destroyed) return;
-        if (topic) { titleEl.textContent = topic.name; document.title = 'GVSI Comunidade | ' + topic.name; }
+        if (topic) { titleEl.textContent = topic.name; document.title = 'Comunidade do Giovanni | ' + topic.name; }
 
         if (topic && topic.post_policy === 'readonly' && !isAdmin) {
           document.getElementById('chat-composer').classList.add('hidden');
@@ -902,7 +902,7 @@
         document.getElementById('pf-avatar').innerHTML = avatarHtml();
         var badge = document.getElementById('pf-role');
         if (me.role === 'admin' || me.role === 'suporte') { badge.textContent = me.role === 'admin' ? 'Administrador' : 'Suporte'; badge.classList.remove('hidden'); } else badge.classList.add('hidden');
-        G.updateSidebarProfile(); document.title = 'GVSI Comunidade | ' + (me.full_name || 'Meu Perfil');
+        G.updateSidebarProfile(); document.title = 'Comunidade do Giovanni | ' + (me.full_name || 'Meu Perfil');
       }
       fillUI();
       sb.from('comu_messages').select('id', { count: 'exact', head: true }).eq('author_id', me.id).then(function (r) { var el = document.getElementById('pf-msgcount'); if (el) el.textContent = r.count || 0; });

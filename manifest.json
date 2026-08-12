@@ -1,7 +1,7 @@
 {
-  "name": "GVSI Comunidade",
-  "short_name": "GVSI",
-  "description": "Comunidade GVSI — converse, tire dúvidas e acompanhe os avisos.",
+  "name": "Comunidade do Giovanni",
+  "short_name": "Giovanni",
+  "description": "Comunidade do Giovanni — converse, tire dúvidas e acompanhe os avisos.",
   "lang": "pt-BR",
   "dir": "ltr",
   "start_url": "/",

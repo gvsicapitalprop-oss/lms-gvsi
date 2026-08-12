@@ -267,7 +267,7 @@ GVSI.views = GVSI.views || {};
     }
     function start() {
       var items = pickGroupItems();
-      var steps = [{ el: null, title: 'Bem-vindo à Comunidade GVSI!', text: 'Vou te apresentar rapidinho cada grupo, pra você saber onde fica cada coisa. É só ir tocando em "Próximo".' }];
+      var steps = [{ el: null, title: 'Bem-vindo à Comunidade do Giovanni!', text: 'Vou te apresentar rapidinho cada grupo, pra você saber onde fica cada coisa. É só ir tocando em "Próximo".' }];
       items.forEach(function (it) {
         var h = it.querySelector('h3'); var pv = it.querySelector('.topic-preview');
         steps.push({ el: it, title: h ? h.textContent : 'Grupo', text: (pv && pv.dataset.desc) || 'Toque neste grupo para abrir a conversa.' });
@@ -413,7 +413,7 @@ GVSI.views = GVSI.views || {};
   var TOPIC_GROUPS = [
     { title: 'Ajuda', slugs: ['suporte'] },
     { title: 'Conversas', slugs: ['prints', 'geral', 'resultados'] },
-    { title: 'Publicações da GVSI', slugs: ['tutoriais', 'recados', 'desafio', 'arquivos'] }
+    { title: 'Publicações do Giovanni', slugs: ['tutoriais', 'recados', 'desafio', 'arquivos'] }
   ];
   function groupHeaderHtml(title) {
     return '<div class="topic-group-header px-md pt-md pb-xs text-label-md font-label-md text-on-surface-variant/80 uppercase tracking-wide">' + G.esc(title) + '</div>';
