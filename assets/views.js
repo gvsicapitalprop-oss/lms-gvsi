@@ -1211,7 +1211,7 @@
           else {
             wrap.className = 'flex flex-col items-start gap-xs max-w-[80%]';
             var row = document.createElement('div'); row.className = 'flex items-start gap-sm';
-            var _a = msg.author_avatar || (self.currentTicket && self.currentTicket.member && self.currentTicket.member.avatar_url) || '';
+            var _fromMember = self.currentTicket && msg.author_id === self.currentTicket.user_id; var _a = msg.author_avatar || (_fromMember && self.currentTicket.member && self.currentTicket.member.avatar_url) || '';
             row.innerHTML = _a ? '<img src="' + esc(_a) + '" class="w-8 h-8 rounded-full object-cover shrink-0">' : '<span class="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center text-outline shrink-0"><span class="material-symbols-outlined text-[18px]">person</span></span>';
             var col = document.createElement('div'); col.className = 'flex flex-col min-w-0'; col.innerHTML = '<div class="flex items-center gap-xs ml-sm"><span class="text-label-md font-label-md text-on-surface-variant">' + esc(msg.author_name || 'Membro') + '</span><span class="text-[13px] text-on-surface-variant">' + G.timeStr(msg.created_at) + '</span></div>';
             col.appendChild(bubble); row.appendChild(col); wrap.appendChild(row); wrap.appendChild(react);
