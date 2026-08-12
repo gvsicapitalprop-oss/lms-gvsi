@@ -815,7 +815,7 @@
             '<div id="preview" class="hidden"><div class="flex gap-md items-start"><div id="preview-thumb" class="w-24 h-24 rounded-lg overflow-hidden flex-shrink-0 bg-surface-container-high flex items-center justify-center text-outline"></div><div class="flex-grow min-w-0 space-y-sm"><div class="flex items-center justify-between gap-sm"><span id="preview-name" class="font-label-md text-label-md text-on-surface-variant truncate">arquivo</span><button type="button" id="preview-remove" class="text-error text-xs hover:underline font-semibold shrink-0">Remover</button></div><textarea id="caption" class="w-full bg-transparent border-none focus:ring-0 text-body-md placeholder:text-outline p-0 resize-none h-16 text-on-surface" placeholder="Adicione uma legenda (opcional)..."></textarea></div></div><img id="preview-image" alt="" class="hidden w-full mt-md rounded-xl border border-outline-variant/40 bg-surface-container-high" style="max-height:24rem;object-fit:contain"><audio id="preview-audio" controls class="hidden w-full mt-sm"></audio><video id="preview-video" controls class="hidden w-full mt-sm rounded-lg" style="max-height:16rem"></video></div>' +
           '</section>' +
         '</div></main>' +
-        '<div class="fixed bottom-0 left-0 right-0 lg:left-[var(--side-w)] z-40 bg-surface shadow-[0px_-4px_20px_rgba(0,0,0,0.05)] rounded-t-xl px-container-margin py-md"><div class="max-w-3xl mx-auto flex items-center justify-between gap-md"><p id="target-label" class="hidden md:flex items-center gap-xs text-body-sm text-on-surface-variant"><span class="material-symbols-outlined text-[18px]">groups</span> Compartilhar no grupo</p><button id="btn-send" type="button" disabled class="flex-grow md:flex-none bg-primary text-on-primary h-12 px-xl rounded-full font-headline-sm text-headline-sm flex items-center justify-center gap-sm shadow-md active:scale-95 transition-all disabled:opacity-50"><span id="btn-send-label">Enviar para o grupo</span><span class="material-symbols-outlined">send</span></button></div></div>';
+        '<div class="fixed bottom-0 left-0 right-0 lg:left-[var(--side-w)] z-40 bg-surface shadow-[0px_-4px_20px_rgba(0,0,0,0.05)] rounded-t-xl px-container-margin py-md"><div id="send-progress" class="hidden max-w-3xl mx-auto mb-sm"><div class="h-2 rounded-full bg-surface-container-high overflow-hidden"><div id="send-progress-bar" class="h-full bg-primary" style="width:0%;transition:width .15s"></div></div><p id="send-progress-txt" class="text-[12px] text-on-surface-variant mt-1 text-center">Enviando… 0%</p></div><div class="max-w-3xl mx-auto flex items-center justify-between gap-md"><p id="target-label" class="hidden md:flex items-center gap-xs text-body-sm text-on-surface-variant"><span class="material-symbols-outlined text-[18px]">groups</span> Compartilhar no grupo</p><button id="btn-send" type="button" disabled class="flex-grow md:flex-none bg-primary text-on-primary h-12 px-xl rounded-full font-headline-sm text-headline-sm flex items-center justify-center gap-sm shadow-md active:scale-95 transition-all disabled:opacity-50"><span id="btn-send-label">Enviar para o grupo</span><span class="material-symbols-outlined">send</span></button></div></div>';
 
       var topic = null;
       if (slug) { var tr = await sb.from('comu_topics').select('id,name,slug,post_policy').eq('slug', slug).maybeSingle(); topic = tr.data; if (topic) document.getElementById('target-label').innerHTML = '<span class="material-symbols-outlined text-[18px]">groups</span> ' + esc(topic.name); }
@@ -840,7 +840,11 @@
         try {
           var ext = (selectedFile.name.split('.').pop() || (selectedKind === 'image' ? 'jpg' : (selectedKind === 'video' ? 'mp4' : 'm4a'))).toLowerCase();
           var path = slug + '/' + me.id + '/' + Date.now() + '.' + ext;
-          var up = await sb.storage.from('comu-media').upload(path, selectedFile, { upsert: true, contentType: selectedFile.type || undefined }); if (up.error) throw up.error;
+          var pbW = document.getElementById('send-progress'), pbB = document.getElementById('send-progress-bar'), pbT = document.getElementById('send-progress-txt');
+          if (pbW) pbW.classList.remove('hidden');
+          var up = await G.uploadWithProgress(path, selectedFile, selectedFile.type || undefined, function (frac) { var p = Math.round(frac * 100); if (pbB) pbB.style.width = p + '%'; if (pbT) pbT.textContent = (p >= 100 ? 'Finalizando…' : 'Enviando… ' + p + '%'); });
+          if (pbW) pbW.classList.add('hidden');
+          if (!up.ok) { var up2 = await sb.storage.from('comu-media').upload(path, selectedFile, { upsert: true, contentType: selectedFile.type || undefined }); if (up2.error) throw new Error(up.error || up2.error.message); }
           var url = sb.storage.from('comu-media').getPublicUrl(path).data.publicUrl;
           var caption = document.getElementById('caption').value.trim() || null;
           var res;
@@ -848,7 +852,7 @@
           else res = await sb.from('comu_messages').insert({ topic_id: topic.id, author_id: me.id, kind: selectedKind, body: caption, media_url: url, media_meta: { name: selectedFile.name, size: selectedFile.size, mime: selectedFile.type }, author_name: me.full_name || 'Membro', author_avatar: me.avatar_url || null }).select().single();
           if (res.error) throw res.error;
           G.navigate(back);
-        } catch (err) { btn.disabled = false; document.getElementById('btn-send-label').textContent = 'Enviar para o grupo'; G.toast('Erro ao enviar: ' + (err && err.message ? err.message : err)); }
+        } catch (err) { btn.disabled = false; document.getElementById('btn-send-label').textContent = 'Enviar para o grupo'; var _pw = document.getElementById('send-progress'); if (_pw) _pw.classList.add('hidden'); G.toast('Erro ao enviar: ' + (err && err.message ? err.message : err)); }
       });
     }
   };

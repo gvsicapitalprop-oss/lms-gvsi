@@ -189,6 +189,24 @@ GVSI.views = GVSI.views || {};
     ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
     var cb = document.getElementById('mc-close'); if (cb) cb.addEventListener('click', close);
   };
+  // Upload com barra de progresso (o .upload() do SDK não expõe progresso; XHR sim).
+  G.uploadWithProgress = function (path, file, contentType, onProgress) {
+    return new Promise(function (resolve) {
+      G.sb.auth.getSession().then(function (s) {
+        var tok = (s && s.data && s.data.session && s.data.session.access_token) || window.SUPABASE_ANON_KEY;
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', window.SUPABASE_URL + '/storage/v1/object/comu-media/' + path, true);
+        xhr.setRequestHeader('Authorization', 'Bearer ' + tok);
+        xhr.setRequestHeader('apikey', window.SUPABASE_ANON_KEY);
+        xhr.setRequestHeader('x-upsert', 'true');
+        if (contentType) xhr.setRequestHeader('Content-Type', contentType);
+        xhr.upload.onprogress = function (e) { if (e.lengthComputable && onProgress) onProgress(e.loaded / e.total); };
+        xhr.onload = function () { if (xhr.status >= 200 && xhr.status < 300) resolve({ ok: true }); else resolve({ ok: false, error: String(xhr.responseText || ('HTTP ' + xhr.status)).slice(0, 200) }); };
+        xhr.onerror = function () { resolve({ ok: false, error: 'Falha de rede no envio' }); };
+        xhr.send(file);
+      }, function () { resolve({ ok: false, error: 'Sessão inválida' }); });
+    });
+  };
   // ---- 1º acesso: criar senha (item #13). Campos VISÍVEIS + aviso de maiúscula. ----
   G.showSetPassword = function () {
     if (document.getElementById('setpw-screen')) return;
