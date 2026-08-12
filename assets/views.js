@@ -1009,11 +1009,12 @@
             '<section id="convo-panel" class="hidden lg:flex flex-1 flex-col min-w-0"><div id="convo-empty" class="flex-1 flex flex-col items-center justify-center text-center gap-md p-xl text-on-surface-variant"><span class="material-symbols-outlined text-[48px]">forum</span><p class="text-body-md max-w-xs">Selecione uma conversa para ver o histórico e responder.</p></div>' +
               '<div id="convo-main" class="hidden flex-1 flex-col min-h-0"><div class="min-h-16 shrink-0 border-b border-outline-variant px-md py-2 flex items-center"><div class="max-w-3xl mx-auto w-full flex items-center gap-md"><button id="convo-back" class="lg:hidden text-primary flex items-center" aria-label="Voltar"><span class="material-symbols-outlined">arrow_back</span></button><span id="convo-avatar" class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center text-outline shrink-0 overflow-hidden"><span class="material-symbols-outlined">person</span></span><div class="flex-1 min-w-0"><h2 id="convo-name" class="font-bold text-on-surface truncate"></h2><p id="convo-protocol" class="text-body-sm text-outline truncate"></p><div id="convo-tags" class="flex flex-wrap items-center gap-1 mt-1"></div></div><button type="button" id="btn-tags" class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors shrink-0" aria-label="Tags do contato"><span class="material-symbols-outlined">sell</span></button><button id="btn-resolve" class="bg-primary text-on-primary rounded-full px-4 py-2 text-label-md font-label-md active:scale-95 transition disabled:opacity-60 flex items-center gap-xs"><span class="material-symbols-outlined text-[18px]">check_circle</span><span id="btn-resolve-label">Marcar como resolvido</span></button></div></div>' +
                 '<div id="convo-scroll" class="flex-1 overflow-y-auto custom-scrollbar p-md"><div id="convo-messages" class="flex flex-col gap-md max-w-3xl mx-auto w-full"></div></div>' +
-                '<form id="convo-form" class="shrink-0 border-t border-outline-variant p-sm"><div class="max-w-3xl mx-auto w-full flex flex-col gap-sm"><input id="convo-input" type="text" autocomplete="off" placeholder="Responder…" class="w-full bg-surface-container-low border border-outline-variant rounded-xl px-md py-3 text-body-md focus:ring-2 focus:ring-primary/20 text-on-surface placeholder:text-on-surface-variant"><div class="flex flex-wrap items-center gap-sm"><button type="button" id="convo-attach" class="h-11 px-3 rounded-xl border border-outline-variant text-on-surface hover:bg-surface-container-high transition-colors flex items-center gap-xs shrink-0" aria-label="Anexar foto ou vídeo"><span class="material-symbols-outlined text-[24px]">attach_file</span><span class="text-body-sm font-label-md">Anexar</span></button><button type="button" id="convo-audio-btn" class="h-11 px-3 rounded-xl border border-outline-variant text-on-surface hover:bg-surface-container-high transition-colors flex items-center gap-xs shrink-0" aria-label="Enviar áudio"><span class="material-symbols-outlined text-[24px]">mic</span><span class="text-body-sm font-label-md">Áudio</span></button><button type="submit" class="h-11 px-5 ml-auto bg-primary text-on-primary rounded-xl flex items-center gap-xs shadow-lg active:scale-95 transition-all shrink-0" aria-label="Enviar"><span class="material-symbols-outlined fill text-[24px]">send</span><span class="text-body-md font-bold">Enviar</span></button></div></div><input id="convo-file-media" type="file" accept="image/*,video/*" class="hidden"><input id="convo-file-audio" type="file" accept="audio/*" class="hidden"></form></div>' +
+                '<form id="convo-form" class="shrink-0 border-t border-outline-variant p-sm"><div class="max-w-3xl mx-auto w-full flex flex-col gap-sm"><textarea id="convo-input" rows="1" autocomplete="off" placeholder="Responder…" class="w-full bg-surface-container-low border border-outline-variant rounded-xl px-md py-3 text-body-md focus:ring-2 focus:ring-primary/20 text-on-surface placeholder:text-on-surface-variant resize-none max-h-32 overflow-y-auto whitespace-pre-wrap"></textarea><div class="flex flex-wrap items-center gap-sm"><button type="button" id="convo-attach" class="h-11 px-3 rounded-xl border border-outline-variant text-on-surface hover:bg-surface-container-high transition-colors flex items-center gap-xs shrink-0" aria-label="Anexar foto ou vídeo"><span class="material-symbols-outlined text-[24px]">attach_file</span><span class="text-body-sm font-label-md">Anexar</span></button><button type="button" id="convo-audio-btn" class="h-11 px-3 rounded-xl border border-outline-variant text-on-surface hover:bg-surface-container-high transition-colors flex items-center gap-xs shrink-0" aria-label="Enviar áudio"><span class="material-symbols-outlined text-[24px]">mic</span><span class="text-body-sm font-label-md">Áudio</span></button><button type="submit" class="h-11 px-5 ml-auto bg-primary text-on-primary rounded-xl flex items-center gap-xs shadow-lg active:scale-95 transition-all shrink-0" aria-label="Enviar"><span class="material-symbols-outlined fill text-[24px]">send</span><span class="text-body-md font-bold">Enviar</span></button></div></div><input id="convo-file-media" type="file" accept="image/*,video/*" class="hidden"><input id="convo-file-audio" type="file" accept="audio/*" class="hidden"></form></div>' +
             '</section>' +
           '</div>';
         var topicRes = await sb.from('comu_topics').select('id').eq('slug', 'suporte').single(); if (self.destroyed) return;
         var supportTopicId = topicRes.data.id;
+        if (me.id) { sb.from('comu_topic_reads').upsert({ topic_id: supportTopicId, user_id: me.id, last_read_at: new Date().toISOString() }, { onConflict: 'topic_id,user_id' }).then(function () { if (G.applyUnread) G.applyUnread(); }, function () {}); }
         // ---- tags de contato ----
         var TAG_COLORS = ['#2563eb', '#16a34a', '#ea580c', '#dc2626', '#7c3aed', '#0d244e', '#0891b2', '#db2777'];
         async function loadTags() {
@@ -1182,6 +1183,7 @@
           var ins = await sb.from('comu_messages').insert({ topic_id: supportTopicId, author_id: me.id, ticket_id: self.currentTicket.id, kind: 'text', body: body, author_name: me.full_name || 'Suporte', author_avatar: me.avatar_url || null }).select().single();
           if (ins.error) { console.error(ins.error); document.getElementById('convo-input').value = body; return; } addMsg(ins.data); scrollConvo();
         });
+        (function () { var ci = document.getElementById('convo-input'); if (ci) ci.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); var f = document.getElementById('convo-form'); if (f && f.requestSubmit) f.requestSubmit(); else if (f) f.dispatchEvent(new Event('submit', { cancelable: true })); } }); })();
         async function sendMedia(file, kind) {
           if (!file || !self.currentTicket) return;
           if (self.currentTicket.status !== 'aberto') { G.toast('Conversa finalizada. Não dá pra enviar aqui.'); return; }
@@ -1195,7 +1197,31 @@
           addMsg(ins.data); scrollConvo();
         }
         document.getElementById('convo-attach').addEventListener('click', function () { document.getElementById('convo-file-media').click(); });
-        document.getElementById('convo-audio-btn').addEventListener('click', function () { document.getElementById('convo-file-audio').click(); });
+        // gravação de voz no atendimento (admin): 1º clique grava, 2º clique envia
+        var supRec = { mr: null, stream: null, chunks: [], mime: '', on: false, secs: 0, timer: null };
+        function supPickMime() { var c = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg']; for (var i = 0; i < c.length; i++) if (window.MediaRecorder && MediaRecorder.isTypeSupported(c[i])) return c[i]; return ''; }
+        var audioBtn = document.getElementById('convo-audio-btn');
+        function supRecLabel() { if (!audioBtn) return; var lab = audioBtn.querySelector('.text-body-sm'); if (supRec.on) { audioBtn.classList.add('bg-error', 'text-white', 'border-error'); if (lab) lab.textContent = 'Enviar (' + supRec.secs + 's)'; } else { audioBtn.classList.remove('bg-error', 'text-white', 'border-error'); if (lab) lab.textContent = 'Áudio'; } }
+        async function supStartRec() {
+          if (self.currentTicket && self.currentTicket.status !== 'aberto') { G.toast('Conversa finalizada. Não dá pra enviar aqui.'); return; }
+          if (!navigator.mediaDevices || !window.MediaRecorder) { G.toast('Gravação não é suportada neste navegador.'); return; }
+          try { supRec.stream = await navigator.mediaDevices.getUserMedia({ audio: true }); } catch (e) { G.toast('Não foi possível acessar o microfone. Permita o acesso.'); return; }
+          supRec.mime = supPickMime(); supRec.chunks = [];
+          try { supRec.mr = new MediaRecorder(supRec.stream, supRec.mime ? { mimeType: supRec.mime } : undefined); } catch (e) { supRec.mr = new MediaRecorder(supRec.stream); }
+          supRec.mr.ondataavailable = function (ev) { if (ev.data && ev.data.size) supRec.chunks.push(ev.data); };
+          supRec.mr.onstop = function () {
+            if (supRec.stream) { supRec.stream.getTracks().forEach(function (t) { t.stop(); }); supRec.stream = null; }
+            if (supRec.timer) { clearInterval(supRec.timer); supRec.timer = null; }
+            supRec.on = false; supRecLabel();
+            if (!supRec.chunks.length || supRec.secs < 1) return;
+            var ext = supRec.mime.indexOf('mp4') >= 0 ? 'mp4' : (supRec.mime.indexOf('ogg') >= 0 ? 'ogg' : 'webm');
+            var file; try { file = new File(supRec.chunks, 'voz-' + Date.now() + '.' + ext, { type: supRec.mime || 'audio/webm' }); } catch (e) { file = new Blob(supRec.chunks, { type: supRec.mime || 'audio/webm' }); file.name = 'voz-' + Date.now() + '.' + ext; }
+            sendMedia(file, 'audio');
+          };
+          supRec.mr.start(); supRec.on = true; supRec.secs = 0; supRecLabel();
+          supRec.timer = setInterval(function () { supRec.secs++; supRecLabel(); }, 1000);
+        }
+        if (audioBtn) audioBtn.addEventListener('click', function () { if (supRec.on) { try { supRec.mr.stop(); } catch (e) {} } else supStartRec(); });
         document.getElementById('convo-file-media').addEventListener('change', function () { var f = this.files[0]; if (f) sendMedia(f, (f.type || '').indexOf('video') === 0 ? 'video' : 'image'); this.value = ''; });
         document.getElementById('convo-file-audio').addEventListener('change', function () { var f = this.files[0]; if (f) sendMedia(f, 'audio'); this.value = ''; });
         document.getElementById('btn-resolve').addEventListener('click', async function () {
