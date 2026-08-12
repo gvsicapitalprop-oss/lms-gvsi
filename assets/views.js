@@ -1084,12 +1084,12 @@
           }
           render();
         }
-        function statusLabel(s) { return s === 'aberto' ? 'Pendente' : (s === 'resolvido' ? 'Resolvido' : 'Fechado'); }
-        function statusClass(s) { return s === 'aberto' ? 'bg-tertiary-container text-on-tertiary-container' : 'bg-secondary-container text-on-secondary-container'; }
+        function statusLabel(s) { return s === 'aberto' ? 'Pendente' : (s === 'aguardando' ? 'Aguardando' : (s === 'resolvido' ? 'Resolvido' : 'Fechado')); }
+        function statusClass(s) { return s === 'aberto' ? 'bg-tertiary-container text-on-tertiary-container' : (s === 'aguardando' ? 'bg-primary/15 text-primary' : 'bg-secondary-container text-on-secondary-container'); }
         function timeShort(iso) { try { var d = new Date(iso); if (Date.now() - d.getTime() < 86400000) return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); return d.toLocaleDateString('pt-BR'); } catch (e) { return ''; } }
         async function loadTickets() {
           var q = sb.from('comu_support_tickets').select('*, member:lms_students!user_id(full_name,avatar_url,email,phone)').order('last_message_at', { ascending: false });
-          if (self.filter === 'pendentes') q = q.eq('status', 'aberto'); if (self.filter === 'resolvidos') q = q.in('status', ['resolvido', 'fechado']);
+          if (self.filter === 'pendentes') q = q.in('status', ['aberto', 'aguardando']); if (self.filter === 'resolvidos') q = q.in('status', ['resolvido', 'fechado']);
           var r = await q; if (self.destroyed) return;
           var list = document.getElementById('ticket-list'); list.innerHTML = '';
           if (r.error) { list.innerHTML = '<p class="p-md text-error text-body-sm">' + esc(r.error.message) + '</p>'; return; }
@@ -1160,7 +1160,7 @@
           renderReactSup(msg.id);
         }
         function scrollConvo() { var s = document.getElementById('convo-scroll'); s.scrollTop = s.scrollHeight; }
-        function updateResolveBtn() { var lbl = document.getElementById('btn-resolve-label'), b = document.getElementById('btn-resolve'); if (self.currentTicket && self.currentTicket.status === 'aberto') { lbl.textContent = 'Marcar como resolvido'; b.disabled = false; } else { lbl.textContent = 'Resolvido'; b.disabled = true; } }
+        function updateResolveBtn() { var lbl = document.getElementById('btn-resolve-label'), b = document.getElementById('btn-resolve'); var s = self.currentTicket && self.currentTicket.status; if (s === 'aberto') { lbl.textContent = 'Marcar como resolvido'; b.disabled = false; } else if (s === 'aguardando') { lbl.textContent = 'Aguardando resposta…'; b.disabled = true; } else { lbl.textContent = 'Resolvido'; b.disabled = true; } }
         function subscribeConvo(ticketId) {
           if (self.convoChannel) sb.removeChannel(self.convoChannel);
           self.convoChannel = sb.channel('ticket-' + ticketId)
@@ -1173,7 +1173,7 @@
           self.channels.push(self.convoChannel);
         }
         function updateConvoComposer() {
-          var open = !!(self.currentTicket && self.currentTicket.status === 'aberto');
+          var open = !!(self.currentTicket && (self.currentTicket.status === 'aberto' || self.currentTicket.status === 'aguardando'));
           var form = document.getElementById('convo-form');
           var note = document.getElementById('convo-closed');
           if (!note && form && form.parentNode) {
@@ -1207,14 +1207,14 @@
         document.getElementById('suporte-back').addEventListener('click', function () { if (self.currentTicket) closeConvo(); else G.navigate('/'); });
         document.getElementById('convo-back').addEventListener('click', closeConvo);
         document.getElementById('convo-form').addEventListener('submit', async function (e) {
-          e.preventDefault(); if (self.currentTicket && self.currentTicket.status !== 'aberto') { G.toast('Conversa finalizada. Não dá pra enviar aqui.'); return; } var body = document.getElementById('convo-input').value.trim(); if (!body || !self.currentTicket) return; document.getElementById('convo-input').value = '';
+          e.preventDefault(); if (self.currentTicket && ['aberto', 'aguardando'].indexOf(self.currentTicket.status) < 0) { G.toast('Conversa finalizada. Não dá pra enviar aqui.'); return; } var body = document.getElementById('convo-input').value.trim(); if (!body || !self.currentTicket) return; document.getElementById('convo-input').value = '';
           var ins = await sb.from('comu_messages').insert({ topic_id: supportTopicId, author_id: me.id, ticket_id: self.currentTicket.id, kind: 'text', body: body, author_name: me.full_name || 'Suporte', author_avatar: me.avatar_url || null }).select().single();
           if (ins.error) { console.error(ins.error); document.getElementById('convo-input').value = body; return; } addMsg(ins.data); scrollConvo();
         });
         (function () { var ci = document.getElementById('convo-input'); if (ci) ci.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); var f = document.getElementById('convo-form'); if (f && f.requestSubmit) f.requestSubmit(); else if (f) f.dispatchEvent(new Event('submit', { cancelable: true })); } }); })();
         async function sendMedia(file, kind) {
           if (!file || !self.currentTicket) return;
-          if (self.currentTicket.status !== 'aberto') { G.toast('Conversa finalizada. Não dá pra enviar aqui.'); return; }
+          if (['aberto', 'aguardando'].indexOf(self.currentTicket.status) < 0) { G.toast('Conversa finalizada. Não dá pra enviar aqui.'); return; }
           var ext = (file.name.split('.').pop() || (kind === 'image' ? 'jpg' : kind === 'video' ? 'mp4' : 'm4a')).toLowerCase();
           var path = 'suporte/' + self.currentTicket.id + '/' + Date.now() + '.' + ext;
           var up = await sb.storage.from('comu-media').upload(path, file, { upsert: true, contentType: file.type || undefined });
@@ -1233,7 +1233,7 @@
         var audioBtn = document.getElementById('convo-audio-btn');
         function supRecLabel() { if (!audioBtn) return; var lab = audioBtn.querySelector('.text-body-sm'); if (supRec.on) { audioBtn.classList.add('bg-error', 'text-white', 'border-error'); if (lab) lab.textContent = 'Enviar (' + supRec.secs + 's)'; } else { audioBtn.classList.remove('bg-error', 'text-white', 'border-error'); if (lab) lab.textContent = 'Áudio'; } }
         async function supStartRec() {
-          if (self.currentTicket && self.currentTicket.status !== 'aberto') { G.toast('Conversa finalizada. Não dá pra enviar aqui.'); return; }
+          if (self.currentTicket && ['aberto', 'aguardando'].indexOf(self.currentTicket.status) < 0) { G.toast('Conversa finalizada. Não dá pra enviar aqui.'); return; }
           if (!navigator.mediaDevices || !window.MediaRecorder) { G.toast('Gravação não é suportada neste navegador.'); return; }
           try { supRec.stream = await navigator.mediaDevices.getUserMedia({ audio: true }); } catch (e) { G.toast('Não foi possível acessar o microfone. Permita o acesso.'); return; }
           supRec.mime = supPickMime(); supRec.chunks = [];
@@ -1256,11 +1256,13 @@
         document.getElementById('convo-file-audio').addEventListener('change', function () { var f = this.files[0]; if (f) sendMedia(f, 'audio'); this.value = ''; });
         document.getElementById('btn-resolve').addEventListener('click', async function () {
           if (!self.currentTicket || self.currentTicket.status !== 'aberto') return;
-          var tid = self.currentTicket.id;
-          var up = await sb.from('comu_support_tickets').update({ status: 'resolvido', resolved_at: new Date().toISOString() }).eq('id', tid).select('*, member:lms_students!user_id(full_name,avatar_url,email)').single();
-          if (up.error) { console.error(up.error); return; } self.currentTicket = up.data; document.getElementById('convo-protocol').textContent = self.currentTicket.protocol + ' · ' + statusLabel(self.currentTicket.status); updateResolveBtn(); updateConvoComposer(); loadTickets();
-          var sysIns = await sb.from('comu_messages').insert({ topic_id: supportTopicId, author_id: me.id, ticket_id: tid, kind: 'system', body: 'Conversa finalizada pelo suporte. Se precisar de algo, é só enviar uma nova mensagem que iniciamos um novo atendimento.', author_name: 'Suporte' }).select().single();
-          if (!sysIns.error) { addMsg(sysIns.data); scrollConvo(); }
+          var tid = self.currentTicket.id, rb = document.getElementById('btn-resolve'); rb.disabled = true;
+          var up = await sb.rpc('comu_support_request_close', { p_ticket_id: tid });
+          if (up.error) { G.toast('Não foi possível: ' + up.error.message); rb.disabled = false; return; }
+          self.currentTicket.status = 'aguardando';
+          document.getElementById('convo-protocol').textContent = self.currentTicket.protocol + ' · ' + statusLabel('aguardando');
+          updateResolveBtn(); updateConvoComposer(); loadTickets();
+          G.toast('Perguntei se precisa de mais algo. Sem resposta em 5 min, encerra sozinho.');
         });
         document.querySelectorAll('[data-filter]').forEach(function (b) { b.addEventListener('click', function () { self.filter = b.dataset.filter; document.querySelectorAll('[data-filter]').forEach(function (x) { x.classList.remove('bg-primary', 'text-on-primary'); x.classList.add('text-on-surface-variant', 'hover:bg-surface-container-high'); }); b.classList.add('bg-primary', 'text-on-primary'); b.classList.remove('text-on-surface-variant', 'hover:bg-surface-container-high'); loadTickets(); }); });
         (function () { var si = document.getElementById('sup-search'); if (si) { var st; si.addEventListener('input', function () { self.search = si.value; clearTimeout(st); st = setTimeout(loadTickets, 200); }); } })();
