@@ -332,8 +332,36 @@
           }
           if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (typeof form.requestSubmit === 'function') form.requestSubmit(); else form.dispatchEvent(new Event('submit', { cancelable: true })); }
         });
-        // colar sempre como texto puro (evita HTML gigante/estilos), respeitando o teto
-        input.addEventListener('paste', function (e) { e.preventDefault(); var t = ''; try { t = (e.clipboardData || window.clipboardData).getData('text'); } catch (x) {} t = (t || '').slice(0, 65536); try { document.execCommand('insertText', false, t); } catch (x) { } });
+        // ---- enviar arquivo por arrastar/soltar ou colar (imagem/vídeo/áudio) ----
+        async function sendFile(file) {
+          if (!file || !topic) return;
+          if (topic.post_policy === 'readonly' && !isAdmin) { G.toast('Você não pode enviar aqui.'); return; }
+          var ty = file.type || '';
+          var kind = ty.indexOf('image') === 0 ? 'image' : (ty.indexOf('video') === 0 ? 'video' : (ty.indexOf('audio') === 0 ? 'audio' : null));
+          if (!kind) { G.toast('Só imagem, vídeo ou áudio.'); return; }
+          if (kind === 'video' && !isAdmin) { G.toast('Vídeo é só para a equipe.'); return; }
+          G.toast('Enviando…');
+          try {
+            var ext = ((file.name && file.name.indexOf('.') >= 0) ? file.name.split('.').pop() : (kind === 'image' ? 'jpg' : kind === 'video' ? 'mp4' : 'webm')).toLowerCase();
+            var path = (slug || 'geral') + '/' + me.id + '/' + Date.now() + '.' + ext;
+            var up = await sb.storage.from('comu-media').upload(path, file, { upsert: true, contentType: ty || undefined });
+            if (up.error) { G.toast('Erro no upload: ' + up.error.message); return; }
+            var url = sb.storage.from('comu-media').getPublicUrl(path).data.publicUrl;
+            var res;
+            if (isSupport) res = await sb.rpc('comu_send_support_message', { p_body: null, p_kind: kind, p_media_url: url, p_author_name: me.full_name || 'Membro' });
+            else res = await sb.from('comu_messages').insert({ topic_id: topic.id, author_id: me.id, kind: kind, media_url: url, media_meta: { name: file.name, size: file.size, mime: ty }, author_name: me.full_name || 'Membro', author_avatar: me.avatar_url || null }).select().single();
+            if (res.error) { G.toast('Erro ao enviar: ' + res.error.message); return; }
+            if (!self.destroyed && res.data) addMessage(res.data, true);
+          } catch (e) { G.toast('Não foi possível enviar.'); }
+        }
+        ['dragover', 'dragenter'].forEach(function (ev) { view.addEventListener(ev, function (e) { e.preventDefault(); }); });
+        view.addEventListener('drop', function (e) { e.preventDefault(); var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (f) sendFile(f); });
+        // colar: imagem/mídia envia; texto cola normal (respeitando o teto)
+        input.addEventListener('paste', function (e) {
+          var dt = e.clipboardData || window.clipboardData;
+          if (dt && dt.files && dt.files.length) { var f = dt.files[0]; if (f && /^(image|video|audio)\//.test(f.type || '')) { e.preventDefault(); sendFile(f); return; } }
+          e.preventDefault(); var t = ''; try { t = dt.getData('text'); } catch (x) {} t = (t || '').slice(0, 65536); try { document.execCommand('insertText', false, t); } catch (x) { }
+        });
         // ao esvaziar, tira <br>/blocos órfãos pra o placeholder (:empty) voltar
         input.addEventListener('input', function () { if (!input.textContent) input.innerHTML = ''; });
         self.onMentionDoc = function (e) { if (mentionMenu.classList.contains('hidden')) return; if (!mentionMenu.contains(e.target) && e.target !== input) hideMention(); };
@@ -1197,6 +1225,8 @@
           addMsg(ins.data); scrollConvo();
         }
         document.getElementById('convo-attach').addEventListener('click', function () { document.getElementById('convo-file-media').click(); });
+        // arrastar/soltar ou colar imagem no atendimento
+        (function () { var ci = document.getElementById('convo-input'), main = document.getElementById('convo-main'); function kindOf(f) { var ty = (f && f.type) || ''; return ty.indexOf('image') === 0 ? 'image' : (ty.indexOf('video') === 0 ? 'video' : (ty.indexOf('audio') === 0 ? 'audio' : null)); } if (ci) ci.addEventListener('paste', function (e) { var dt = e.clipboardData; if (dt && dt.files && dt.files.length) { var f = dt.files[0], k = kindOf(f); if (k) { e.preventDefault(); sendMedia(f, k); } } }); if (main) { ['dragover', 'dragenter'].forEach(function (ev) { main.addEventListener(ev, function (e) { e.preventDefault(); }); }); main.addEventListener('drop', function (e) { e.preventDefault(); var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0], k = kindOf(f); if (f && k) sendMedia(f, k); }); } })();
         // gravação de voz no atendimento (admin): 1º clique grava, 2º clique envia
         var supRec = { mr: null, stream: null, chunks: [], mime: '', on: false, secs: 0, timer: null };
         function supPickMime() { var c = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg']; for (var i = 0; i < c.length; i++) if (window.MediaRecorder && MediaRecorder.isTypeSupported(c[i])) return c[i]; return ''; }
