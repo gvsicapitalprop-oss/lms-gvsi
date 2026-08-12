@@ -23,8 +23,9 @@ GVSI.views = GVSI.views || {};
   G.fmt = function (s) {
     var out = G.esc(s);
     out = out.replace(/`([^`\n]+)`/g, '<code class="px-1 py-0.5 rounded bg-black/10 dark:bg-white/20 text-[0.92em]">$1</code>');
-    out = out.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');       // **negrito**
-    out = out.replace(/(^|[^\w*])\*([^*\n]+)\*(?![\w*])/g, '$1<em>$2</em>'); // *itálico*
+    out = out.replace(/\*\*\*([^*\n]+?)\*\*\*/g, '<strong><em>$1</em></strong>'); // ***negrito+itálico***
+    out = out.replace(/\*\*([^\n]+?)\*\*/g, function (_m, inner) { return '<strong>' + inner.replace(/(^|[^*])\*([^*<\n]+?)\*(?!\*)/g, '$1<em>$2</em>') + '</strong>'; }); // **negrito** (com *itálico* interno)
+    out = out.replace(/(^|[^\w*])\*([^*<\n]+?)\*(?![\w*])/g, '$1<em>$2</em>'); // *itálico*
     out = out.replace(/(^|[^\w_])_([^_\n]+)_(?![\w_])/g, '$1<em>$2</em>');   // _itálico_
     out = out.replace(/~~([^~\n]+)~~/g, '<del>$1</del>');                   // ~~tachado~~
     // menções: #tópico (só slug conhecido vira link) e @pessoa (destaque)
@@ -491,6 +492,7 @@ GVSI.views = GVSI.views || {};
     if (current && current.destroy) { try { current.destroy(); } catch (e) {} }
     var el = document.getElementById('view');
     el.innerHTML = '';
+    try { window.scrollTo(0, 0); } catch (e) {} // abre a nova tela SEMPRE no topo (corrige scroll preso ao trocar de tela no celular)
     setActive(route);
     current = view;
     try { await view.render(el, route.params); } catch (e) { console.error('view error', e); }
