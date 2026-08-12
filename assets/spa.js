@@ -157,15 +157,21 @@ GVSI.views = GVSI.views || {};
     var wrap = document.createElement('div'); wrap.id = 'banned-screen';
     wrap.innerHTML =
       '<style>' +
-      '#banned-screen{position:fixed;inset:0;z-index:99999;overflow:hidden;background:#000;display:flex;align-items:center;justify-content:center}' +
-      '#banned-screen .bbg{position:absolute;inset:-40%;background:url("assets/banido.png") repeat;background-size:300px auto;opacity:.5;filter:contrast(1.15) brightness(.9);animation:bslide 16s linear infinite}' +
-      '@keyframes bslide{from{background-position:0 0}to{background-position:-1400px -700px}}' +
-      '#banned-screen .btxt{position:relative;color:#ff1f1f;font-family:Inter,system-ui,sans-serif;font-weight:900;font-size:clamp(2.2rem,10vw,7rem);text-align:center;letter-spacing:.06em;line-height:1.05;text-shadow:0 0 26px rgba(255,0,0,.85),0 6px 10px #000;animation:bpulse 1.1s ease-in-out infinite;padding:0 16px;user-select:none}' +
-      '@keyframes bpulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.07);opacity:.8}}' +
+      '#banned-screen{position:fixed;inset:0;z-index:99999;background:#0d244e;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px 24px;font-family:Inter,system-ui,sans-serif}' +
+      '#banned-screen .blogo{height:42px;width:auto;margin-bottom:44px;opacity:.95}' +
+      '#banned-screen .bic{width:92px;height:92px;border-radius:9999px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;margin-bottom:28px}' +
+      '#banned-screen .bic .material-symbols-outlined{font-size:46px;color:#9db8ff}' +
+      '#banned-screen h1{color:#fff;font-weight:800;font-size:clamp(1.5rem,5vw,2.1rem);line-height:1.15;margin:0 0 12px;letter-spacing:-.01em}' +
+      '#banned-screen p{color:rgba(255,255,255,.72);font-size:1.05rem;line-height:1.55;max-width:24rem;margin:0 auto;text-wrap:balance}' +
+      '#banned-screen .bfoot{margin-top:36px;color:rgba(255,255,255,.45);font-size:.85rem}' +
       '</style>' +
-      '<div class="bbg"></div><h1 class="btxt">VOCÊ FOI DEMITIDO</h1>';
+      '<img src="assets/logo-branca.png" alt="GVSI Capital Prop" class="blogo">' +
+      '<div class="bic"><span class="material-symbols-outlined">do_not_disturb_on</span></div>' +
+      '<h1>Seu acesso foi encerrado</h1>' +
+      '<p>Sua conta não faz mais parte da Comunidade do Giovanni.</p>' +
+      '<div class="bfoot">Em caso de dúvida, entre em contato com a equipe.</div>';
     document.body.appendChild(wrap);
-    try { document.title = 'VOCÊ FOI DEMITIDO'; } catch (e) {}
+    try { document.title = 'Acesso encerrado'; } catch (e) {}
   };
 
   // ---- 1º acesso: criar senha (item #13). Campos VISÍVEIS + aviso de maiúscula. ----
@@ -526,7 +532,7 @@ GVSI.views = GVSI.views || {};
     // banimento: se estiver banido, mostra a tela de demissão e para por aqui
     try { var _ban = await G.sb.from('comu_bans').select('user_id').eq('user_id', user.id).maybeSingle(); if (_ban.data) { G.showBanned(); return; } } catch (e) {}
     // quem pode banir (allowlist) + "demissão" em tempo real
-    try { var _cb = await G.sb.from('comu_banners').select('user_id').eq('user_id', user.id).maybeSingle(); G.me.canBan = !!(_cb && _cb.data); } catch (e) { G.me.canBan = false; }
+    try { var _cb = await G.sb.from('comu_banners').select('user_id').eq('user_id', user.id).maybeSingle(); G.me.canBan = (G.me.role === 'admin') || !!(_cb && _cb.data); } catch (e) { G.me.canBan = !!(G.me && G.me.role === 'admin'); }
     try { G.sb.channel('comu-ban-self').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comu_bans', filter: 'user_id=eq.' + user.id }, function () { G.showBanned(); }).subscribe(); } catch (e) {}
     initTheme();
     G.updateSidebarProfile();
