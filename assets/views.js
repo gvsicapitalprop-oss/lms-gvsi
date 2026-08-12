@@ -353,10 +353,10 @@
             content = '<div class="reply-quote mb-xs border-l-4 ' + qB + ' ' + qBg + ' rounded px-2 py-1 cursor-pointer" data-goto="' + esc(m.reply_to) + '"><p class="text-[12px] font-bold ' + qN + ' truncate">' + esc(m.reply_author || 'Membro') + '</p><p class="text-[13px] ' + qT + ' truncate">' + esc(m.reply_snippet || '') + '</p></div>' + content;
           }
           var inner;
-          if (mine) inner = '<div class="flex items-center gap-xs mr-sm mb-xs"><span class="text-[13px] text-on-surface-variant">' + when + '</span><span class="font-label-md text-label-md text-primary">Você</span></div><div class="message-gradient-outgoing text-white shadow-lg rounded-xl rounded-tr-none p-md">' + content + '</div>';
+          if (mine) inner = '<div class="msg-head flex items-center gap-xs mr-sm mb-xs"><span class="text-[13px] text-on-surface-variant">' + when + '</span><span class="font-label-md text-label-md text-primary">Você</span></div><div class="message-gradient-outgoing text-white shadow-lg rounded-xl rounded-tr-none p-md">' + content + '</div>';
           else {
-            var av = m.author_avatar ? '<img src="' + esc(m.author_avatar) + '" class="w-8 h-8 rounded-full object-cover shrink-0" alt="">' : '<span class="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center text-outline shrink-0"><span class="material-symbols-outlined text-[18px]">person</span></span>';
-            inner = '<div class="flex items-start gap-sm">' + av + '<div class="flex flex-col min-w-0"><div class="flex items-center gap-xs ml-sm mb-xs"><span class="font-label-md text-label-md text-on-surface-variant">' + esc(m.author_name || 'Membro') + '</span><span class="text-[13px] text-on-surface-variant">' + when + '</span></div><div class="bg-surface-container-high shadow-[0px_4px_20px_rgba(0,0,0,0.05)] rounded-xl rounded-tl-none p-md border border-outline-variant/40">' + content + '</div></div></div>';
+            var av = m.author_avatar ? '<img src="' + esc(m.author_avatar) + '" class="msg-av w-8 h-8 rounded-full object-cover shrink-0" alt="">' : '<span class="msg-av w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center text-outline shrink-0"><span class="material-symbols-outlined text-[18px]">person</span></span>';
+            inner = '<div class="flex items-start gap-sm">' + av + '<div class="flex flex-col min-w-0"><div class="msg-head flex items-center gap-xs ml-sm mb-xs"><span class="font-label-md text-label-md text-on-surface-variant">' + esc(m.author_name || 'Membro') + '</span><span class="text-[13px] text-on-surface-variant">' + when + '</span></div><div class="bg-surface-container-high shadow-[0px_4px_20px_rgba(0,0,0,0.05)] rounded-xl rounded-tl-none p-md border border-outline-variant/40">' + content + '</div></div></div>';
           }
           container.innerHTML = inner;
           var qEl = container.querySelector('.reply-quote');
@@ -395,15 +395,26 @@
             return sw;
           }
           var mine = me.id && m.author_id === me.id;
-          var wrap = document.createElement('div'); wrap.setAttribute('data-msg-id', m.id); wrap.setAttribute('data-author-id', m.author_id || '');
+          var wrap = document.createElement('div'); wrap.setAttribute('data-msg-id', m.id); wrap.setAttribute('data-author-id', m.author_id || ''); wrap.setAttribute('data-created', m.created_at || '');
           wrap.className = 'flex flex-col gap-xs max-w-[85%] ' + (mine ? 'items-end self-end' : 'items-start');
           var body = document.createElement('div'); body.className = 'msg-body w-full flex flex-col ' + (mine ? 'items-end' : 'items-start');
           renderMsgBody(body, m, mine); wrap.appendChild(body);
           var rr = document.createElement('div'); rr.className = 'react-row flex items-center gap-xs flex-wrap mt-xs' + (mine ? ' justify-end' : ''); rr.setAttribute('data-react', m.id); wrap.appendChild(rr);
           return wrap;
         }
+        function regroup() {
+          if (!document.getElementById('gvsi-grp-style')) { var st = document.createElement('style'); st.id = 'gvsi-grp-style'; st.textContent = '.grouped .msg-head{display:none}.grouped .msg-av{visibility:hidden}.grouped{margin-top:-0.4rem}'; document.head.appendChild(st); }
+          var kids = msgsEl.children, prevA = null, prevT = 0;
+          for (var i = 0; i < kids.length; i++) {
+            var el = kids[i], aid = el.getAttribute('data-author-id');
+            if (!aid) { el.classList.remove('grouped'); prevA = null; prevT = 0; continue; } // sistema quebra o grupo
+            var t = Date.parse(el.getAttribute('data-created') || '') || 0;
+            if (aid === prevA && prevT && (t - prevT) < 300000) el.classList.add('grouped'); else el.classList.remove('grouped'); // mesmo autor em até 5min
+            prevA = aid; prevT = t;
+          }
+        }
         function markRead() { if (!me.id || !topic) return; clearTimeout(self.readT); self.readT = setTimeout(function () { if (self.destroyed) return; sb.from('comu_topic_reads').upsert({ topic_id: topic.id, user_id: me.id, last_read_at: new Date().toISOString() }, { onConflict: 'topic_id,user_id' }).then(function () { G.applyUnread(); }, function () {}); }, 600); }
-        function addMessage(m, scroll, live) { if (!m || seen[m.id]) return; seen[m.id] = true; msgsEl.appendChild(bubble(m)); renderReactions(m.id); emptyEl.classList.add('hidden'); msgsEl.classList.remove('hidden'); if (scroll) scrollBottom(); else updateScrollBtn(); markRead(); if (live && me.id && m.author_id !== me.id) G.playPing(); if (!isSupport && m.kind !== 'system') { try { G.lastMsgs[slug] = { body: m.body, kind: m.kind, author_name: m.author_name, created_at: m.created_at }; if (G.applyTopicPreviews) G.applyTopicPreviews(); } catch (e) {} } }
+        function addMessage(m, scroll, live) { if (!m || seen[m.id]) return; seen[m.id] = true; msgsEl.appendChild(bubble(m)); renderReactions(m.id); emptyEl.classList.add('hidden'); msgsEl.classList.remove('hidden'); if (scroll) scrollBottom(); else updateScrollBtn(); markRead(); if (live && me.id && m.author_id !== me.id) G.playPing(); if (!isSupport && m.kind !== 'system') { try { G.lastMsgs[slug] = { body: m.body, kind: m.kind, author_name: m.author_name, created_at: m.created_at }; if (G.applyTopicPreviews) G.applyTopicPreviews(); } catch (e) {} } regroup(); }
         function startEdit(m) {
           var wrap = msgsEl.querySelector('[data-msg-id="' + m.id + '"]'); if (!wrap) return;
           var body = wrap.querySelector('.msg-body'); var isMine = me.id && m.author_id === me.id; body.innerHTML = '';
@@ -657,7 +668,7 @@
           function prependMessages(rows) {
             var frag = document.createDocumentFragment(), ids = [];
             rows.forEach(function (m) { if (m && !seen[m.id]) { seen[m.id] = true; frag.appendChild(bubble(m)); ids.push(m.id); } });
-            if (frag.childNodes.length) { msgsEl.insertBefore(frag, msgsEl.firstChild); msgsEl.classList.remove('hidden'); emptyEl.classList.add('hidden'); }
+            if (frag.childNodes.length) { msgsEl.insertBefore(frag, msgsEl.firstChild); msgsEl.classList.remove('hidden'); emptyEl.classList.add('hidden'); regroup(); }
             if (ids.length) loadReactions(ids);
           }
           async function loadOlder() {
