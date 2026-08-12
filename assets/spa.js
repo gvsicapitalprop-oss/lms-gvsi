@@ -162,13 +162,13 @@ GVSI.views = GVSI.views || {};
       '#banned-screen .bic{width:92px;height:92px;border-radius:9999px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;margin-bottom:28px}' +
       '#banned-screen .bic .material-symbols-outlined{font-size:46px;color:#9db8ff}' +
       '#banned-screen h1{color:#fff;font-weight:800;font-size:clamp(1.5rem,5vw,2.1rem);line-height:1.15;margin:0 0 12px;letter-spacing:-.01em}' +
-      '#banned-screen p{color:rgba(255,255,255,.72);font-size:1.05rem;line-height:1.55;max-width:24rem;margin:0 auto;text-wrap:balance}' +
+      '#banned-screen p{color:rgba(255,255,255,.72);font-size:1.05rem;line-height:1.55;max-width:34rem;margin:0 auto;text-wrap:balance}' +
       '#banned-screen .bfoot{margin-top:36px;color:rgba(255,255,255,.45);font-size:.85rem}' +
       '</style>' +
       '<img src="assets/logo-branca.png" alt="GVSI Capital Prop" class="blogo">' +
       '<div class="bic"><span class="material-symbols-outlined">do_not_disturb_on</span></div>' +
       '<h1>Seu acesso foi encerrado</h1>' +
-      '<p>Sua conta não faz mais parte da Comunidade do Giovanni.</p>' +
+      '<p>Sua conta não faz mais parte da <span style="white-space:nowrap">Comunidade do Giovanni</span>.</p>' +
       '<div class="bfoot">Em caso de dúvida, entre em contato com a equipe.</div>';
     document.body.appendChild(wrap);
     try { document.title = 'Acesso encerrado'; } catch (e) {}
