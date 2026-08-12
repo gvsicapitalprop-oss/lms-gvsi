@@ -37,6 +37,8 @@ GVSI.views = GVSI.views || {};
     out = out.replace(/(^|\s)@([A-Za-zÀ-ÿ0-9][A-Za-zÀ-ÿ0-9_.]*)/g, '$1<span class="text-primary font-medium">@$2</span>');
     return out;
   };
+  // Exibição: só os 2 primeiros nomes (o nome completo continua no banco).
+  G.shortName = function (name) { var p = String(name || '').trim().split(/\s+/).filter(Boolean); return p.slice(0, 2).join(' '); };
   G.timeStr = function (iso) {
     try { return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); }
     catch (e) { return ''; }
@@ -535,7 +537,7 @@ GVSI.views = GVSI.views || {};
     document.querySelectorAll('[data-side-avatar]').forEach(function (el) {
       el.innerHTML = m.avatar_url ? '<img src="' + G.esc(m.avatar_url) + '" class="w-full h-full object-cover" alt="">' : '<span class="material-symbols-outlined text-[20px]">person</span>';
     });
-    document.querySelectorAll('[data-side-name]').forEach(function (el) { el.textContent = m.full_name || 'Meu Perfil'; });
+    document.querySelectorAll('[data-side-name]').forEach(function (el) { el.textContent = G.shortName(m.full_name) || 'Meu Perfil'; });
   };
   function setActive(route) {
     // sidebar de tópicos sempre visível (o console de suporte agora fica ao lado dela — item #2)

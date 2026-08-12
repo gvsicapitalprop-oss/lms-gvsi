@@ -438,13 +438,13 @@
           else content = '<p class="' + (mine ? '' : 'text-on-surface ') + 'font-body-md whitespace-pre-wrap break-words">' + G.fmt(m.body) + edited + '</p>';
           if (m.reply_to && (m.reply_snippet || m.reply_author)) {
             var qB = mine ? 'border-white/50' : 'border-primary/60', qN = mine ? 'text-white' : 'text-primary', qT = mine ? 'text-white/85' : 'text-on-surface-variant', qBg = mine ? 'bg-white/10' : 'bg-black/5 dark:bg-white/10';
-            content = '<div class="reply-quote mb-xs border-l-4 ' + qB + ' ' + qBg + ' rounded px-2 py-1 cursor-pointer" data-goto="' + esc(m.reply_to) + '"><p class="text-[12px] font-bold ' + qN + ' truncate">' + esc(m.reply_author || 'Membro') + '</p><p class="text-[13px] ' + qT + ' truncate">' + esc(m.reply_snippet || '') + '</p></div>' + content;
+            content = '<div class="reply-quote mb-xs border-l-4 ' + qB + ' ' + qBg + ' rounded px-2 py-1 cursor-pointer" data-goto="' + esc(m.reply_to) + '"><p class="text-[12px] font-bold ' + qN + ' truncate">' + esc(G.shortName(m.reply_author) || 'Membro') + '</p><p class="text-[13px] ' + qT + ' truncate">' + esc(m.reply_snippet || '') + '</p></div>' + content;
           }
           var inner;
           if (mine) inner = '<div class="msg-head flex items-center gap-xs mr-sm mb-xs"><span class="text-[13px] text-on-surface-variant">' + when + '</span><span class="font-label-md text-label-md text-primary">Você</span></div><div class="message-gradient-outgoing text-white shadow-lg rounded-xl rounded-tr-none p-md">' + content + '</div>';
           else {
             var av = m.author_avatar ? '<img src="' + esc(m.author_avatar) + '" class="msg-av w-8 h-8 rounded-full object-cover shrink-0" alt="">' : '<span class="msg-av w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center text-outline shrink-0"><span class="material-symbols-outlined text-[18px]">person</span></span>';
-            inner = '<div class="flex items-start gap-sm">' + av + '<div class="flex flex-col min-w-0"><div class="msg-head flex items-center gap-xs ml-sm mb-xs"><span class="font-label-md text-label-md text-on-surface-variant">' + esc(m.author_name || 'Membro') + '</span><span class="text-[13px] text-on-surface-variant">' + when + '</span></div><div class="bg-surface-container-high shadow-[0px_4px_20px_rgba(0,0,0,0.05)] rounded-xl rounded-tl-none p-md border border-outline-variant/40">' + content + '</div></div></div>';
+            inner = '<div class="flex items-start gap-sm">' + av + '<div class="flex flex-col min-w-0"><div class="msg-head flex items-center gap-xs ml-sm mb-xs"><span class="font-label-md text-label-md text-on-surface-variant">' + esc(G.shortName(m.author_name) || 'Membro') + '</span><span class="text-[13px] text-on-surface-variant">' + when + '</span></div><div class="bg-surface-container-high shadow-[0px_4px_20px_rgba(0,0,0,0.05)] rounded-xl rounded-tl-none p-md border border-outline-variant/40">' + content + '</div></div></div>';
           }
           container.innerHTML = inner;
           var qEl = container.querySelector('.reply-quote');
