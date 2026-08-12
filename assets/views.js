@@ -890,6 +890,7 @@
           '</div></section>' +
           '<section id="conquistas" class="space-y-md"><h3 class="font-headline-sm text-headline-sm text-on-surface">Conquistas</h3><div class="bg-surface-container-lowest rounded-xl p-xl border border-outline-variant/30 flex flex-col items-center justify-center text-center gap-sm"><span class="material-symbols-outlined text-[40px] text-outline">workspace_premium</span><p class="text-body-sm text-on-surface-variant max-w-xs">Suas conquistas e certificações aparecerão aqui conforme você participa da comunidade.</p></div></section>' +
           '<section class="bg-surface-container-low rounded-xl border border-outline-variant/20 overflow-hidden"><div class="divide-y divide-outline-variant/20">' +
+            '<button type="button" id="pf-admin" class="hidden w-full items-center justify-between p-lg hover:bg-surface-container-high transition-colors text-left"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">group</span><span class="font-body-md text-body-md text-on-surface">Gerenciar membros</span></div><span class="material-symbols-outlined text-outline">chevron_right</span></button>' +
             '<button type="button" data-edit-open class="w-full flex items-center justify-between p-lg hover:bg-surface-container-high transition-colors text-left"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">person_edit</span><span class="font-body-md text-body-md text-on-surface">Editar perfil</span></div><span class="material-symbols-outlined text-outline">chevron_right</span></button>' +
             '<button type="button" data-soon class="w-full flex items-center justify-between p-lg hover:bg-surface-container-high transition-colors text-left"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">shield</span><span class="font-body-md text-body-md text-on-surface">Privacidade e segurança</span></div><span class="material-symbols-outlined text-outline">chevron_right</span></button>' +
             '<button type="button" data-soon class="w-full flex items-center justify-between p-lg hover:bg-surface-container-high transition-colors text-left"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">notifications</span><span class="font-body-md text-body-md text-on-surface">Configurações de notificação</span></div><span class="material-symbols-outlined text-outline">chevron_right</span></button>' +
@@ -964,6 +965,7 @@
       })();
       document.querySelectorAll('[data-soon]').forEach(function (b) { b.addEventListener('click', function (e) { e.preventDefault(); G.toast('Em breve.'); }); });
       // Link discreto de instalar o app (PWA)
+      var pfAdmin = document.getElementById('pf-admin'); if (pfAdmin && me.role === 'admin') { pfAdmin.classList.remove('hidden'); pfAdmin.classList.add('flex'); pfAdmin.addEventListener('click', function () { G.navigate('/membros'); }); }
       var pfInstall = document.getElementById('pf-install');
       if (pfInstall) {
         var already = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
@@ -1203,4 +1205,89 @@
       }
     };
   })();
+  // ---- Painel de administração: membros (só admin) ----
+  GVSI.views.membros = {
+    render: async function (view) {
+      var me = G.me || {};
+      if (me.role !== 'admin') { G.navigate('/'); return; }
+      var esc = G.esc, sb = G.sb;
+      var st = { destroyed: false, all: [], banned: {}, search: '' };
+      GVSI.views.membros._st = st;
+      view.innerHTML =
+        '<header class="fixed top-0 left-0 right-0 lg:left-[var(--side-w)] z-50 bg-surface shadow-[0px_4px_20px_rgba(0,0,0,0.05)] h-14 flex items-center justify-between px-container-margin"><button type="button" id="mb-back" class="flex items-center gap-sm text-primary" aria-label="Voltar"><span class="material-symbols-outlined">arrow_back</span><span class="font-headline-sm text-headline-sm font-bold">Administração · Membros</span></button><button type="button" data-theme-toggle class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors" aria-label="Tema"><span class="material-symbols-outlined" data-theme-icon>dark_mode</span></button></header>' +
+        '<div class="pt-14 lg:pl-[var(--side-w)] min-h-screen"><div class="max-w-3xl mx-auto px-container-margin py-lg space-y-md">' +
+          '<div class="relative"><span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[20px] pointer-events-none">search</span><input id="mb-search" type="text" autocomplete="off" placeholder="Buscar por nome ou e-mail" class="w-full bg-surface-container-low border border-outline-variant rounded-xl py-3 pl-10 pr-3 text-body-md text-on-surface focus:ring-2 focus:ring-primary/30 placeholder:text-on-surface-variant"></div>' +
+          '<p id="mb-count" class="text-body-sm text-on-surface-variant px-1"></p>' +
+          '<div id="mb-list" class="bg-surface-container-lowest rounded-xl border border-outline-variant/30 divide-y divide-outline-variant/20 overflow-hidden"><p class="p-lg text-center text-on-surface-variant text-body-sm">Carregando…</p></div>' +
+        '</div></div>';
+      var back = document.getElementById('mb-back'); if (back) back.addEventListener('click', function () { G.navigate('/perfil'); });
+      function roleLabel(r) { return r === 'admin' ? 'Admin' : (r === 'suporte' ? 'Suporte' : 'Membro'); }
+      function roleClass(r) { return r === 'admin' ? 'bg-primary/15 text-primary' : (r === 'suporte' ? 'bg-secondary-container/40 text-on-secondary-container' : 'bg-surface-container-high text-on-surface-variant'); }
+      function findUser(id) { for (var i = 0; i < st.all.length; i++) if (st.all[i].id === id) return st.all[i]; return null; }
+      function paint() {
+        var list = document.getElementById('mb-list'); if (!list) return;
+        var q = (st.search || '').trim().toLowerCase();
+        var rows = st.all;
+        if (q) rows = rows.filter(function (u) { return [u.full_name, u.email].some(function (v) { return v && String(v).toLowerCase().indexOf(q) >= 0; }); });
+        var cap = 60, shown = rows.slice(0, cap);
+        var cnt = document.getElementById('mb-count'); if (cnt) cnt.textContent = q ? (rows.length + ' resultado(s)') : ('Total: ' + st.all.length + ' membros' + (rows.length > cap ? ' · mostrando ' + cap + ' (refine a busca)' : ''));
+        if (!shown.length) { list.innerHTML = '<p class="p-lg text-center text-on-surface-variant text-body-sm">Nenhum membro encontrado.</p>'; return; }
+        list.innerHTML = '';
+        shown.forEach(function (u) {
+          var banned = !!st.banned[u.id];
+          var el = document.createElement('div'); el.className = 'flex items-center gap-md p-md';
+          var av = u.avatar_url ? '<img src="' + esc(u.avatar_url) + '" class="w-11 h-11 rounded-full object-cover shrink-0">' : '<span class="w-11 h-11 rounded-full bg-surface-container-high flex items-center justify-center text-outline shrink-0"><span class="material-symbols-outlined">person</span></span>';
+          var actBan = banned
+            ? '<button type="button" data-unban="' + u.id + '" class="w-9 h-9 rounded-full flex items-center justify-center text-primary hover:bg-primary/10" title="Desbanir"><span class="material-symbols-outlined text-[20px]">lock_open</span></button>'
+            : (u.role !== 'admin' ? '<button type="button" data-ban="' + u.id + '" class="w-9 h-9 rounded-full flex items-center justify-center text-error hover:bg-error/10" title="Banir"><span class="material-symbols-outlined text-[20px]">block</span></button>' : '');
+          el.innerHTML = av +
+            '<div class="flex-1 min-w-0"><div class="flex items-center gap-xs flex-wrap"><span class="font-bold text-on-surface truncate">' + esc(u.full_name || '(sem nome)') + '</span><span class="text-[10px] px-2 py-0.5 rounded-full ' + roleClass(u.role) + '">' + roleLabel(u.role) + '</span>' + (banned ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-error/15 text-error">Banido</span>' : '') + '</div><p class="text-body-sm text-on-surface-variant truncate">' + esc(u.email || '') + '</p></div>' +
+            '<div class="flex items-center gap-xs shrink-0"><button type="button" data-edit="' + u.id + '" class="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high" title="Editar nome"><span class="material-symbols-outlined text-[20px]">edit</span></button>' + actBan + '</div>';
+          list.appendChild(el);
+        });
+        list.querySelectorAll('[data-edit]').forEach(function (b) { b.onclick = function () { editName(b.getAttribute('data-edit')); }; });
+        list.querySelectorAll('[data-ban]').forEach(function (b) { b.onclick = function () { doBan(b.getAttribute('data-ban')); }; });
+        list.querySelectorAll('[data-unban]').forEach(function (b) { b.onclick = function () { doUnban(b.getAttribute('data-unban')); }; });
+      }
+      async function editName(id) {
+        var u = findUser(id); if (!u) return;
+        var nv = window.prompt('Novo nome para ' + (u.email || 'membro') + ':', u.full_name || '');
+        if (nv === null) return; nv = nv.trim(); if (!nv || nv === u.full_name) return;
+        var r = await sb.from('lms_students').update({ full_name: nv }).eq('id', id).select('id,full_name').single();
+        if (r.error) { G.toast('Não foi possível editar: ' + r.error.message); return; }
+        u.full_name = r.data.full_name; paint(); G.toast('Nome atualizado.');
+      }
+      async function doBan(id) {
+        var u = findUser(id); if (!u) return;
+        var ok = await G.confirmDialog({ title: 'Banir ' + (u.full_name || 'este membro') + '?', text: 'A pessoa perderá o acesso à comunidade.', ok: 'Banir', danger: true });
+        if (!ok) return;
+        var r = await sb.rpc('comu_ban', { p_user_id: id });
+        if (r.error) { G.toast('Não foi possível banir: ' + r.error.message); return; }
+        st.banned[id] = true; paint(); G.toast((u.full_name || 'Membro') + ' foi banido.');
+      }
+      async function doUnban(id) {
+        var u = findUser(id); if (!u) return;
+        var r = await sb.rpc('comu_unban', { p_user_id: id });
+        if (r.error) { G.toast('Não foi possível desbanir: ' + r.error.message); return; }
+        delete st.banned[id]; paint(); G.toast((u.full_name || 'Membro') + ' foi desbanido.');
+      }
+      var si = document.getElementById('mb-search');
+      if (si) { var tmr; si.addEventListener('input', function () { st.search = si.value; clearTimeout(tmr); tmr = setTimeout(paint, 150); }); }
+      var from = 0, PAGE = 1000, all = [];
+      while (true) {
+        var r = await sb.from('lms_students').select('id,full_name,email,avatar_url,role').order('id').range(from, from + PAGE - 1);
+        if (st.destroyed) return;
+        if (r.error) { var l = document.getElementById('mb-list'); if (l) l.innerHTML = '<p class="p-lg text-error text-body-sm">' + esc(r.error.message) + '</p>'; return; }
+        all = all.concat(r.data || []);
+        if (!r.data || r.data.length < PAGE) break;
+        from += PAGE;
+      }
+      all.sort(function (a, b) { return String(a.full_name || '~').toLowerCase().localeCompare(String(b.full_name || '~').toLowerCase()); });
+      st.all = all;
+      var bb = await sb.from('comu_bans').select('user_id'); if (st.destroyed) return;
+      (bb.data || []).forEach(function (x) { st.banned[x.user_id] = true; });
+      paint();
+    },
+    destroy: function () { if (GVSI.views.membros._st) GVSI.views.membros._st.destroyed = true; }
+  };
 })();
