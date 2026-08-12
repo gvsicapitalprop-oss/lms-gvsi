@@ -6,7 +6,13 @@
 <base href="/">
 <title>GVSI Comunidade</title>
 <link rel="icon" type="image/png" href="assets/favicon.png">
-<link rel="apple-touch-icon" href="assets/favicon.png">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#0d244e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="GVSI">
 <script>(function(){try{var t=localStorage.getItem('gvsi-theme');if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';if(t==='dark')document.documentElement.classList.add('dark');}catch(e){}})();</script>
 <style>:root{--side-w:360px;--fs:1}</style>
 <script>(function(){try{var d=document.documentElement;var w=parseInt(localStorage.getItem('gvsi-side-w'),10);if(w>=260&&w<=560)d.style.setProperty('--side-w',w+'px');var f=parseFloat(localStorage.getItem('gvsi-fs'));if(f>=0.9&&f<=1.3)d.style.setProperty('--fs',f);}catch(e){}})();</script>
@@ -70,6 +76,7 @@
 <script src="assets/supabase.js"></script>
 <script src="assets/topics.js"></script>
 <script src="assets/spa.js?v=17"></script>
-<script src="assets/views.js?v=18"></script>
+<script src="assets/views.js?v=19"></script>
+<script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){});});}</script>
 </body>
 </html>
