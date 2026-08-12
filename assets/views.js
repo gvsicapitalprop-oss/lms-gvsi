@@ -332,6 +332,64 @@
           }
           if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (typeof form.requestSubmit === 'function') form.requestSubmit(); else form.dispatchEvent(new Event('submit', { cancelable: true })); }
         });
+        // editor de pré-envio de imagem (redimensionar + legenda) — reusa o cropper
+        async function openImageComposer(file) {
+          if (!file) return;
+          try { await ensureCropper(); } catch (e) { G.toast('Editor indisponível.'); return; }
+          if (self.destroyed) return;
+          var src = URL.createObjectURL(file);
+          var ov = document.createElement('div'); ov.id = 'img-editor'; ov.className = 'fixed inset-0 z-[100] bg-black/95 flex flex-col p-3 gap-3';
+          ov.innerHTML =
+            '<style>#img-editor .cropper-view-box{outline:2px solid rgba(124,156,255,.95)}#img-editor .cropper-line{background-color:#6f8cff;opacity:.4}#img-editor .cropper-point{background-color:#7c9cff;opacity:1;width:13px;height:13px}</style>' +
+            '<div class="relative flex-1 min-h-0 flex items-center justify-center overflow-hidden" style="padding:14px 84px 14px 20px"><img id="ic-img" class="max-w-full max-h-full block" alt="">' +
+              '<div style="position:absolute;right:12px;top:50%;transform:translateY(-50%);z-index:60;display:flex;flex-direction:column;align-items:center;gap:6px;background:rgba(0,0,0,.55);padding:10px 6px;border-radius:9999px">' +
+                '<button type="button" id="ic-zin" class="material-symbols-outlined" style="color:#fff;font-size:28px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:9999px;cursor:pointer">add</button>' +
+                '<input type="range" id="ic-zoom" min="50" max="300" value="100" step="1" style="writing-mode:vertical-lr;direction:rtl;width:12px;height:170px;accent-color:#7c9cff;cursor:pointer">' +
+                '<button type="button" id="ic-zout" class="material-symbols-outlined" style="color:#fff;font-size:28px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:9999px;cursor:pointer">remove</button>' +
+              '</div></div>' +
+            '<div class="shrink-0 flex flex-col items-center gap-2">' +
+              '<input id="ic-caption" type="text" placeholder="Legenda (opcional)" class="w-full max-w-md h-11 px-3 rounded-xl bg-white/10 text-white border border-white/20 text-body-md placeholder:text-white/50">' +
+              '<div class="flex flex-wrap items-center justify-center gap-2"><span class="text-white/80 text-body-sm">Tamanho:</span>' +
+                '<select id="ic-size" class="h-11 px-3 rounded-xl bg-white/10 text-white border border-white/20 text-body-md"><option value="1600">Grande</option><option value="1000" selected>Médio</option><option value="600">Pequeno</option><option value="0">Original</option></select>' +
+                '<button type="button" id="ic-cancel" class="h-11 px-5 rounded-full bg-white/15 text-white font-label-md">Cancelar</button>' +
+                '<button type="button" id="ic-send" class="h-11 px-6 rounded-full bg-primary text-on-primary font-label-md flex items-center gap-1"><span class="material-symbols-outlined text-[20px]">send</span>Enviar</button>' +
+              '</div></div>';
+          document.body.appendChild(ov);
+          var imgEl = ov.querySelector('#ic-img'), cropper = null, baseRatio = 1, zoomEl = ov.querySelector('#ic-zoom');
+          function closeC() { try { if (cropper) cropper.destroy(); } catch (e) {} cropper = null; try { URL.revokeObjectURL(src); } catch (e) {} ov.remove(); }
+          function applyZoom() { if (cropper) { try { cropper.zoomTo(baseRatio * (parseInt(zoomEl.value, 10) || 100) / 100); } catch (e) {} } }
+          imgEl.onload = function () { try { cropper = new Cropper(imgEl, { viewMode: 1, autoCropArea: 0.95, background: false, dragMode: 'crop', zoomOnWheel: false, ready: function () { var cd = cropper.getCanvasData(); baseRatio = (cd && cd.naturalWidth) ? (cd.width / cd.naturalWidth) : 1; if (zoomEl) zoomEl.value = 100; } }); } catch (e) {} };
+          imgEl.onerror = function () { G.toast('Não foi possível abrir a imagem.'); closeC(); };
+          imgEl.src = src;
+          if (zoomEl) zoomEl.addEventListener('input', applyZoom);
+          ov.querySelector('#ic-zin').onclick = function () { zoomEl.value = Math.min(300, (parseInt(zoomEl.value, 10) || 100) + 15); applyZoom(); };
+          ov.querySelector('#ic-zout').onclick = function () { zoomEl.value = Math.max(50, (parseInt(zoomEl.value, 10) || 100) - 15); applyZoom(); };
+          ov.querySelector('#ic-cancel').onclick = closeC;
+          ov.querySelector('#ic-send').onclick = function () {
+            if (!cropper) return;
+            var btn = ov.querySelector('#ic-send'); btn.disabled = true; btn.textContent = 'Enviando…';
+            var max = parseInt(ov.querySelector('#ic-size').value, 10) || 0;
+            var opts = { imageSmoothingEnabled: true, imageSmoothingQuality: 'high' }; if (max) { opts.maxWidth = max; opts.maxHeight = max; }
+            var canvas; try { canvas = cropper.getCroppedCanvas(opts); } catch (e) { canvas = null; }
+            if (!canvas) { G.toast('Falha ao processar a imagem.'); btn.disabled = false; return; }
+            canvas.toBlob(async function (blob) {
+              if (!blob) { G.toast('Falha ao gerar a imagem.'); btn.disabled = false; return; }
+              var caption = (ov.querySelector('#ic-caption').value || '').trim() || null;
+              try {
+                var path = (slug || 'geral') + '/' + me.id + '/' + Date.now() + '.jpg';
+                var up = await sb.storage.from('comu-media').upload(path, blob, { contentType: 'image/jpeg', upsert: true });
+                if (up.error) { G.toast('Erro no upload: ' + up.error.message); btn.disabled = false; return; }
+                var url = sb.storage.from('comu-media').getPublicUrl(path).data.publicUrl;
+                var res;
+                if (isSupport) res = await sb.rpc('comu_send_support_message', { p_body: caption, p_kind: 'image', p_media_url: url, p_author_name: me.full_name || 'Membro' });
+                else res = await sb.from('comu_messages').insert({ topic_id: topic.id, author_id: me.id, kind: 'image', body: caption, media_url: url, media_meta: { w: canvas.width, h: canvas.height, mime: 'image/jpeg' }, author_name: me.full_name || 'Membro', author_avatar: me.avatar_url || null }).select().single();
+                if (res.error) { G.toast('Erro ao enviar: ' + res.error.message); btn.disabled = false; return; }
+                if (!self.destroyed && res.data) addMessage(res.data, true);
+                closeC();
+              } catch (e) { G.toast('Não foi possível enviar.'); btn.disabled = false; }
+            }, 'image/jpeg', 0.9);
+          };
+        }
         // ---- enviar arquivo por arrastar/soltar ou colar (imagem/vídeo/áudio) ----
         async function sendFile(file) {
           if (!file || !topic) return;
@@ -340,6 +398,7 @@
           var kind = ty.indexOf('image') === 0 ? 'image' : (ty.indexOf('video') === 0 ? 'video' : (ty.indexOf('audio') === 0 ? 'audio' : null));
           if (!kind) { G.toast('Só imagem, vídeo ou áudio.'); return; }
           if (kind === 'video' && !isAdmin) { G.toast('Vídeo é só para a equipe.'); return; }
+          if (kind === 'image') { openImageComposer(file); return; } // imagem: redimensionar/legendar antes de enviar
           G.toast('Enviando…');
           try {
             var ext = ((file.name && file.name.indexOf('.') >= 0) ? file.name.split('.').pop() : (kind === 'image' ? 'jpg' : kind === 'video' ? 'mp4' : 'webm')).toLowerCase();
