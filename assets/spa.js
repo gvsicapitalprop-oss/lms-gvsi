@@ -68,34 +68,6 @@ GVSI.views = GVSI.views || {};
     r.addEventListener('dblclick', function () { setW(360); try { localStorage.setItem('gvsi-side-w', 360); } catch (x) {} });
   };
   if (document.readyState !== 'loading') G.initSideResizer(); else document.addEventListener('DOMContentLoaded', G.initSideResizer);
-  // ---- PWA: banner "Instalar o app" (aparece fácil, pro público 70+) ----
-  var deferredPrompt = null;
-  function pwaStandalone() { return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true; }
-  function pwaIOS() { return /iphone|ipad|ipod/i.test(navigator.userAgent); }
-  function pwaDismissed() { try { return localStorage.getItem('gvsi-install-dismiss') === '1'; } catch (e) { return false; } }
-  function pwaDismiss() { try { localStorage.setItem('gvsi-install-dismiss', '1'); } catch (e) {} var b = document.getElementById('install-banner'); if (b) b.style.display = 'none'; }
-  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); deferredPrompt = e; if (G.updateInstallBanner) G.updateInstallBanner(); });
-  window.addEventListener('appinstalled', function () { pwaDismiss(); });
-  G.updateInstallBanner = function () {
-    var onCalm = (G._routeName === 'grupos' || G._routeName === 'perfil');
-    var ios = pwaIOS() && !deferredPrompt;
-    var canShow = onCalm && !pwaStandalone() && !pwaDismissed() && (deferredPrompt || ios);
-    var b = document.getElementById('install-banner');
-    if (!canShow) { if (b) b.style.display = 'none'; return; }
-    if (!b) { b = document.createElement('div'); b.id = 'install-banner'; b.className = 'fixed bottom-24 lg:bottom-6 left-1/2 -translate-x-1/2 z-[75] w-[min(94vw,460px)] bg-surface-container-highest border border-outline-variant/50 rounded-2xl shadow-2xl p-md'; document.body.appendChild(b); }
-    b.innerHTML =
-      '<div class="flex items-center gap-md">' +
-        '<span class="w-11 h-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0"><span class="material-symbols-outlined">install_mobile</span></span>' +
-        '<div class="flex-1 min-w-0"><p class="font-bold text-on-surface">Instale o app da comunidade</p>' +
-        '<p class="text-body-sm text-on-surface-variant text-balance">' + (ios ? 'No iPhone: toque em <b>Compartilhar</b> (o ↑ embaixo) e depois em <b>"Adicionar à Tela de Início"</b>.' : 'Fica no seu celular, é só tocar no ícone pra entrar.') + '</p></div>' +
-        (ios ? '' : '<button id="install-do" class="h-11 px-4 rounded-xl bg-primary text-on-primary font-label-md shrink-0">Instalar</button>') +
-        '<button id="install-x" class="w-9 h-9 ml-1 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high shrink-0" aria-label="Fechar"><span class="material-symbols-outlined text-[20px]">close</span></button>' +
-      '</div>';
-    b.style.display = 'block';
-    var x = b.querySelector('#install-x'); if (x) x.onclick = pwaDismiss;
-    var doBtn = b.querySelector('#install-do');
-    if (doBtn) doBtn.onclick = async function () { if (!deferredPrompt) { return; } doBtn.disabled = true; try { deferredPrompt.prompt(); await deferredPrompt.userChoice; } catch (e) {} deferredPrompt = null; b.style.display = 'none'; };
-  };
   // Som de notificação ao chegar mensagem nova de outra pessoa.
   G.playPing = function () {
     var now = Date.now();
@@ -483,7 +455,6 @@ GVSI.views = GVSI.views || {};
     // botão flutuante "Tutorial": só nas telas calmas (home/perfil), pra não cobrir o Enviar
     var fab = document.getElementById('onb-fab');
     if (fab) { if (!fab._wired) { fab._wired = true; fab.addEventListener('click', function () { if (G.showOnboarding) G.showOnboarding(); }); } fab.style.display = (route.name === 'grupos' || route.name === 'perfil') ? 'flex' : 'none'; }
-    G._routeName = route.name; if (G.updateInstallBanner) G.updateInstallBanner();
     // tópico ativo na sidebar
     var activeSlug = route.name === 'chat' ? route.params.topico : '';
     document.querySelectorAll('#side-topics .topic-item').forEach(function (a) {
