@@ -757,6 +757,9 @@
         }
         var micBtn = document.getElementById('btn-mic');
         if (micBtn) micBtn.addEventListener('click', function () { if (!self.recording) startRecording(); });
+        // Ao anexar, leva o texto já digitado no chat como legenda da mídia (não perde a mensagem).
+        var attachBtn = document.getElementById('btn-attach');
+        if (attachBtn) attachBtn.addEventListener('click', function () { try { var ci = document.getElementById('chat-input'); G._draftCaption = ci ? (ci.innerText || '').trim() : ''; if (ci) ci.innerHTML = ''; } catch (e) {} });
         var recCancelBtn = document.getElementById('rec-cancel');
         if (recCancelBtn) recCancelBtn.addEventListener('click', function () { if (self.recording) { cancelRecording(); G.toast('Gravação cancelada'); } });
         var recSendBtn = document.getElementById('rec-send');
@@ -817,6 +820,7 @@
         '</div></main>' +
         '<div class="fixed bottom-0 left-0 right-0 lg:left-[var(--side-w)] z-40 bg-surface shadow-[0px_-4px_20px_rgba(0,0,0,0.05)] rounded-t-xl px-container-margin py-md"><div id="send-progress" class="hidden max-w-3xl mx-auto mb-sm"><div class="h-2 rounded-full bg-surface-container-high overflow-hidden"><div id="send-progress-bar" class="h-full bg-primary" style="width:0%;transition:width .15s"></div></div><p id="send-progress-txt" class="text-[12px] text-on-surface-variant mt-1 text-center">Enviando… 0%</p></div><div class="max-w-3xl mx-auto flex items-center justify-between gap-md"><p id="target-label" class="hidden md:flex items-center gap-xs text-body-sm text-on-surface-variant"><span class="material-symbols-outlined text-[18px]">groups</span> Compartilhar no grupo</p><button id="btn-send" type="button" disabled class="flex-grow md:flex-none bg-primary text-on-primary h-12 px-xl rounded-full font-headline-sm text-headline-sm flex items-center justify-center gap-sm shadow-md active:scale-95 transition-all disabled:opacity-50"><span id="btn-send-label">Enviar para o grupo</span><span class="material-symbols-outlined">send</span></button></div></div>';
 
+      if (G._draftCaption) { var _cap = document.getElementById('caption'); if (_cap) _cap.value = G._draftCaption; G._draftCaption = ''; }
       var topic = null;
       if (slug) { var tr = await sb.from('comu_topics').select('id,name,slug,post_policy').eq('slug', slug).maybeSingle(); topic = tr.data; if (topic) document.getElementById('target-label').innerHTML = '<span class="material-symbols-outlined text-[18px]">groups</span> ' + esc(topic.name); }
       var selectedFile = null, selectedKind = null;
