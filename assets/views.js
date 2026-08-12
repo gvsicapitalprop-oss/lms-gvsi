@@ -1221,9 +1221,16 @@
       view.innerHTML =
         '<header class="fixed top-0 left-0 right-0 lg:left-[var(--side-w)] z-50 bg-surface shadow-[0px_4px_20px_rgba(0,0,0,0.05)] h-14 flex items-center justify-between px-container-margin"><button type="button" id="mb-back" class="flex items-center gap-sm text-primary" aria-label="Voltar"><span class="material-symbols-outlined">arrow_back</span><span class="font-headline-sm text-headline-sm font-bold">Administração · Membros</span></button><button type="button" data-theme-toggle class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors" aria-label="Tema"><span class="material-symbols-outlined" data-theme-icon>dark_mode</span></button></header>' +
         '<div class="pt-14 lg:pl-[var(--side-w)] min-h-screen"><div class="max-w-3xl mx-auto px-container-margin py-lg space-y-md">' +
-          '<div class="relative"><span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[20px] pointer-events-none">search</span><input id="mb-search" type="text" autocomplete="off" placeholder="Buscar por nome ou e-mail" class="w-full bg-surface-container-low border border-outline-variant rounded-xl py-3 pl-10 pr-3 text-body-md text-on-surface focus:ring-2 focus:ring-primary/30 placeholder:text-on-surface-variant"></div>' +
-          '<p id="mb-count" class="text-body-sm text-on-surface-variant px-1"></p>' +
-          '<div id="mb-list" class="bg-surface-container-lowest rounded-xl border border-outline-variant/30 divide-y divide-outline-variant/20 overflow-hidden"><p class="p-lg text-center text-on-surface-variant text-body-sm">Carregando…</p></div>' +
+          '<div class="flex gap-1 bg-surface-container-low rounded-xl p-1"><button type="button" id="mb-tab-membros" class="flex-1 py-2 rounded-lg text-label-md font-label-md bg-primary text-on-primary transition-colors">Membros</button><button type="button" id="mb-tab-aval" class="flex-1 py-2 rounded-lg text-label-md font-label-md text-on-surface-variant transition-colors">Avaliações</button></div>' +
+          '<div id="mb-pane-membros" class="space-y-md">' +
+            '<div class="relative"><span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[20px] pointer-events-none">search</span><input id="mb-search" type="text" autocomplete="off" placeholder="Buscar por nome ou e-mail" class="w-full bg-surface-container-low border border-outline-variant rounded-xl py-3 pl-10 pr-3 text-body-md text-on-surface focus:ring-2 focus:ring-primary/30 placeholder:text-on-surface-variant"></div>' +
+            '<p id="mb-count" class="text-body-sm text-on-surface-variant px-1"></p>' +
+            '<div id="mb-list" class="bg-surface-container-lowest rounded-xl border border-outline-variant/30 divide-y divide-outline-variant/20 overflow-hidden"><p class="p-lg text-center text-on-surface-variant text-body-sm">Carregando…</p></div>' +
+          '</div>' +
+          '<div id="mb-pane-aval" class="hidden space-y-md">' +
+            '<div id="mb-aval-summary" class="bg-surface-container-lowest rounded-xl border border-outline-variant/30 p-lg text-center"><p class="text-body-sm text-on-surface-variant">Carregando…</p></div>' +
+            '<div id="mb-aval-list" class="bg-surface-container-lowest rounded-xl border border-outline-variant/30 divide-y divide-outline-variant/20 overflow-hidden"></div>' +
+          '</div>' +
         '</div></div>';
       var back = document.getElementById('mb-back'); if (back) back.addEventListener('click', function () { G.navigate('/perfil'); });
       function roleLabel(r) { return r === 'admin' ? 'Admin' : (r === 'suporte' ? 'Suporte' : 'Membro'); }
@@ -1276,6 +1283,26 @@
         if (r.error) { G.toast('Não foi possível desbanir: ' + r.error.message); return; }
         delete st.banned[id]; paint(); G.toast((u.full_name || 'Membro') + ' foi desbanido.');
       }
+      function stars(n) { n = n || 0; var s = ''; for (var i = 1; i <= 5; i++) s += (i <= n ? '<span class="material-symbols-outlined text-[18px]" style="color:#f5b400;font-variation-settings:\'FILL\' 1">star</span>' : '<span class="material-symbols-outlined text-[18px] text-outline/40">star</span>'); return s; }
+      async function loadRatings() {
+        var sum = document.getElementById('mb-aval-summary'), list = document.getElementById('mb-aval-list');
+        var r = await sb.from('comu_support_tickets').select('protocol, rating, rated_at, member:lms_students!user_id(full_name,avatar_url)').not('rating', 'is', null).order('rated_at', { ascending: false });
+        if (st.destroyed) return;
+        if (r.error) { if (list) list.innerHTML = '<p class="p-lg text-error text-body-sm">' + esc(r.error.message) + '</p>'; return; }
+        var rows = r.data || [], avg = rows.length ? rows.reduce(function (a, x) { return a + (x.rating || 0); }, 0) / rows.length : 0;
+        if (sum) sum.innerHTML = rows.length ? '<div class="text-[40px] font-bold text-on-surface leading-none">' + avg.toFixed(1) + '</div><div class="my-xs flex justify-center">' + stars(Math.round(avg)) + '</div><p class="text-body-sm text-on-surface-variant">' + rows.length + (rows.length === 1 ? ' avaliação' : ' avaliações') + '</p>' : '<p class="text-body-sm text-on-surface-variant">Ainda não há avaliações.</p>';
+        if (!list) return; if (!rows.length) { list.innerHTML = ''; return; }
+        list.innerHTML = '';
+        rows.forEach(function (t) { var m = t.member || {}; var av = m.avatar_url ? '<img src="' + esc(m.avatar_url) + '" class="w-10 h-10 rounded-full object-cover shrink-0">' : '<span class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center text-outline shrink-0"><span class="material-symbols-outlined text-[20px]">person</span></span>'; var d = ''; try { d = t.rated_at ? new Date(t.rated_at).toLocaleDateString('pt-BR') : ''; } catch (e) {} var el = document.createElement('div'); el.className = 'flex items-center gap-md p-md'; el.innerHTML = av + '<div class="flex-1 min-w-0"><span class="font-bold text-on-surface truncate block">' + esc(m.full_name || 'Membro') + '</span><span class="text-body-sm text-on-surface-variant">' + esc(t.protocol || '') + (d ? ' · ' + d : '') + '</span></div><div class="shrink-0 flex">' + stars(t.rating) + '</div>'; list.appendChild(el); });
+      }
+      var loadedAval = false;
+      function showTab(which) {
+        var pm = document.getElementById('mb-pane-membros'), pa = document.getElementById('mb-pane-aval'), tm = document.getElementById('mb-tab-membros'), ta = document.getElementById('mb-tab-aval');
+        if (which === 'aval') { pm.classList.add('hidden'); pa.classList.remove('hidden'); ta.classList.add('bg-primary', 'text-on-primary'); ta.classList.remove('text-on-surface-variant'); tm.classList.remove('bg-primary', 'text-on-primary'); tm.classList.add('text-on-surface-variant'); if (!loadedAval) { loadedAval = true; loadRatings(); } }
+        else { pa.classList.add('hidden'); pm.classList.remove('hidden'); tm.classList.add('bg-primary', 'text-on-primary'); tm.classList.remove('text-on-surface-variant'); ta.classList.remove('bg-primary', 'text-on-primary'); ta.classList.add('text-on-surface-variant'); }
+      }
+      document.getElementById('mb-tab-membros').addEventListener('click', function () { showTab('membros'); });
+      document.getElementById('mb-tab-aval').addEventListener('click', function () { showTab('aval'); });
       var si = document.getElementById('mb-search');
       if (si) { var tmr; si.addEventListener('input', function () { st.search = si.value; clearTimeout(tmr); tmr = setTimeout(paint, 150); }); }
       var from = 0, PAGE = 1000, all = [];
