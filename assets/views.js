@@ -1207,13 +1207,13 @@
           var bubble = document.createElement('div'); bubble.className = 'sup-bubble ' + (mine ? 'message-gradient-outgoing text-white rounded-xl rounded-tr-none p-md shadow' : 'bg-surface-container-lowest border border-outline-variant/30 rounded-xl rounded-tl-none p-md');
           bubble.innerHTML = contentHtml(msg);
           var react = document.createElement('div'); react.setAttribute('data-react-sup', msg.id); react.className = 'flex flex-wrap items-center gap-xs mt-xs ' + (mine ? 'justify-end' : '');
-          if (mine) { wrap.className = 'flex flex-col items-end gap-xs max-w-[80%] self-end'; wrap.appendChild(bubble); wrap.appendChild(react); }
+          if (mine) { wrap.className = 'flex flex-col items-end gap-xs max-w-[80%] self-end'; var _t = document.createElement('span'); _t.className = 'text-[13px] text-on-surface-variant mr-sm'; _t.textContent = G.timeStr(msg.created_at); wrap.appendChild(_t); wrap.appendChild(bubble); wrap.appendChild(react); }
           else {
             wrap.className = 'flex flex-col items-start gap-xs max-w-[80%]';
             var row = document.createElement('div'); row.className = 'flex items-start gap-sm';
             var _a = msg.author_avatar || (self.currentTicket && self.currentTicket.member && self.currentTicket.member.avatar_url) || '';
             row.innerHTML = _a ? '<img src="' + esc(_a) + '" class="w-8 h-8 rounded-full object-cover shrink-0">' : '<span class="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center text-outline shrink-0"><span class="material-symbols-outlined text-[18px]">person</span></span>';
-            var col = document.createElement('div'); col.className = 'flex flex-col min-w-0'; col.innerHTML = '<span class="text-label-md font-label-md text-on-surface-variant ml-sm">' + esc(msg.author_name || 'Membro') + '</span>';
+            var col = document.createElement('div'); col.className = 'flex flex-col min-w-0'; col.innerHTML = '<div class="flex items-center gap-xs ml-sm"><span class="text-label-md font-label-md text-on-surface-variant">' + esc(msg.author_name || 'Membro') + '</span><span class="text-[13px] text-on-surface-variant">' + G.timeStr(msg.created_at) + '</span></div>';
             col.appendChild(bubble); row.appendChild(col); wrap.appendChild(row); wrap.appendChild(react);
           }
           bindSupActions(bubble, msg.id);
