@@ -441,7 +441,8 @@
             content = '<div class="reply-quote mb-xs border-l-4 ' + qB + ' ' + qBg + ' rounded px-2 py-1 cursor-pointer" data-goto="' + esc(m.reply_to) + '"><p class="text-[12px] font-bold ' + qN + ' truncate">' + esc(G.shortName(m.reply_author) || 'Membro') + '</p><p class="text-[13px] ' + qT + ' truncate">' + esc(m.reply_snippet || '') + '</p></div>' + content;
           }
           var inner;
-          if (mine) inner = '<div class="msg-head flex items-center gap-xs mr-sm mb-xs"><span class="text-[13px] text-on-surface-variant">' + when + '</span><span class="font-label-md text-label-md text-primary">Você</span></div><div class="message-gradient-outgoing text-white shadow-lg rounded-xl rounded-tr-none p-md">' + content + '</div>';
+          var meBadge = isAdmin ? '<span class="inline-flex items-center gap-[2px] text-[11px] font-bold text-on-primary bg-primary rounded-full px-2 py-[1px] leading-none"><span class="material-symbols-outlined text-[13px]" style="font-variation-settings:\'FILL\' 1">verified</span>Equipe</span>' : '';
+          if (mine) inner = '<div class="msg-head flex items-center gap-xs mr-sm mb-xs"><span class="text-[13px] text-on-surface-variant">' + when + '</span>' + meBadge + '<span class="font-label-md text-label-md text-primary">Você</span></div><div class="message-gradient-outgoing text-white shadow-lg rounded-xl rounded-tr-none p-md">' + content + '</div>';
           else {
             var isAuthorAdmin = !!(G.adminIds && m.author_id && G.adminIds[m.author_id]);
             var avRing = isAuthorAdmin ? ' ring-2 ring-primary ring-offset-1 ring-offset-surface' : '';
@@ -1006,7 +1007,7 @@
         '<nav class="lg:hidden fixed bottom-0 left-0 right-0 z-50 rounded-t-xl bg-surface shadow-[0px_-4px_20px_rgba(0,0,0,0.05)] h-16 flex justify-around items-center px-2"><a class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1" href="/"><span class="material-symbols-outlined">groups</span><span class="font-label-md text-label-md">Grupos</span></a><a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-full px-4 py-1" href="/perfil"><span class="material-symbols-outlined fill">person</span><span class="font-label-md text-label-md">Meu Perfil</span></a></nav>' +
         '<div id="edit-modal" class="hidden fixed inset-0 z-[60] items-center justify-center p-container-margin bg-black/40"><div class="w-full max-w-md bg-surface-container-lowest rounded-2xl shadow-xl border border-outline-variant/40 p-lg space-y-md max-h-[90vh] overflow-y-auto custom-scrollbar"><div class="flex items-center justify-between"><h3 class="font-headline-sm text-headline-sm text-on-surface">Editar perfil</h3><button type="button" data-edit-close class="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high" aria-label="Fechar"><span class="material-symbols-outlined">close</span></button></div>' +
           '<form id="edit-form" class="space-y-md"><div class="flex items-center gap-md"><span class="w-16 h-16 rounded-full bg-surface-container-high flex items-center justify-center text-outline overflow-hidden shrink-0"><span id="ef-avatar-icon" class="material-symbols-outlined text-[32px]">person</span><img id="ef-avatar-preview" class="hidden w-16 h-16 object-cover" alt=""></span><button type="button" id="ef-avatar-btn" class="text-primary text-label-md font-label-md flex items-center gap-xs"><span class="material-symbols-outlined text-[18px]">photo_camera</span> Alterar foto</button><input id="ef-avatar-input" type="file" accept="image/*" class="hidden"></div>' +
-          '<div><label for="ef-name" class="block text-label-md font-label-md text-on-surface-variant mb-xs">Nome</label><input id="ef-name" type="text" readonly aria-readonly="true" tabindex="-1" class="w-full bg-surface-container-high border border-outline-variant rounded-xl py-3 px-4 text-body-md text-on-surface-variant cursor-not-allowed" placeholder="Seu nome"><p class="text-body-sm text-on-surface-variant mt-xs flex items-center gap-xs"><span class="material-symbols-outlined text-[16px]">lock</span>O nome não pode ser alterado.</p></div>' +
+          '<div><label for="ef-name" class="block text-label-md font-label-md text-on-surface-variant mb-xs">Nome</label><input id="ef-name" type="text" readonly aria-readonly="true" tabindex="-1" class="w-full bg-surface-container-high border border-outline-variant rounded-xl py-3 px-4 text-body-md text-on-surface-variant cursor-not-allowed" placeholder="Seu nome"><p id="ef-name-lock" class="text-body-sm text-on-surface-variant mt-xs flex items-center gap-xs"><span class="material-symbols-outlined text-[16px]">lock</span>O nome não pode ser alterado.</p></div>' +
           '<div><label for="ef-bio" class="block text-label-md font-label-md text-on-surface-variant mb-xs">Bio</label><textarea id="ef-bio" rows="2" class="w-full bg-surface-container-low border border-outline-variant rounded-xl py-3 px-4 focus:ring-2 focus:ring-primary text-body-md text-on-surface resize-none" placeholder="Fale um pouco sobre você"></textarea></div>' +
           '<div><label for="ef-phone" class="block text-label-md font-label-md text-on-surface-variant mb-xs">Telefone</label><input id="ef-phone" type="tel" class="w-full bg-surface-container-low border border-outline-variant rounded-xl py-3 px-4 focus:ring-2 focus:ring-primary text-body-md text-on-surface" placeholder="(00) 00000-0000"></div>' +
           '<p id="ef-msg" class="hidden text-body-sm text-center"></p>' +
@@ -1027,6 +1028,17 @@
       var modal = document.getElementById('edit-modal');
       function openEdit() {
         document.getElementById('ef-name').value = me.full_name || ''; document.getElementById('ef-bio').value = me.bio || ''; document.getElementById('ef-phone').value = me.phone || ''; document.getElementById('ef-msg').classList.add('hidden');
+        // Admin pode alterar o próprio nome; para os demais o campo continua travado
+        var _nm = document.getElementById('ef-name'), _lk = document.getElementById('ef-name-lock');
+        if (me.role === 'admin') {
+          _nm.removeAttribute('readonly'); _nm.removeAttribute('aria-readonly'); _nm.removeAttribute('tabindex');
+          _nm.className = 'w-full bg-surface-container-low border border-outline-variant rounded-xl py-3 px-4 focus:ring-2 focus:ring-primary text-body-md text-on-surface';
+          if (_lk) _lk.classList.add('hidden');
+        } else {
+          _nm.setAttribute('readonly', ''); _nm.setAttribute('aria-readonly', 'true'); _nm.setAttribute('tabindex', '-1');
+          _nm.className = 'w-full bg-surface-container-high border border-outline-variant rounded-xl py-3 px-4 text-body-md text-on-surface-variant cursor-not-allowed';
+          if (_lk) _lk.classList.remove('hidden');
+        }
         if (me.avatar_url) { document.getElementById('ef-avatar-preview').src = me.avatar_url; document.getElementById('ef-avatar-preview').classList.remove('hidden'); document.getElementById('ef-avatar-icon').classList.add('hidden'); }
         else { document.getElementById('ef-avatar-preview').classList.add('hidden'); document.getElementById('ef-avatar-icon').classList.remove('hidden'); }
         modal.classList.remove('hidden'); modal.classList.add('flex');
@@ -1048,7 +1060,8 @@
       });
       document.getElementById('edit-form').addEventListener('submit', async function (e) {
         e.preventDefault();
-        var payload = { bio: document.getElementById('ef-bio').value.trim() || null, phone: document.getElementById('ef-phone').value.trim() || null, avatar_url: me.avatar_url || null }; // #8: nome é travado, não é enviado
+        var payload = { bio: document.getElementById('ef-bio').value.trim() || null, phone: document.getElementById('ef-phone').value.trim() || null, avatar_url: me.avatar_url || null };
+        if (me.role === 'admin') { var _nv = document.getElementById('ef-name').value.trim(); if (_nv) payload.full_name = _nv; } // admin pode editar o próprio nome
         document.getElementById('ef-save').disabled = true;
         var up = await sb.from('lms_students').update(payload).eq('id', me.id).select().single();
         document.getElementById('ef-save').disabled = false;
