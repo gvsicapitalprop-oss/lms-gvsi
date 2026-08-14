@@ -39,6 +39,14 @@ GVSI.views = GVSI.views || {};
   };
   // Exibição: só os 2 primeiros nomes (o nome completo continua no banco).
   G.shortName = function (name) { var p = String(name || '').trim().split(/\s+/).filter(Boolean); return p.slice(0, 2).join(' '); };
+  G.humanSize = function (n) { n = +n || 0; return n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : (n >= 1024 ? Math.round(n / 1024) + ' KB' : n + ' B'); };
+  // Cartão de arquivo (kind='file') com nome, tamanho e download — usado no chat e no suporte
+  G.fileCard = function (m, mine) {
+    var e = G.esc, meta = m.media_meta || {};
+    var name = e(meta.name || 'arquivo');
+    var size = meta.size ? '<span class="block text-[12px] ' + (mine ? 'text-white/80' : 'text-on-surface-variant') + '">' + G.humanSize(meta.size) + '</span>' : '';
+    return '<a href="' + e(m.media_url) + '" target="_blank" rel="noopener noreferrer" download class="flex items-center gap-sm rounded-lg p-sm ' + (mine ? 'bg-white/15 hover:bg-white/25' : 'bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20') + ' transition max-w-[16rem]"><span class="material-symbols-outlined text-[30px] shrink-0 ' + (mine ? 'text-white' : 'text-primary') + '">description</span><span class="min-w-0 flex-1"><span class="block font-label-md text-label-md truncate ' + (mine ? 'text-white' : 'text-on-surface') + '">' + name + '</span>' + size + '</span><span class="material-symbols-outlined text-[20px] shrink-0 ' + (mine ? 'text-white/90' : 'text-on-surface-variant') + '">download</span></a>';
+  };
   G.timeStr = function (iso) {
     try { return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); }
     catch (e) { return ''; }
@@ -466,6 +474,7 @@ GVSI.views = GVSI.views || {};
     if (m.kind === 'image') return who + 'Foto';
     if (m.kind === 'video') return who + 'Vídeo';
     if (m.kind === 'audio') return who + 'Áudio';
+    if (m.kind === 'file') return who + '📎 ' + G.esc((m.media_meta && m.media_meta.name) || 'Arquivo');
     return who + G.esc((m.body || '').replace(/\s+/g, ' ').trim());
   }
   function topicPreview(slug) { return msgPreviewHtml(G.lastMsgs[slug]); }
