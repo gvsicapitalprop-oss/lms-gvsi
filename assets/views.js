@@ -430,7 +430,7 @@
           container.innerHTML = '';
           if (m.status === 'deleted') { container.innerHTML = '<div class="rounded-xl p-md ' + (mine ? 'rounded-tr-none' : 'rounded-tl-none') + ' bg-surface-container-high text-on-surface-variant text-body-sm italic flex items-center gap-xs"><span class="material-symbols-outlined text-[16px]">block</span>mensagem apagada</div>'; return; }
           var when = timeStr(m.created_at);
-          var edited = (m.status === 'edited' && isAdmin) ? ' <span class="text-[12px] opacity-80">(editado)</span>' : '';
+          var edited = (m.status === 'edited' && mine) ? ' <span class="text-[12px] opacity-80">(editado)</span>' : '';
           var content;
           if (m.kind === 'image' && m.media_url) content = '<img src="' + esc(m.media_url) + '" data-full="' + esc(m.media_url) + '" class="msg-img rounded-lg max-w-full mb-xs cursor-zoom-in" alt="">' + (m.body ? '<p class="' + (mine ? '' : 'text-on-surface ') + 'font-body-md">' + G.fmt(m.body) + edited + '</p>' : '');
           else if (m.kind === 'video' && m.media_url) content = '<video controls preload="metadata" src="' + esc(m.media_url) + '" class="rounded-lg max-w-full mb-xs" style="max-height:20rem"></video>' + (m.body ? '<p class="' + (mine ? '' : 'text-on-surface ') + 'font-body-md">' + G.fmt(m.body) + edited + '</p>' : '');
