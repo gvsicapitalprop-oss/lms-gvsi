@@ -616,6 +616,8 @@ GVSI.views = GVSI.views || {};
     // quem pode banir (allowlist) + "demissão" em tempo real
     try { var _cb = await G.sb.from('comu_banners').select('user_id').eq('user_id', user.id).maybeSingle(); G.me.canBan = (G.me.role === 'admin') || !!(_cb && _cb.data); } catch (e) { G.me.canBan = !!(G.me && G.me.role === 'admin'); }
     try { G.sb.channel('comu-ban-self').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comu_bans', filter: 'user_id=eq.' + user.id }, function () { G.showBanned(); }).subscribe(); } catch (e) {}
+    // IDs dos administradores (destaque das mensagens deles no chat) — carregado 1x
+    try { G.adminIds = {}; var _ad = await G.sb.from('lms_students').select('id').eq('role', 'admin'); (_ad.data || []).forEach(function (x) { G.adminIds[x.id] = 1; }); } catch (e) { G.adminIds = G.adminIds || {}; }
     initTheme();
     G.updateSidebarProfile();
     G.topics = await loadTopics();
