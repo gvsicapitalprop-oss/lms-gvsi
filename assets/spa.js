@@ -40,6 +40,32 @@ GVSI.views = GVSI.views || {};
   // Exibição: só os 2 primeiros nomes (o nome completo continua no banco).
   G.shortName = function (name) { var p = String(name || '').trim().split(/\s+/).filter(Boolean); return p.slice(0, 2).join(' '); };
   G.humanSize = function (n) { n = +n || 0; return n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : (n >= 1024 ? Math.round(n / 1024) + ' KB' : n + ' B'); };
+  // Seletor de emojis reutilizável: insere no cursor de um <textarea>/<input> ou contenteditable
+  G.emojiPicker = (function () {
+    var pop = null, target = null, isCE = false;
+    var EMOJIS = ('😀 😃 😄 😁 😅 😂 🤣 😊 😇 🙂 🙃 😉 😌 😍 🥰 😘 😗 😚 😋 😛 😜 🤪 🧐 🤓 😎 🥳 🤩 😏 😒 😞 😔 😟 🙁 😣 😫 😩 🥺 😢 😭 😤 😠 😡 🤬 🤯 😳 🥵 🥶 😱 😨 😰 😥 😓 🤗 🤔 🤭 🤫 🤥 😶 😐 😑 😬 🙄 😮 😲 🥱 😴 🤤 🤢 🤮 🤧 😷 🤒 🤕 🤑 🤠 😈 👋 🤚 ✋ 👌 🤌 ✌️ 🤞 🤟 🤘 👈 👉 👆 👇 ☝️ 👍 👎 ✊ 👊 👏 🙌 🙏 🤝 💪 🔥 ✅ ❌ ⭐ 🌟 ✨ 💯 🎉 🎊 ❤️ 🧡 💛 💚 💙 💜 🖤 🤍 💰 💵 📈 📉 📊 🚀 ⚡ 💎 🏆 🎯').split(' ');
+    function close() { if (pop) { pop.remove(); pop = null; } document.removeEventListener('click', onDoc, true); }
+    function onDoc(e) { if (pop && !pop.contains(e.target) && e.target !== pop._btn && !pop._btn.contains(e.target)) close(); }
+    function insert(em) {
+      if (!target) return; target.focus();
+      if (isCE) { try { document.execCommand('insertText', false, em); } catch (e) { target.textContent = (target.textContent || '') + em; } }
+      else { var s = target.selectionStart, e2 = target.selectionEnd, v = target.value || ''; if (s == null) { target.value = v + em; } else { target.value = v.slice(0, s) + em + v.slice(e2); var p = s + em.length; target.selectionStart = target.selectionEnd = p; } }
+      try { target.dispatchEvent(new Event('input', { bubbles: true })); } catch (e) {}
+    }
+    return function (btn, tgt, contentEditable) {
+      if (pop && pop._btn === btn) { close(); return; }
+      close(); target = tgt; isCE = !!contentEditable;
+      pop = document.createElement('div'); pop._btn = btn;
+      pop.className = 'fixed z-[96] bg-surface-container-highest border border-outline-variant rounded-2xl shadow-xl p-2 grid grid-cols-8 gap-1 w-[320px] max-w-[92vw] max-h-[46vh] overflow-y-auto custom-scrollbar';
+      EMOJIS.forEach(function (em) { var b = document.createElement('button'); b.type = 'button'; b.className = 'text-[22px] hover:scale-125 transition-transform w-8 h-8 flex items-center justify-center'; b.textContent = em; b.addEventListener('click', function (ev) { ev.preventDefault(); ev.stopPropagation(); insert(em); }); pop.appendChild(b); });
+      document.body.appendChild(pop);
+      var r = btn.getBoundingClientRect(), pr = pop.getBoundingClientRect();
+      var top = r.top - pr.height - 8; if (top < 8) top = r.bottom + 8;
+      var left = r.left; if (left + pr.width > window.innerWidth - 8) left = window.innerWidth - 8 - pr.width; if (left < 8) left = 8;
+      pop.style.top = top + 'px'; pop.style.left = left + 'px';
+      setTimeout(function () { document.addEventListener('click', onDoc, true); }, 0);
+    };
+  })();
   // Cartão de arquivo (kind='file') com nome, tamanho e download — usado no chat e no suporte
   G.fileCard = function (m, mine) {
     var e = G.esc, meta = m.media_meta || {};
