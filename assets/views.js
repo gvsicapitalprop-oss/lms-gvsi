@@ -447,7 +447,7 @@
             var avRing = isAuthorAdmin ? ' ring-2 ring-primary ring-offset-1 ring-offset-surface' : '';
             var av = m.author_avatar ? '<img src="' + esc(m.author_avatar) + '" class="msg-av w-8 h-8 rounded-full object-cover shrink-0' + avRing + '" alt="">' : '<span class="msg-av w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center text-outline shrink-0' + avRing + '"><span class="material-symbols-outlined text-[18px]">person</span></span>';
             var nameCls = isAuthorAdmin ? 'font-label-md text-label-md text-primary font-bold' : 'font-label-md text-label-md text-on-surface-variant';
-            var adminBadge = isAuthorAdmin ? '<span class="inline-flex items-center gap-[2px] text-[11px] font-bold text-on-primary bg-primary rounded-full px-2 py-[1px] leading-none"><span class="material-symbols-outlined text-[13px]" style="font-variation-settings:\'FILL\' 1">verified</span>Admin</span>' : '';
+            var adminBadge = isAuthorAdmin ? '<span class="inline-flex items-center gap-[2px] text-[11px] font-bold text-on-primary bg-primary rounded-full px-2 py-[1px] leading-none"><span class="material-symbols-outlined text-[13px]" style="font-variation-settings:\'FILL\' 1">verified</span>Equipe</span>' : '';
             var bubbleCls = isAuthorAdmin
               ? 'bg-primary/10 dark:bg-primary/20 shadow-[0px_6px_24px_rgba(0,0,0,0.10)] rounded-xl rounded-tl-none p-md border-2 border-primary/50 ring-1 ring-primary/15'
               : 'bg-surface-container-high shadow-[0px_4px_20px_rgba(0,0,0,0.05)] rounded-xl rounded-tl-none p-md border border-outline-variant/40';
