@@ -1195,11 +1195,22 @@
               var bio = panel.querySelector('#pe-bio').value.trim();
               if (!name) { G.toast('O nome não pode ficar vazio.'); return; }
               var btn = this; btn.disabled = true;
-              var up = await sb.from('lms_students').update({ full_name: name, phone: phone || null, bio: bio || null }).eq('id', userId).select('id,full_name').single();
+              var up = await sb.from('lms_students').update({ phone: phone || null, bio: bio || null }).eq('id', userId);
               if (up.error) { btn.disabled = false; G.toast('Não foi possível salvar: ' + up.error.message); return; }
-              if (tk.member) tk.member.full_name = up.data.full_name;
-              var nm = document.getElementById('convo-name'); if (nm && self.currentTicket && self.currentTicket.user_id === userId) nm.textContent = up.data.full_name || 'Membro';
+              var nameChanged = name !== (u.full_name || '');
+              if (nameChanged) {
+                var rn = await sb.rpc('comu_rename_member', { p_user_id: userId, p_name: name }); // também reescreve o nome nas mensagens antigas
+                if (rn.error) { btn.disabled = false; G.toast('Não foi possível renomear: ' + rn.error.message); return; }
+              }
+              if (tk.member) tk.member.full_name = name;
+              var nm = document.getElementById('convo-name'); if (nm && self.currentTicket && self.currentTicket.user_id === userId) nm.textContent = name || 'Membro';
               overlay.remove(); G.toast('Perfil atualizado.'); loadTickets();
+              if (nameChanged && self.currentTicket && self.currentTicket.id === tk.id) { // recarrega as bolhas já com o nome novo
+                self.seen = Object.create(null);
+                var mc = document.getElementById('convo-messages'); if (mc) mc.innerHTML = '';
+                var rr = await sb.from('comu_messages').select('*').eq('ticket_id', tk.id).order('created_at', { ascending: true });
+                if (!self.destroyed) { (rr.data || []).forEach(addMsg); loadReactSup((rr.data || []).map(function (mm) { return mm.id; })); scrollConvo(); }
+              }
             };
           })();
         }
@@ -1464,9 +1475,9 @@
         var u = findUser(id); if (!u) return;
         var nv = window.prompt('Novo nome para ' + (u.email || 'membro') + ':', u.full_name || '');
         if (nv === null) return; nv = nv.trim(); if (!nv || nv === u.full_name) return;
-        var r = await sb.from('lms_students').update({ full_name: nv }).eq('id', id).select('id,full_name').single();
+        var r = await sb.rpc('comu_rename_member', { p_user_id: id, p_name: nv }); // atualiza perfil + mensagens antigas
         if (r.error) { G.toast('Não foi possível editar: ' + r.error.message); return; }
-        u.full_name = r.data.full_name; paint(); G.toast('Nome atualizado.');
+        u.full_name = nv; paint(); G.toast('Nome atualizado.');
       }
       async function doBan(id) {
         var u = findUser(id); if (!u) return;
