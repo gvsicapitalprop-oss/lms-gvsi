@@ -1428,10 +1428,10 @@
           var tid = self.currentTicket.id, rb = document.getElementById('btn-resolve'); rb.disabled = true;
           var up = await sb.rpc('comu_support_request_close', { p_ticket_id: tid });
           if (up.error) { G.toast('Não foi possível: ' + up.error.message); rb.disabled = false; return; }
-          self.currentTicket.status = 'aguardando';
-          document.getElementById('convo-protocol').textContent = self.currentTicket.protocol + ' · ' + statusLabel('aguardando');
+          self.currentTicket.status = 'resolvido';
+          document.getElementById('convo-protocol').textContent = self.currentTicket.protocol + ' · ' + statusLabel('resolvido');
           updateResolveBtn(); updateConvoComposer(); loadTickets();
-          G.toast('Perguntei se precisa de mais algo. Sem resposta em 5 min, encerra sozinho.');
+          G.toast('Atendimento marcado como resolvido.');
         });
         document.querySelectorAll('[data-filter]').forEach(function (b) { b.addEventListener('click', function () { self.filter = b.dataset.filter; document.querySelectorAll('[data-filter]').forEach(function (x) { x.classList.remove('bg-primary', 'text-on-primary'); x.classList.add('text-on-surface-variant', 'hover:bg-surface-container-high'); }); b.classList.add('bg-primary', 'text-on-primary'); b.classList.remove('text-on-surface-variant', 'hover:bg-surface-container-high'); loadTickets(); }); });
         (function () { var si = document.getElementById('sup-search'); if (si) { var st; si.addEventListener('input', function () { self.search = si.value; clearTimeout(st); st = setTimeout(loadTickets, 200); }); } })();
