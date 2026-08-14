@@ -1269,7 +1269,7 @@
         self.onSupDoc = function (e) { if (!supMenu.classList.contains('hidden') && !supMenu.contains(e.target)) hideSupMenu(); if (!supPicker.classList.contains('hidden') && !supPicker.contains(e.target)) hideSupPicker(); };
         document.addEventListener('click', self.onSupDoc);
         function contentHtml(msg) {
-          if (msg.kind === 'image' && msg.media_url) return '<img src="' + esc(msg.media_url) + '" class="rounded-lg max-w-full">';
+          if (msg.kind === 'image' && msg.media_url) return '<img src="' + esc(msg.media_url) + '" data-full="' + esc(msg.media_url) + '" class="sup-img rounded-lg max-w-full cursor-zoom-in">';
           if (msg.kind === 'video' && msg.media_url) return '<video controls preload="metadata" src="' + esc(msg.media_url) + '" class="rounded-lg max-w-full" style="max-height:20rem"></video>';
           if (msg.kind === 'audio' && msg.media_url) return '<audio controls src="' + esc(msg.media_url) + '" class="max-w-full"></audio>';
           if (msg.kind === 'file' && msg.media_url) return G.fileCard(msg, msg.author_id === me.id) + (msg.body ? '<p class="font-body-md mt-xs">' + G.fmt(msg.body) + '</p>' : '');
@@ -1378,6 +1378,7 @@
         }
         document.getElementById('convo-attach').addEventListener('click', function () { document.getElementById('convo-file-media').click(); });
         document.getElementById('convo-emoji').addEventListener('click', function (e) { e.stopPropagation(); G.emojiPicker(this, document.getElementById('convo-input'), false); });
+        (function () { var cms = document.getElementById('convo-messages'); if (cms) cms.addEventListener('click', function (e) { var im = e.target && e.target.closest ? e.target.closest('.sup-img') : null; if (im) G.lightbox(im.getAttribute('data-full') || im.getAttribute('src')); }); })();
         // arrastar/soltar ou colar imagem no atendimento (imagem passa pelo editor de pré-envio)
         (function () {
           var ci = document.getElementById('convo-input'), main = document.getElementById('convo-main');

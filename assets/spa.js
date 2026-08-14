@@ -40,6 +40,19 @@ GVSI.views = GVSI.views || {};
   // Exibição: só os 2 primeiros nomes (o nome completo continua no banco).
   G.shortName = function (name) { var p = String(name || '').trim().split(/\s+/).filter(Boolean); return p.slice(0, 2).join(' '); };
   G.humanSize = function (n) { n = +n || 0; return n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : (n >= 1024 ? Math.round(n / 1024) + ' KB' : n + ' B'); };
+  // Visualizador de imagem em tela cheia (usado no suporte e onde precisar)
+  G.lightbox = function (url) {
+    if (!url) return;
+    var ov = document.createElement('div'); ov.className = 'fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4';
+    var img = document.createElement('img'); img.src = url; img.alt = ''; img.className = 'max-w-full max-h-[88vh] rounded-lg object-contain';
+    var close = document.createElement('button'); close.type = 'button'; close.className = 'absolute top-4 right-4 h-11 w-11 rounded-full bg-white/15 text-white flex items-center justify-center hover:bg-white/25'; close.innerHTML = '<span class="material-symbols-outlined">close</span>'; close.onclick = function () { cleanup(); };
+    function onKey(ev) { if (ev.key === 'Escape') cleanup(); }
+    function cleanup() { ov.remove(); document.removeEventListener('keydown', onKey); }
+    ov.appendChild(img); ov.appendChild(close);
+    ov.addEventListener('click', function (e) { if (e.target === ov) cleanup(); });
+    document.addEventListener('keydown', onKey);
+    document.body.appendChild(ov);
+  };
   // Seletor de emojis reutilizável: insere no cursor de um <textarea>/<input> ou contenteditable
   G.emojiPicker = (function () {
     var pop = null, target = null, isCE = false;
