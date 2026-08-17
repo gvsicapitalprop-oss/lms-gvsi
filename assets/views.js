@@ -1191,12 +1191,14 @@
               '<div class="flex items-center justify-between"><h3 class="font-headline-sm text-headline-sm text-on-surface">Editar perfil</h3><button type="button" class="pe-close w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high"><span class="material-symbols-outlined">close</span></button></div>' +
               '<div>' + av + '</div>' +
               '<div class="bg-surface-container-low rounded-xl px-3 py-2 flex items-center gap-2"><span class="material-symbols-outlined text-[20px] text-on-surface-variant shrink-0">mail</span><span class="text-body-md text-on-surface truncate flex-1" title="' + esc(u.email || '') + '">' + esc(u.email || '(sem e-mail)') + '</span>' + (u.email ? '<button type="button" id="pe-copy" class="text-primary text-label-md font-label-md px-2 py-1 rounded-lg hover:bg-primary/10 shrink-0">Copiar</button>' : '') + '</div>' +
+              '<button type="button" id="pe-pw" class="w-full h-10 rounded-xl border border-outline-variant text-on-surface font-label-md flex items-center justify-center gap-1 hover:bg-surface-container-high"><span class="material-symbols-outlined text-[18px]">key</span>Alterar senha</button>' +
               '<label class="block"><span class="text-label-md font-label-md text-on-surface-variant">Nome</span><input id="pe-name" type="text" class="mt-1 w-full bg-surface-container-low border border-outline-variant rounded-xl px-3 py-2 text-body-md text-on-surface" value="' + esc(u.full_name || '') + '"></label>' +
               '<label class="block"><span class="text-label-md font-label-md text-on-surface-variant">Telefone</span><input id="pe-phone" type="text" class="mt-1 w-full bg-surface-container-low border border-outline-variant rounded-xl px-3 py-2 text-body-md text-on-surface" value="' + esc(u.phone || '') + '"></label>' +
               '<label class="block"><span class="text-label-md font-label-md text-on-surface-variant">Bio</span><textarea id="pe-bio" rows="2" class="mt-1 w-full bg-surface-container-low border border-outline-variant rounded-xl px-3 py-2 text-body-md text-on-surface resize-none">' + esc(u.bio || '') + '</textarea></label>' +
               '<div class="flex gap-sm justify-end pt-sm"><button type="button" class="pe-close h-10 px-4 rounded-full text-on-surface font-label-md hover:bg-surface-container-high">Cancelar</button><button type="button" id="pe-save" class="h-10 px-4 rounded-full bg-primary text-on-primary font-label-md active:scale-95 transition">Salvar</button></div>';
             panel.querySelectorAll('.pe-close').forEach(function (b) { b.onclick = function () { overlay.remove(); }; });
             var cp = panel.querySelector('#pe-copy'); if (cp) cp.onclick = function () { try { navigator.clipboard.writeText(u.email); G.toast('E-mail copiado.'); } catch (e) { G.toast(u.email); } };
+            panel.querySelector('#pe-pw').onclick = async function () { var nv = window.prompt('Nova senha para ' + (u.email || 'membro') + ' (mín. 6 caracteres):', ''); if (nv === null) return; nv = nv.trim(); if (nv.length < 6) { G.toast('Senha muito curta (mín. 6).'); return; } var rr = await sb.rpc('comu_admin_set_password', { p_user_id: userId, p_password: nv }); if (rr.error) { G.toast('Não foi possível: ' + rr.error.message); return; } G.toast('Senha alterada com sucesso.'); };
             panel.querySelector('#pe-save').onclick = async function () {
               var name = panel.querySelector('#pe-name').value.trim();
               var phone = panel.querySelector('#pe-phone').value.trim();
@@ -1488,10 +1490,11 @@
             : (u.role !== 'admin' ? '<button type="button" data-ban="' + u.id + '" class="w-9 h-9 rounded-full flex items-center justify-center text-error hover:bg-error/10" title="Banir"><span class="material-symbols-outlined text-[20px]">block</span></button>' : '');
           el.innerHTML = av +
             '<div class="flex-1 min-w-0"><div class="flex items-center gap-xs flex-wrap"><span class="font-bold text-on-surface truncate">' + esc(u.full_name || '(sem nome)') + '</span><span class="text-[10px] px-2 py-0.5 rounded-full ' + roleClass(u.role) + '">' + roleLabel(u.role) + '</span>' + (banned ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-error/15 text-error">Banido</span>' : '') + '</div><p class="text-body-sm text-on-surface-variant truncate">' + esc(u.email || '') + '</p></div>' +
-            '<div class="flex items-center gap-xs shrink-0"><button type="button" data-edit="' + u.id + '" class="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high" title="Editar nome"><span class="material-symbols-outlined text-[20px]">edit</span></button>' + actBan + '</div>';
+            '<div class="flex items-center gap-xs shrink-0"><button type="button" data-edit="' + u.id + '" class="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high" title="Editar nome"><span class="material-symbols-outlined text-[20px]">edit</span></button><button type="button" data-pw="' + u.id + '" class="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high" title="Alterar senha"><span class="material-symbols-outlined text-[20px]">key</span></button>' + actBan + '</div>';
           list.appendChild(el);
         });
         list.querySelectorAll('[data-edit]').forEach(function (b) { b.onclick = function () { editName(b.getAttribute('data-edit')); }; });
+        list.querySelectorAll('[data-pw]').forEach(function (b) { b.onclick = function () { setPassword(b.getAttribute('data-pw')); }; });
         list.querySelectorAll('[data-ban]').forEach(function (b) { b.onclick = function () { doBan(b.getAttribute('data-ban')); }; });
         list.querySelectorAll('[data-unban]').forEach(function (b) { b.onclick = function () { doUnban(b.getAttribute('data-unban')); }; });
       }
@@ -1502,6 +1505,14 @@
         var r = await sb.rpc('comu_rename_member', { p_user_id: id, p_name: nv }); // atualiza perfil + mensagens antigas
         if (r.error) { G.toast('Não foi possível editar: ' + r.error.message); return; }
         u.full_name = nv; paint(); G.toast('Nome atualizado.');
+      }
+      async function setPassword(id) {
+        var u = findUser(id); if (!u) return;
+        var nv = window.prompt('Nova senha para ' + (u.email || 'membro') + ' (mín. 6 caracteres):', '');
+        if (nv === null) return; nv = nv.trim(); if (nv.length < 6) { G.toast('Senha muito curta (mín. 6).'); return; }
+        var r = await sb.rpc('comu_admin_set_password', { p_user_id: id, p_password: nv });
+        if (r.error) { G.toast('Não foi possível: ' + r.error.message); return; }
+        G.toast('Senha alterada com sucesso.');
       }
       async function doBan(id) {
         var u = findUser(id); if (!u) return;
