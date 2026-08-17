@@ -445,10 +445,7 @@
           }
           var inner;
           var meBadge = isAdmin ? '<span class="inline-flex items-center gap-[2px] text-[11px] font-bold text-on-primary bg-primary rounded-full px-2 py-[1px] leading-none"><span class="material-symbols-outlined text-[13px]" style="font-variation-settings:\'FILL\' 1">verified</span>Equipe</span>' : '';
-          var modSelfTag = '';
-          if (isAdmin && mine && m.moderation === 'pending') modSelfTag = '<span class="inline-flex items-center gap-[2px] text-[11px] font-bold text-on-surface-variant bg-surface-container-high rounded-full px-2 py-[1px]"><span class="material-symbols-outlined text-[13px]">hourglass_top</span>Analisando…</span>';
-          else if (isAdmin && mine && m.moderation === 'hidden') modSelfTag = '<span class="inline-flex items-center gap-[2px] text-[11px] font-bold text-error bg-error/15 rounded-full px-2 py-[1px]"><span class="material-symbols-outlined text-[13px]">visibility_off</span>Bloqueada pela IA</span>';
-          if (mine) inner = '<div class="msg-head flex items-center gap-xs mr-sm mb-xs"><span class="text-[13px] text-on-surface-variant">' + when + '</span>' + meBadge + modSelfTag + '<span class="font-label-md text-label-md text-primary">Você</span></div><div class="message-gradient-outgoing text-white shadow-lg rounded-xl rounded-tr-none p-md' + (modSelfTag && m.moderation === 'hidden' ? ' ring-2 ring-error/60' : '') + '">' + content + '</div>';
+          if (mine) inner = '<div class="msg-head flex items-center gap-xs mr-sm mb-xs"><span class="text-[13px] text-on-surface-variant">' + when + '</span>' + meBadge + '<span class="font-label-md text-label-md text-primary">Você</span></div><div class="message-gradient-outgoing text-white shadow-lg rounded-xl rounded-tr-none p-md">' + content + '</div>';
           else {
             var isAuthorAdmin = !!(G.adminIds && m.author_id && G.adminIds[m.author_id]);
             var avRing = isAuthorAdmin ? ' ring-2 ring-primary ring-offset-1 ring-offset-surface' : '';
@@ -901,20 +898,23 @@
             return;
           }
           clearReply();
-          if (!self.destroyed) { addMessage(ins.data, true); requestAnimationFrame(function () { scrollBottom(); requestAnimationFrame(scrollBottom); }); pollModeration(ins.data); } if (isSupport) refreshTicketInfo();
+          if (!self.destroyed) {
+            if (ins.data && ins.data.moderation === 'hidden') { /* bloqueada na hora: nem exibe */ }
+            else { addMessage(ins.data, true); requestAnimationFrame(function () { scrollBottom(); requestAnimationFrame(scrollBottom); }); pollModeration(ins.data); }
+          }
+          if (isSupport) refreshTicketInfo();
         });
-        // Admin testando: acompanha a decisão da IA na própria mensagem (Analisando → Bloqueada/Liberada)
+        // Após enviar: se a IA bloquear, a própria mensagem some da tela do autor (sem avisar que foi bloqueada).
         function pollModeration(m) {
-          if (!isAdmin || !m || !m.id || m.moderation !== 'pending') return;
+          if (!m || !m.id || m.moderation !== 'pending') return;
           var tries = 0;
           var iv = setInterval(async function () {
             tries++;
             if (self.destroyed || tries > 12) { clearInterval(iv); return; }
             var r = await sb.from('comu_messages').select('moderation').eq('id', m.id).maybeSingle();
             if (r && r.data && r.data.moderation && r.data.moderation !== 'pending') {
-              clearInterval(iv); m.moderation = r.data.moderation;
-              var wrap = msgsEl.querySelector('[data-msg-id="' + m.id + '"]');
-              if (wrap) renderMsgBody(wrap.querySelector('.msg-body'), m, true);
+              clearInterval(iv);
+              if (r.data.moderation === 'hidden') removeMessage(m.id); // bloqueada: some silenciosamente
             }
           }, 1200);
         }
