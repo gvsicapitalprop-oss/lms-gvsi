@@ -569,7 +569,7 @@
           removeAuthorMessages(m.author_id);
           G.toast((m.author_name || 'Membro') + ' foi banido.');
         }
-        function updateMessage(m) { var wrap = msgsEl.querySelector('[data-msg-id="' + m.id + '"]'); if (!wrap) { if (m && m.moderation === 'ok' && m.status !== 'deleted' && (Date.now() - new Date(m.created_at).getTime()) < 600000) addMessage(m, nearBottom()); return; } renderMsgBody(wrap.querySelector('.msg-body'), m, me.id && m.author_id === me.id); if (m.status === 'deleted') { var rr = wrap.querySelector('.react-row'); if (rr) rr.innerHTML = ''; } }
+        function updateMessage(m) { if (m && m.status === 'deleted') { removeMessage(m.id); return; } var wrap = msgsEl.querySelector('[data-msg-id="' + m.id + '"]'); if (!wrap) { if (m && m.moderation === 'ok' && (Date.now() - new Date(m.created_at).getTime()) < 600000) addMessage(m, nearBottom()); return; } renderMsgBody(wrap.querySelector('.msg-body'), m, me.id && m.author_id === me.id); }
         async function doApprove(m) {
           var up = await sb.from('comu_messages').update({ moderation: 'ok' }).eq('id', m.id).select('id,moderation').single();
           if (up.error) { G.toast('Não foi possível: ' + up.error.message); return; }
