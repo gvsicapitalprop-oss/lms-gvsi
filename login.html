@@ -89,8 +89,21 @@ html.dark #gvsi-splash .r{border-color:rgba(157,184,255,.22);border-top-color:#9
 <span id="submit-label">Entrar</span>
 </button>
 </form>
+<button type="button" id="forgot-btn" class="w-full text-center text-body-sm text-primary hover:underline mt-1">Esqueci minha senha</button>
 
-<div class="flex items-start gap-sm bg-primary/5 border border-primary/20 rounded-xl px-3 py-2 text-body-sm text-on-surface-variant">
+<form id="recovery-form" class="hidden space-y-md">
+<div>
+<label class="block text-label-md font-label-md text-on-surface-variant mb-xs" for="rec-pw">Nova senha</label>
+<input id="rec-pw" type="text" autocomplete="new-password" class="w-full bg-surface-container-low border border-outline-variant rounded-xl py-3 px-4 focus:ring-2 focus:ring-primary focus:border-primary transition-all text-body-md text-on-surface" placeholder="Mínimo 6 caracteres">
+</div>
+<div>
+<label class="block text-label-md font-label-md text-on-surface-variant mb-xs" for="rec-pw2">Confirmar nova senha</label>
+<input id="rec-pw2" type="text" autocomplete="new-password" class="w-full bg-surface-container-low border border-outline-variant rounded-xl py-3 px-4 focus:ring-2 focus:ring-primary focus:border-primary transition-all text-body-md text-on-surface" placeholder="Repita a senha">
+</div>
+<button id="rec-save" type="submit" class="w-full h-12 bg-primary text-on-primary rounded-xl font-headline-sm text-headline-sm flex items-center justify-center shadow-md active:scale-[0.98] transition-all disabled:opacity-60">Salvar nova senha</button>
+</form>
+
+<div id="first-access-box" class="flex items-start gap-sm bg-primary/5 border border-primary/20 rounded-xl px-3 py-2 text-body-sm text-on-surface-variant">
 <span class="material-symbols-outlined text-[20px] text-primary shrink-0">tips_and_updates</span>
 <span class="text-balance"><b>Primeiro acesso?</b> Digite seu e-mail, <b>deixe a senha em branco</b> e toque em <b>Entrar</b>. Você cria a sua senha na próxima tela.</span>
 </div>
@@ -116,12 +129,25 @@ html.dark #gvsi-splash .r{border-color:rgba(157,184,255,.22);border-top-color:#9
     m.classList.remove('hidden');
   }
 
-  // Já logado? vai direto pro app.
+  // Detecta retorno do link de "esqueci a senha" (recuperação) — NÃO entrar direto no app.
+  var isRecovery = /type=recovery/.test(location.hash || '') || /type=recovery/.test(location.search || '');
+
+  // Já logado? vai direto pro app (a menos que seja recuperação de senha).
   if (sb) {
-    sb.auth.getSession().then(function (r) { if (r.data.session) location.replace('/'); });
+    if (!isRecovery) sb.auth.getSession().then(function (r) { if (r.data.session && !isRecovery) location.replace('/'); });
+    sb.auth.onAuthStateChange(function (event) { if (event === 'PASSWORD_RECOVERY') enterRecovery(); });
   } else {
     showMsg('Falha ao conectar no servidor. Recarregue a página.', false);
   }
+
+  function enterRecovery() {
+    isRecovery = true;
+    ['auth-form', 'forgot-btn', 'first-access-box'].forEach(function (id) { var el = $(id); if (el) el.classList.add('hidden'); });
+    var rf = $('recovery-form'); if (rf) rf.classList.remove('hidden');
+    showMsg('Crie a sua nova senha abaixo.', true);
+    var f = $('rec-pw'); if (f) f.focus();
+  }
+  if (isRecovery) enterRecovery();
 
   // Senha temporária interna do 1º acesso (a pessoa nunca vê nem digita).
   // No pré-cadastro cada conta nasce com esta senha; ao criar a senha própria, ela é substituída.
@@ -131,6 +157,36 @@ html.dark #gvsi-splash .r{border-color:rgba(157,184,255,.22);border-top-color:#9
     var tg = $('toggle-pw'), pw = $('password'), ic = $('toggle-pw-icon');
     if (tg && pw) tg.addEventListener('click', function () { var show = pw.type === 'password'; pw.type = show ? 'text' : 'password'; if (ic) ic.textContent = show ? 'visibility_off' : 'visibility'; tg.setAttribute('aria-label', show ? 'Ocultar senha' : 'Mostrar senha'); pw.focus(); });
   })();
+  // "Esqueci minha senha" — envia o link de redefinição por e-mail
+  $('forgot-btn').addEventListener('click', async function () {
+    if (!sb) return;
+    var email = $('email').value.trim().toLowerCase();
+    if (!email) { showMsg('Digite o seu e-mail acima e toque em "Esqueci minha senha".', false); $('email').focus(); return; }
+    $('forgot-btn').disabled = true; showMsg('Enviando o link para o seu e-mail...', true);
+    try {
+      var r = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + '/login' });
+      if (r.error) { showMsg('Não foi possível enviar: ' + r.error.message, false); }
+      else { showMsg('Enviamos um link de redefinição para ' + email + '. Verifique a caixa de entrada (e o spam).', true); }
+    } catch (err) { showMsg('Não foi possível enviar o link agora.', false); }
+    finally { $('forgot-btn').disabled = false; }
+  });
+
+  // Salvar a nova senha (após clicar no link do e-mail)
+  $('recovery-form').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    if (!sb) return;
+    var p1 = $('rec-pw').value, p2 = $('rec-pw2').value;
+    if ((p1 || '').length < 6) { showMsg('A senha precisa ter ao menos 6 caracteres.', false); return; }
+    if (p1 !== p2) { showMsg('As senhas não conferem.', false); return; }
+    $('rec-save').disabled = true; showMsg('Salvando a nova senha...', true);
+    try {
+      var r = await sb.auth.updateUser({ password: p1 });
+      if (r.error) { showMsg('Não foi possível: ' + r.error.message, false); $('rec-save').disabled = false; return; }
+      showMsg('Senha alterada com sucesso! Entrando...', true);
+      setTimeout(function () { location.replace('/'); }, 900);
+    } catch (err) { showMsg('Não foi possível salvar agora.', false); $('rec-save').disabled = false; }
+  });
+
   $('auth-form').addEventListener('submit', async function (e) {
     e.preventDefault();
     if (!sb) return;
