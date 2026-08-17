@@ -48,7 +48,7 @@ GVSI.views = GVSI.views || {};
       var panel = document.createElement('div'); panel.className = 'w-full max-w-sm bg-surface-container-lowest rounded-2xl shadow-xl border border-outline-variant/40 p-lg space-y-md';
       panel.innerHTML = '<h3 class="font-headline-sm text-headline-sm text-on-surface">' + G.esc(opts.title || '') + '</h3>'
         + (opts.text ? '<p class="text-body-sm text-on-surface-variant">' + G.esc(opts.text) + '</p>' : '')
-        + '<input id="pd-input" type="' + (opts.type || 'text') + '" autocomplete="off" class="w-full bg-surface-container-low border border-outline-variant rounded-xl px-3 py-2 text-body-md text-on-surface focus:ring-2 focus:ring-primary/30" placeholder="' + G.esc(opts.placeholder || '') + '" value="' + G.esc(opts.value || '') + '">'
+        + '<input id="pd-input" type="' + (opts.type || 'text') + '" autocomplete="' + (opts.type === 'password' ? 'new-password' : 'off') + '" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" data-form-type="other" name="pd-field-' + Math.floor(Date.now() % 1e6) + '" class="w-full bg-surface-container-low border border-outline-variant rounded-xl px-3 py-2 text-body-md text-on-surface focus:ring-2 focus:ring-primary/30" placeholder="' + G.esc(opts.placeholder || '') + '" value="' + G.esc(opts.value || '') + '">'
         + '<div class="flex gap-sm justify-end pt-sm"><button type="button" id="pd-cancel" class="h-10 px-4 rounded-full text-on-surface font-label-md hover:bg-surface-container-high">Cancelar</button><button type="button" id="pd-ok" class="h-10 px-4 rounded-full bg-primary text-on-primary font-label-md active:scale-95 transition">' + G.esc(opts.ok || 'Salvar') + '</button></div>';
       ov.appendChild(panel); document.body.appendChild(ov);
       var input = panel.querySelector('#pd-input');
@@ -58,7 +58,8 @@ GVSI.views = GVSI.views || {};
       panel.querySelector('#pd-ok').onclick = function () { done(input.value); };
       ov.addEventListener('click', function (e) { if (e.target === ov) done(null); });
       document.addEventListener('keydown', onKey);
-      setTimeout(function () { input.focus(); input.select(); }, 30);
+      setTimeout(function () { if (opts.type === 'password') input.value = opts.value || ''; input.focus(); input.select(); }, 30);
+      setTimeout(function () { if (opts.type === 'password' && input.value !== (opts.value || '')) input.value = opts.value || ''; }, 200);
     });
   };
   // Player de áudio customizado: corrige a duração de WebM (MediaRecorder não grava metadata,
