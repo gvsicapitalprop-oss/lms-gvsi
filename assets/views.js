@@ -451,10 +451,13 @@
             var av = m.author_avatar ? '<img src="' + esc(m.author_avatar) + '" class="msg-av w-8 h-8 rounded-full object-cover shrink-0' + avRing + '" alt="">' : '<span class="msg-av w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center text-outline shrink-0' + avRing + '"><span class="material-symbols-outlined text-[18px]">person</span></span>';
             var nameCls = isAuthorAdmin ? 'font-label-md text-label-md text-primary font-bold' : 'font-label-md text-label-md text-on-surface-variant';
             var adminBadge = isAuthorAdmin ? '<span class="inline-flex items-center gap-[2px] text-[11px] font-bold text-on-primary bg-primary rounded-full px-2 py-[1px] leading-none"><span class="material-symbols-outlined text-[13px]" style="font-variation-settings:\'FILL\' 1">verified</span>Equipe</span>' : '';
+            var modHidden = isAdmin && m.moderation === 'hidden';
+            var modTag = modHidden ? '<span class="inline-flex items-center gap-[2px] text-[10px] font-bold text-error bg-error/15 rounded-full px-2 py-[1px]"><span class="material-symbols-outlined text-[12px]">visibility_off</span>Oculto</span>' : '';
             var bubbleCls = isAuthorAdmin
               ? 'bg-primary/10 dark:bg-primary/20 shadow-[0px_6px_24px_rgba(0,0,0,0.10)] rounded-xl rounded-tl-none p-md border-2 border-primary/50 ring-1 ring-primary/15'
               : 'bg-surface-container-high shadow-[0px_4px_20px_rgba(0,0,0,0.05)] rounded-xl rounded-tl-none p-md border border-outline-variant/40';
-            inner = '<div class="flex items-start gap-sm">' + av + '<div class="flex flex-col min-w-0"><div class="msg-head flex items-center gap-xs ml-sm mb-xs"><span class="' + nameCls + '">' + esc(G.shortName(m.author_name) || 'Membro') + '</span>' + adminBadge + '<span class="text-[13px] text-on-surface-variant">' + when + '</span></div><div class="' + bubbleCls + '">' + content + '</div></div></div>';
+            if (modHidden) bubbleCls += ' ring-2 ring-error/50 opacity-70';
+            inner = '<div class="flex items-start gap-sm">' + av + '<div class="flex flex-col min-w-0"><div class="msg-head flex items-center gap-xs ml-sm mb-xs"><span class="' + nameCls + '">' + esc(G.shortName(m.author_name) || 'Membro') + '</span>' + adminBadge + modTag + '<span class="text-[13px] text-on-surface-variant">' + when + '</span></div><div class="' + bubbleCls + '">' + content + '</div></div></div>';
           }
           container.innerHTML = inner;
           G.mountAudios(container);
@@ -478,6 +481,7 @@
               if (cEdit) it.push({ icon: 'edit', label: 'Editar', run: function () { startEdit(mm); } });
               if (cDelete) it.push({ icon: 'delete', label: 'Apagar', danger: true, run: function () { doDelete(mm); } });
               if (cBan) it.push({ icon: 'gavel', label: 'Banir usuário', danger: true, run: function () { doBan(mm); } });
+              if (isAdmin && mm.moderation === 'hidden') it.unshift({ icon: 'visibility', label: 'Mostrar a todos', run: function () { doApprove(mm); } });
               return it;
             };
             container.addEventListener('contextmenu', function (e) { e.preventDefault(); openMsgMenu(e.clientX, e.clientY, buildItems()); });
@@ -565,7 +569,12 @@
           removeAuthorMessages(m.author_id);
           G.toast((m.author_name || 'Membro') + ' foi banido.');
         }
-        function updateMessage(m) { var wrap = msgsEl.querySelector('[data-msg-id="' + m.id + '"]'); if (!wrap) return; renderMsgBody(wrap.querySelector('.msg-body'), m, me.id && m.author_id === me.id); if (m.status === 'deleted') { var rr = wrap.querySelector('.react-row'); if (rr) rr.innerHTML = ''; } }
+        function updateMessage(m) { var wrap = msgsEl.querySelector('[data-msg-id="' + m.id + '"]'); if (!wrap) { if (m && m.moderation === 'ok' && m.status !== 'deleted' && (Date.now() - new Date(m.created_at).getTime()) < 600000) addMessage(m, nearBottom()); return; } renderMsgBody(wrap.querySelector('.msg-body'), m, me.id && m.author_id === me.id); if (m.status === 'deleted') { var rr = wrap.querySelector('.react-row'); if (rr) rr.innerHTML = ''; } }
+        async function doApprove(m) {
+          var up = await sb.from('comu_messages').update({ moderation: 'ok' }).eq('id', m.id).select('id,moderation').single();
+          if (up.error) { G.toast('Não foi possível: ' + up.error.message); return; }
+          m.moderation = 'ok'; var wrap = msgsEl.querySelector('[data-msg-id="' + m.id + '"]'); if (wrap) renderMsgBody(wrap.querySelector('.msg-body'), m, me.id && m.author_id === me.id); G.toast('Mensagem liberada para todos.');
+        }
 
         // ---- abrir imagem (lightbox) + editor de corte/redimensionamento (admin) ----
         function openLightbox(url, m) {
@@ -753,7 +762,7 @@
         if (topic) {
           // Carrega as N mais RECENTES (não as antigas) e pagina pra cima ao rolar.
           var CH_PAGE = 40;
-          var COLS = 'id,topic_id,author_id,ticket_id,kind,body,media_url,media_meta,author_name,author_avatar,status,created_at,edited_at,reply_to,reply_author,reply_snippet';
+          var COLS = 'id,topic_id,author_id,ticket_id,kind,body,media_url,media_meta,author_name,author_avatar,status,created_at,edited_at,reply_to,reply_author,reply_snippet,moderation';
           var oldestTs = null, noOlder = false, loadingOlder = false;
           var lr = await sb.from('comu_messages').select(COLS).eq('topic_id', topic.id).neq('status', 'deleted').order('created_at', { ascending: false }).limit(CH_PAGE);
           if (self.destroyed) return;
