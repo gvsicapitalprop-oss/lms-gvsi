@@ -399,6 +399,7 @@
           var kind = ty.indexOf('image') === 0 ? 'image' : (ty.indexOf('video') === 0 ? 'video' : (ty.indexOf('audio') === 0 ? 'audio' : null));
           if (!kind) { if (isAdmin) kind = 'file'; else { G.toast('Só imagem, vídeo ou áudio.'); return; } } // admin pode enviar qualquer arquivo
           if (kind === 'video' && !isAdmin) { G.toast('Vídeo é só para a equipe.'); return; }
+          if (kind === 'audio' && !isAdmin && !isSupport) { G.toast('Áudio só pode ser enviado no suporte.'); return; }
           if (kind === 'image') { openImageComposer(file); return; } // imagem: redimensionar/legendar antes de enviar
           G.toast('Enviando…');
           try {
@@ -865,7 +866,9 @@
           try { self.mediaRecorder.stop(); } catch (e) { stopStream(); }
         }
         var micBtn = document.getElementById('btn-mic');
-        if (micBtn) micBtn.addEventListener('click', function () { if (!self.recording) startRecording(); });
+        // Áudio: alunos só no suporte. Admin/equipe em qualquer lugar.
+        if (micBtn && !isAdmin && !isSupport) { micBtn.classList.add('hidden'); }
+        else if (micBtn) micBtn.addEventListener('click', function () { if (!self.recording) startRecording(); });
         // Ao anexar, leva o texto já digitado no chat como legenda da mídia (não perde a mensagem).
         var attachBtn = document.getElementById('btn-attach');
         if (attachBtn) attachBtn.addEventListener('click', function () { try { var ci = document.getElementById('chat-input'); G._draftCaption = ci ? (ci.innerText || '').trim() : ''; if (ci) ci.innerHTML = ''; } catch (e) {} });
@@ -945,10 +948,12 @@
       document.getElementById('file-audio').addEventListener('change', function () { if (this.files[0]) showSel(this.files[0], 'audio'); });
       document.getElementById('act-file').addEventListener('click', function () { document.getElementById('file-any').click(); });
       document.getElementById('file-any').addEventListener('change', function () { if (this.files[0]) showSel(this.files[0], 'file'); });
-      // #7 — membros enviam FOTO e ÁUDIO; VÍDEO só admin. Admin também envia ARQUIVO de qualquer tipo.
+      // #7 — membro: FOTO sempre; VÍDEO só admin; ÁUDIO só no suporte. Admin envia ARQUIVO de qualquer tipo.
       if (me.role !== 'admin') {
-        var ag = document.getElementById('act-grid'); if (ag) ag.className = 'grid grid-cols-2 gap-sm';
         var av = document.getElementById('act-video'); if (av) av.classList.add('hidden');
+        var isSup = !!(topic && topic.post_policy === 'support');
+        if (!isSup) { var aa = document.getElementById('act-audio'); if (aa) aa.classList.add('hidden'); }
+        var ag = document.getElementById('act-grid'); if (ag) ag.className = 'grid grid-cols-' + (isSup ? '2' : '1') + ' gap-sm';
       } else {
         var af = document.getElementById('act-file'); if (af) { af.classList.remove('hidden'); af.classList.add('flex'); }
         var ag2 = document.getElementById('act-grid'); if (ag2) ag2.className = 'grid grid-cols-2 gap-sm'; // 4 itens em 2x2
