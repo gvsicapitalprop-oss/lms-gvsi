@@ -40,6 +40,79 @@ GVSI.views = GVSI.views || {};
   // Exibição: só os 2 primeiros nomes (o nome completo continua no banco).
   G.shortName = function (name) { var p = String(name || '').trim().split(/\s+/).filter(Boolean); return p.slice(0, 2).join(' '); };
   G.humanSize = function (n) { n = +n || 0; return n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : (n >= 1024 ? Math.round(n / 1024) + ' KB' : n + ' B'); };
+  // Modal de entrada de texto (substitui window.prompt do navegador)
+  G.promptDialog = function (opts) {
+    opts = opts || {};
+    return new Promise(function (resolve) {
+      var ov = document.createElement('div'); ov.className = 'fixed inset-0 z-[97] flex items-center justify-center p-container-margin bg-black/40';
+      var panel = document.createElement('div'); panel.className = 'w-full max-w-sm bg-surface-container-lowest rounded-2xl shadow-xl border border-outline-variant/40 p-lg space-y-md';
+      panel.innerHTML = '<h3 class="font-headline-sm text-headline-sm text-on-surface">' + G.esc(opts.title || '') + '</h3>'
+        + (opts.text ? '<p class="text-body-sm text-on-surface-variant">' + G.esc(opts.text) + '</p>' : '')
+        + '<input id="pd-input" type="' + (opts.type || 'text') + '" autocomplete="off" class="w-full bg-surface-container-low border border-outline-variant rounded-xl px-3 py-2 text-body-md text-on-surface focus:ring-2 focus:ring-primary/30" placeholder="' + G.esc(opts.placeholder || '') + '" value="' + G.esc(opts.value || '') + '">'
+        + '<div class="flex gap-sm justify-end pt-sm"><button type="button" id="pd-cancel" class="h-10 px-4 rounded-full text-on-surface font-label-md hover:bg-surface-container-high">Cancelar</button><button type="button" id="pd-ok" class="h-10 px-4 rounded-full bg-primary text-on-primary font-label-md active:scale-95 transition">' + G.esc(opts.ok || 'Salvar') + '</button></div>';
+      ov.appendChild(panel); document.body.appendChild(ov);
+      var input = panel.querySelector('#pd-input');
+      function done(v) { ov.remove(); document.removeEventListener('keydown', onKey); resolve(v); }
+      function onKey(e) { if (e.key === 'Escape') done(null); else if (e.key === 'Enter') { e.preventDefault(); done(input.value); } }
+      panel.querySelector('#pd-cancel').onclick = function () { done(null); };
+      panel.querySelector('#pd-ok').onclick = function () { done(input.value); };
+      ov.addEventListener('click', function (e) { if (e.target === ov) done(null); });
+      document.addEventListener('keydown', onKey);
+      setTimeout(function () { input.focus(); input.select(); }, 30);
+    });
+  };
+  // Player de áudio customizado: corrige a duração de WebM (MediaRecorder não grava metadata,
+  // o que deixa a barra/tempo "fora de sincronia" no player nativo) e permite velocidade até 2.5x.
+  G.audioHtml = function (url, mine) {
+    var e = G.esc, accent = mine ? '#ffffff' : '#8300E9';
+    var wrap = mine ? 'bg-white/15' : 'bg-black/10 dark:bg-white/10';
+    var fg = mine ? 'text-white' : 'text-on-surface', sub = mine ? 'text-white/80' : 'text-on-surface-variant';
+    var pbtn = mine ? 'bg-white/25 text-white' : 'bg-primary text-on-primary';
+    return '<div data-gvsi-audio class="flex items-center gap-2 rounded-full px-2 py-1.5 ' + wrap + ' w-[260px] max-w-full">'
+      + '<audio preload="metadata" src="' + e(url) + '" class="hidden"></audio>'
+      + '<button type="button" class="ga-play shrink-0 w-9 h-9 rounded-full flex items-center justify-center ' + pbtn + '"><span class="material-symbols-outlined text-[22px]">play_arrow</span></button>'
+      + '<span class="ga-cur text-[12px] tabular-nums shrink-0 ' + fg + '">0:00</span>'
+      + '<input type="range" class="ga-seek flex-1 h-1 cursor-pointer" min="0" max="1000" value="0" style="min-width:50px;accent-color:' + accent + '">'
+      + '<span class="ga-dur text-[12px] tabular-nums shrink-0 ' + sub + '">0:00</span>'
+      + '<button type="button" class="ga-speed shrink-0 text-[12px] font-bold w-8 text-center ' + fg + '" title="Velocidade">1x</button>'
+      + '</div>';
+  };
+  G.mountAudios = function (root) {
+    var scope = root || document;
+    var els = scope.querySelectorAll ? scope.querySelectorAll('[data-gvsi-audio]:not([data-ga-init])') : [];
+    Array.prototype.forEach.call(els, function (el) {
+      el.setAttribute('data-ga-init', '1');
+      var audio = el.querySelector('audio'), play = el.querySelector('.ga-play'), icon = play.querySelector('.material-symbols-outlined');
+      var cur = el.querySelector('.ga-cur'), dur = el.querySelector('.ga-dur'), seek = el.querySelector('.ga-seek'), speed = el.querySelector('.ga-speed');
+      var SPEEDS = [1, 1.5, 2, 2.5], si = 0, fixed = false, seeking = false;
+      function fmt(t) { if (!isFinite(t) || t < 0) t = 0; var m = Math.floor(t / 60), s = Math.floor(t % 60); return m + ':' + (s < 10 ? '0' + s : s); }
+      audio.addEventListener('loadedmetadata', function () { if (isFinite(audio.duration) && audio.duration > 0) { fixed = true; dur.textContent = fmt(audio.duration); } });
+      function fixDuration() {
+        return new Promise(function (res) {
+          if (fixed || (isFinite(audio.duration) && audio.duration > 0)) { fixed = true; dur.textContent = fmt(audio.duration); return res(); }
+          var done = function () { if (audio.duration === Infinity || isNaN(audio.duration)) return; audio.removeEventListener('durationchange', done); fixed = true; dur.textContent = fmt(audio.duration); try { audio.currentTime = 0; } catch (e) {} res(); };
+          audio.addEventListener('durationchange', done);
+          try { audio.currentTime = 1e101; } catch (e) { res(); }
+          setTimeout(function () { if (!fixed) { fixed = true; res(); } }, 900);
+        });
+      }
+      function onTime() { if (seeking) return; var d = audio.duration; if (isFinite(d) && d > 0) seek.value = String(Math.round(audio.currentTime / d * 1000)); cur.textContent = fmt(audio.currentTime); }
+      audio.addEventListener('timeupdate', onTime);
+      audio.addEventListener('play', function () { icon.textContent = 'pause'; });
+      audio.addEventListener('pause', function () { icon.textContent = 'play_arrow'; });
+      audio.addEventListener('ended', function () { icon.textContent = 'play_arrow'; seek.value = '0'; cur.textContent = fmt(0); });
+      play.addEventListener('click', async function () {
+        if (!audio.paused) { audio.pause(); return; }
+        try { document.querySelectorAll('[data-gvsi-audio] audio').forEach(function (a) { if (a !== audio) a.pause(); }); } catch (e) {}
+        if (!fixed) await fixDuration();
+        audio.playbackRate = SPEEDS[si];
+        audio.play();
+      });
+      seek.addEventListener('input', function () { seeking = true; var d = audio.duration; if (isFinite(d) && d > 0) cur.textContent = fmt(d * seek.value / 1000); });
+      seek.addEventListener('change', function () { var d = audio.duration; if (isFinite(d) && d > 0) audio.currentTime = d * seek.value / 1000; seeking = false; });
+      speed.addEventListener('click', function () { si = (si + 1) % SPEEDS.length; audio.playbackRate = SPEEDS[si]; speed.textContent = SPEEDS[si] + 'x'; });
+    });
+  };
   // Visualizador de imagem em tela cheia (usado no suporte e onde precisar)
   G.lightbox = function (url) {
     if (!url) return;

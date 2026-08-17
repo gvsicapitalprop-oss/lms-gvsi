@@ -435,7 +435,7 @@
           var content;
           if (m.kind === 'image' && m.media_url) content = '<img src="' + esc(m.media_url) + '" data-full="' + esc(m.media_url) + '" class="msg-img rounded-lg max-w-full mb-xs cursor-zoom-in" alt="">' + (m.body ? '<p class="' + (mine ? '' : 'text-on-surface ') + 'font-body-md">' + G.fmt(m.body) + edited + '</p>' : '');
           else if (m.kind === 'video' && m.media_url) content = '<video controls preload="metadata" src="' + esc(m.media_url) + '" class="rounded-lg max-w-full mb-xs" style="max-height:20rem"></video>' + (m.body ? '<p class="' + (mine ? '' : 'text-on-surface ') + 'font-body-md">' + G.fmt(m.body) + edited + '</p>' : '');
-          else if (m.kind === 'audio' && m.media_url) content = '<audio controls src="' + esc(m.media_url) + '" class="max-w-full"></audio>';
+          else if (m.kind === 'audio' && m.media_url) content = G.audioHtml(m.media_url, mine);
           else if (m.kind === 'file' && m.media_url) content = G.fileCard(m, mine) + (m.body ? '<p class="' + (mine ? '' : 'text-on-surface ') + 'font-body-md mt-xs">' + G.fmt(m.body) + edited + '</p>' : '');
           else content = '<p class="' + (mine ? '' : 'text-on-surface ') + 'font-body-md whitespace-pre-wrap break-words">' + G.fmt(m.body) + edited + '</p>';
           if (m.reply_to && (m.reply_snippet || m.reply_author)) {
@@ -457,6 +457,7 @@
             inner = '<div class="flex items-start gap-sm">' + av + '<div class="flex flex-col min-w-0"><div class="msg-head flex items-center gap-xs ml-sm mb-xs"><span class="' + nameCls + '">' + esc(G.shortName(m.author_name) || 'Membro') + '</span>' + adminBadge + '<span class="text-[13px] text-on-surface-variant">' + when + '</span></div><div class="' + bubbleCls + '">' + content + '</div></div></div>';
           }
           container.innerHTML = inner;
+          G.mountAudios(container);
           var qEl = container.querySelector('.reply-quote');
           if (qEl) qEl.addEventListener('click', function () { var t = msgsEl.querySelector('[data-msg-id="' + qEl.getAttribute('data-goto') + '"]'); if (t) { t.scrollIntoView({ behavior: 'smooth', block: 'center' }); t.style.transition = 'background-color .3s'; t.style.backgroundColor = 'rgba(37,99,235,0.15)'; setTimeout(function () { t.style.backgroundColor = ''; }, 900); } });
           var mimg = container.querySelector('.msg-img');
@@ -1198,7 +1199,7 @@
               '<div class="flex gap-sm justify-end pt-sm"><button type="button" class="pe-close h-10 px-4 rounded-full text-on-surface font-label-md hover:bg-surface-container-high">Cancelar</button><button type="button" id="pe-save" class="h-10 px-4 rounded-full bg-primary text-on-primary font-label-md active:scale-95 transition">Salvar</button></div>';
             panel.querySelectorAll('.pe-close').forEach(function (b) { b.onclick = function () { overlay.remove(); }; });
             var cp = panel.querySelector('#pe-copy'); if (cp) cp.onclick = function () { try { navigator.clipboard.writeText(u.email); G.toast('E-mail copiado.'); } catch (e) { G.toast(u.email); } };
-            panel.querySelector('#pe-pw').onclick = async function () { var nv = window.prompt('Nova senha para ' + (u.email || 'membro') + ' (mín. 6 caracteres):', ''); if (nv === null) return; nv = nv.trim(); if (nv.length < 6) { G.toast('Senha muito curta (mín. 6).'); return; } var rr = await sb.rpc('comu_admin_set_password', { p_user_id: userId, p_password: nv }); if (rr.error) { G.toast('Não foi possível: ' + rr.error.message); return; } G.toast('Senha alterada com sucesso.'); };
+            panel.querySelector('#pe-pw').onclick = async function () { var nv = await G.promptDialog({ title: 'Alterar senha', text: 'Definir nova senha para ' + (u.email || 'membro') + '.', placeholder: 'Mínimo 6 caracteres', type: 'password', ok: 'Salvar' }); if (nv === null) return; nv = nv.trim(); if (nv.length < 6) { G.toast('Senha muito curta (mín. 6).'); return; } var rr = await sb.rpc('comu_admin_set_password', { p_user_id: userId, p_password: nv }); if (rr.error) { G.toast('Não foi possível: ' + rr.error.message); return; } G.toast('Senha alterada com sucesso.'); };
             panel.querySelector('#pe-save').onclick = async function () {
               var name = panel.querySelector('#pe-name').value.trim();
               var phone = panel.querySelector('#pe-phone').value.trim();
@@ -1273,7 +1274,7 @@
         function contentHtml(msg) {
           if (msg.kind === 'image' && msg.media_url) return '<img src="' + esc(msg.media_url) + '" data-full="' + esc(msg.media_url) + '" class="sup-img rounded-lg max-w-full cursor-zoom-in">';
           if (msg.kind === 'video' && msg.media_url) return '<video controls preload="metadata" src="' + esc(msg.media_url) + '" class="rounded-lg max-w-full" style="max-height:20rem"></video>';
-          if (msg.kind === 'audio' && msg.media_url) return '<audio controls src="' + esc(msg.media_url) + '" class="max-w-full"></audio>';
+          if (msg.kind === 'audio' && msg.media_url) return G.audioHtml(msg.media_url, msg.author_id === me.id);
           if (msg.kind === 'file' && msg.media_url) return G.fileCard(msg, msg.author_id === me.id) + (msg.body ? '<p class="font-body-md mt-xs">' + G.fmt(msg.body) + '</p>' : '');
           var mine = msg.author_id === me.id; var edited = msg.status === 'edited' ? ' <span class="text-[12px] opacity-80">(editado)</span>' : '';
           return '<p class="font-body-md whitespace-pre-wrap break-words ' + (mine ? '' : 'text-on-surface') + '">' + G.fmt(msg.body || '') + edited + '</p>';
@@ -1286,7 +1287,7 @@
         async function doDeleteSup(id) { var ok = await G.confirmDialog({ title: 'Apagar esta mensagem?', text: 'Essa ação não pode ser desfeita.', ok: 'Apagar', danger: true }); if (!ok) return; var del = await sb.from('comu_messages').delete().eq('id', id); if (del.error) { G.toast('Não foi possível apagar: ' + del.error.message); return; } var w = document.querySelector('#convo-messages [data-msg-id="' + id + '"]'); if (w) w.remove(); }
         function supItems(id) { var m = self.msgById[id]; if (!m) return []; var mine = m.author_id === me.id; var items = [{ icon: 'add_reaction', label: 'Reagir', run: function () { var b = document.querySelector('#convo-messages [data-msg-id="' + id + '"] .sup-bubble'); openSupPicker(b || document.body, id); } }]; if (mine && m.kind === 'text') items.push({ icon: 'edit', label: 'Editar', run: function () { startEditSup(id); } }); items.push({ icon: 'delete', label: 'Apagar', danger: true, run: function () { doDeleteSup(id); } }); return items; }
         function bindSupActions(bubble, id) { bubble.addEventListener('contextmenu', function (e) { e.preventDefault(); openSupMenu(e.clientX, e.clientY, supItems(id)); }); var lpT = null, lx = 0, ly = 0, mv = false; bubble.addEventListener('touchstart', function (e) { if (!e.touches[0]) return; mv = false; lx = e.touches[0].clientX; ly = e.touches[0].clientY; lpT = setTimeout(function () { if (!mv) openSupMenu(lx, ly, supItems(id)); }, 500); }, { passive: true }); bubble.addEventListener('touchmove', function (e) { if (e.touches[0] && (Math.abs(e.touches[0].clientX - lx) > 10 || Math.abs(e.touches[0].clientY - ly) > 10)) { mv = true; if (lpT) { clearTimeout(lpT); lpT = null; } } }, { passive: true }); ['touchend', 'touchcancel'].forEach(function (ev) { bubble.addEventListener(ev, function () { if (lpT) { clearTimeout(lpT); lpT = null; } }); }); }
-        function updateMsgSup(msg) { if (!msg || !msg.id) return; self.msgById[msg.id] = msg; var bubble = document.querySelector('#convo-messages [data-msg-id="' + msg.id + '"] .sup-bubble'); if (bubble) bubble.innerHTML = contentHtml(msg); }
+        function updateMsgSup(msg) { if (!msg || !msg.id) return; self.msgById[msg.id] = msg; var bubble = document.querySelector('#convo-messages [data-msg-id="' + msg.id + '"] .sup-bubble'); if (bubble) { bubble.innerHTML = contentHtml(msg); G.mountAudios(bubble); } }
         function addMsg(msg) {
           if (self.seen[msg.id]) return; self.seen[msg.id] = true;
           var container = document.getElementById('convo-messages');
@@ -1298,7 +1299,7 @@
           var mine = msg.author_id === me.id;
           var wrap = document.createElement('div'); wrap.setAttribute('data-msg-id', msg.id);
           var bubble = document.createElement('div'); bubble.className = 'sup-bubble ' + (mine ? 'message-gradient-outgoing text-white rounded-xl rounded-tr-none p-md shadow' : 'bg-surface-container-lowest border border-outline-variant/30 rounded-xl rounded-tl-none p-md');
-          bubble.innerHTML = contentHtml(msg);
+          bubble.innerHTML = contentHtml(msg); G.mountAudios(bubble);
           var react = document.createElement('div'); react.setAttribute('data-react-sup', msg.id); react.className = 'flex flex-wrap items-center gap-xs mt-xs ' + (mine ? 'justify-end' : '');
           if (mine) { wrap.className = 'flex flex-col items-end gap-xs max-w-[80%] self-end'; var _t = document.createElement('span'); _t.className = 'text-[13px] text-on-surface-variant mr-sm'; _t.textContent = G.timeStr(msg.created_at); wrap.appendChild(_t); wrap.appendChild(bubble); wrap.appendChild(react); }
           else {
@@ -1500,7 +1501,7 @@
       }
       async function editName(id) {
         var u = findUser(id); if (!u) return;
-        var nv = window.prompt('Novo nome para ' + (u.email || 'membro') + ':', u.full_name || '');
+        var nv = await G.promptDialog({ title: 'Editar nome', text: u.email || '', placeholder: 'Nome', value: u.full_name || '', ok: 'Salvar' });
         if (nv === null) return; nv = nv.trim(); if (!nv || nv === u.full_name) return;
         var r = await sb.rpc('comu_rename_member', { p_user_id: id, p_name: nv }); // atualiza perfil + mensagens antigas
         if (r.error) { G.toast('Não foi possível editar: ' + r.error.message); return; }
@@ -1508,7 +1509,7 @@
       }
       async function setPassword(id) {
         var u = findUser(id); if (!u) return;
-        var nv = window.prompt('Nova senha para ' + (u.email || 'membro') + ' (mín. 6 caracteres):', '');
+        var nv = await G.promptDialog({ title: 'Alterar senha', text: 'Definir nova senha para ' + (u.email || 'membro') + '.', placeholder: 'Mínimo 6 caracteres', type: 'password', ok: 'Salvar' });
         if (nv === null) return; nv = nv.trim(); if (nv.length < 6) { G.toast('Senha muito curta (mín. 6).'); return; }
         var r = await sb.rpc('comu_admin_set_password', { p_user_id: id, p_password: nv });
         if (r.error) { G.toast('Não foi possível: ' + r.error.message); return; }
