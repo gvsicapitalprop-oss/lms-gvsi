@@ -80,7 +80,10 @@ html.dark #gvsi-splash .r{border-color:rgba(157,184,255,.22);border-top-color:#9
 </div>
 <div>
 <label class="block text-label-md font-label-md text-on-surface-variant mb-xs" for="password">Senha</label>
-<input id="password" type="password" autocomplete="current-password" class="w-full bg-surface-container-low border border-outline-variant rounded-xl py-3 px-4 focus:ring-2 focus:ring-primary focus:border-primary transition-all text-body-md text-on-surface" placeholder="No primeiro acesso, deixe em branco">
+<div class="relative">
+<input id="password" type="text" autocomplete="current-password" class="w-full bg-surface-container-low border border-outline-variant rounded-xl py-3 pl-4 pr-12 focus:ring-2 focus:ring-primary focus:border-primary transition-all text-body-md text-on-surface" placeholder="No primeiro acesso, deixe em branco">
+<button type="button" id="toggle-pw" tabindex="-1" aria-label="Ocultar senha" class="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined text-[22px]" id="toggle-pw-icon">visibility_off</span></button>
+</div>
 </div>
 <button id="submit-btn" type="submit" class="w-full h-12 bg-primary text-on-primary rounded-xl font-headline-sm text-headline-sm flex items-center justify-center gap-sm shadow-md active:scale-[0.98] transition-all disabled:opacity-60">
 <span id="submit-label">Entrar</span>
@@ -124,6 +127,10 @@ html.dark #gvsi-splash .r{border-color:rgba(157,184,255,.22);border-top-color:#9
   // No pré-cadastro cada conta nasce com esta senha; ao criar a senha própria, ela é substituída.
   var FIRST_ACCESS = 'gvsi!acesso-inicial#2026';
 
+  (function () {
+    var tg = $('toggle-pw'), pw = $('password'), ic = $('toggle-pw-icon');
+    if (tg && pw) tg.addEventListener('click', function () { var show = pw.type === 'password'; pw.type = show ? 'text' : 'password'; if (ic) ic.textContent = show ? 'visibility_off' : 'visibility'; tg.setAttribute('aria-label', show ? 'Ocultar senha' : 'Mostrar senha'); pw.focus(); });
+  })();
   $('auth-form').addEventListener('submit', async function (e) {
     e.preventDefault();
     if (!sb) return;
