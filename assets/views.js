@@ -1015,6 +1015,7 @@
           '<section id="conquistas" class="space-y-md"><h3 class="font-headline-sm text-headline-sm text-on-surface">Conquistas</h3><div class="bg-surface-container-lowest rounded-xl p-xl border border-outline-variant/30 flex flex-col items-center justify-center text-center gap-sm"><span class="material-symbols-outlined text-[40px] text-outline">workspace_premium</span><p class="text-body-sm text-on-surface-variant max-w-xs">Suas conquistas e certificações aparecerão aqui conforme você participa da comunidade.</p></div></section>' +
           '<section class="bg-surface-container-low rounded-xl border border-outline-variant/20 overflow-hidden"><div class="divide-y divide-outline-variant/20">' +
             '<button type="button" id="pf-admin" class="hidden w-full items-center justify-between p-lg hover:bg-surface-container-high transition-colors text-left"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">group</span><span class="font-body-md text-body-md text-on-surface">Gerenciar membros</span></div><span class="material-symbols-outlined text-outline">chevron_right</span></button>' +
+            '<button type="button" id="pf-mod" class="hidden w-full items-center justify-between p-lg hover:bg-surface-container-high transition-colors text-left"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">shield</span><span class="font-body-md text-body-md text-on-surface">Moderação</span></div><span class="material-symbols-outlined text-outline">chevron_right</span></button>' +
             '<button type="button" data-edit-open class="w-full flex items-center justify-between p-lg hover:bg-surface-container-high transition-colors text-left"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">person_edit</span><span class="font-body-md text-body-md text-on-surface">Editar perfil</span></div><span class="material-symbols-outlined text-outline">chevron_right</span></button>' +
             '<button type="button" data-soon class="w-full flex items-center justify-between p-lg hover:bg-surface-container-high transition-colors text-left"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">shield</span><span class="font-body-md text-body-md text-on-surface">Privacidade e segurança</span></div><span class="material-symbols-outlined text-outline">chevron_right</span></button>' +
             '<button type="button" data-soon class="w-full flex items-center justify-between p-lg hover:bg-surface-container-high transition-colors text-left"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">notifications</span><span class="font-body-md text-body-md text-on-surface">Configurações de notificação</span></div><span class="material-symbols-outlined text-outline">chevron_right</span></button>' +
@@ -1102,6 +1103,7 @@
       document.querySelectorAll('[data-soon]').forEach(function (b) { b.addEventListener('click', function (e) { e.preventDefault(); G.toast('Em breve.'); }); });
       // Link discreto de instalar o app (PWA)
       var pfAdmin = document.getElementById('pf-admin'); if (pfAdmin && me.role === 'admin') { pfAdmin.classList.remove('hidden'); pfAdmin.classList.add('flex'); pfAdmin.addEventListener('click', function () { G.navigate('/membros'); }); }
+      var pfMod = document.getElementById('pf-mod'); if (pfMod && me.role === 'admin') { pfMod.classList.remove('hidden'); pfMod.classList.add('flex'); pfMod.addEventListener('click', function () { G.navigate('/moderacao'); }); }
       var pfInstall = document.getElementById('pf-install');
       if (pfInstall) {
         var already = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
@@ -1576,5 +1578,85 @@
       paint();
     },
     destroy: function () { if (GVSI.views.membros._st) GVSI.views.membros._st.destroyed = true; }
+  };
+  // ---- Painel de administração: moderação (só admin) ----
+  GVSI.views.moderacao = {
+    render: async function (view) {
+      var me = G.me || {};
+      if (me.role !== 'admin') { G.navigate('/'); return; }
+      var esc = G.esc, sb = G.sb;
+      var st = { destroyed: false }; GVSI.views.moderacao._st = st;
+      view.innerHTML =
+        '<header class="fixed top-0 left-0 right-0 lg:left-[var(--side-w)] z-50 bg-surface shadow-[0px_4px_20px_rgba(0,0,0,0.05)] h-14 flex items-center justify-between px-container-margin"><button type="button" id="md-back" class="flex items-center gap-sm text-primary" aria-label="Voltar"><span class="material-symbols-outlined">arrow_back</span><span class="font-headline-sm text-headline-sm font-bold">Administração · Moderação</span></button><button type="button" data-theme-toggle class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors" aria-label="Tema"><span class="material-symbols-outlined" data-theme-icon>dark_mode</span></button></header>' +
+        '<div class="pt-14 lg:pl-[var(--side-w)] min-h-screen"><div class="max-w-3xl mx-auto px-container-margin py-lg space-y-md">' +
+          '<div class="flex gap-1 bg-surface-container-low rounded-xl p-1"><button type="button" id="md-tab-oc" class="flex-1 py-2 rounded-lg text-label-md font-label-md bg-primary text-on-primary transition-colors">Ocultadas</button><button type="button" id="md-tab-tm" class="flex-1 py-2 rounded-lg text-label-md font-label-md text-on-surface-variant transition-colors">Palavras bloqueadas</button></div>' +
+          '<div id="md-pane-oc" class="space-y-md">' +
+            '<p class="text-body-sm text-on-surface-variant px-1">Mensagens escondidas automaticamente antes de chegarem aos outros. Só a equipe vê aqui.</p>' +
+            '<div id="md-oc-list" class="bg-surface-container-lowest rounded-xl border border-outline-variant/30 divide-y divide-outline-variant/20 overflow-hidden"><p class="p-lg text-center text-on-surface-variant text-body-sm">Carregando…</p></div>' +
+          '</div>' +
+          '<div id="md-pane-tm" class="hidden space-y-md">' +
+            '<div class="bg-surface-container-lowest rounded-xl border border-outline-variant/30 p-md"><div class="flex flex-wrap gap-sm"><input id="md-term" type="text" placeholder="Nova palavra ou frase" class="flex-1 min-w-[140px] bg-surface-container-low border border-outline-variant rounded-xl px-3 py-2 text-body-md text-on-surface"><select id="md-cat" class="bg-surface-container-low border border-outline-variant rounded-xl px-2 py-2 text-body-sm text-on-surface"><option value="toxico">Toxicidade</option><option value="critica">Crítica</option><option value="spam">Spam/links</option><option value="concorrente">Concorrente</option></select><button type="button" id="md-add" class="h-10 px-4 rounded-xl bg-primary text-on-primary font-label-md">Adicionar</button></div></div>' +
+            '<div id="md-tm-list" class="bg-surface-container-lowest rounded-xl border border-outline-variant/30 divide-y divide-outline-variant/20 overflow-hidden"><p class="p-lg text-center text-on-surface-variant text-body-sm">Carregando…</p></div>' +
+          '</div>' +
+        '</div></div>';
+      document.getElementById('md-back').addEventListener('click', function () { G.navigate('/perfil'); });
+      function fmtWhen(iso) { try { return new Date(iso).toLocaleString('pt-BR'); } catch (e) { return ''; } }
+      function catLabel(c) { return c === 'toxico' ? 'Toxicidade' : (c === 'critica' ? 'Crítica' : (c === 'spam' ? 'Spam/links' : (c === 'concorrente' ? 'Concorrente' : c))); }
+      async function loadHidden() {
+        var list = document.getElementById('md-oc-list'); if (!list) return;
+        var r = await sb.from('comu_messages').select('id,body,kind,created_at,topic_id,author_name').eq('moderation', 'hidden').is('ticket_id', null).order('created_at', { ascending: false }).limit(200);
+        if (st.destroyed) return;
+        if (r.error) { list.innerHTML = '<p class="p-lg text-error text-body-sm">' + esc(r.error.message) + '</p>'; return; }
+        var rows = r.data || [];
+        if (!rows.length) { list.innerHTML = '<p class="p-lg text-center text-on-surface-variant text-body-sm">Nenhuma mensagem oculta. 🎉</p>'; return; }
+        var topicName = {}; (G.topics || []).forEach(function (t) { topicName[t.id] = t.name; });
+        list.innerHTML = '';
+        rows.forEach(function (m) {
+          var text = m.kind === 'text' ? esc(m.body || '') : (m.kind === 'image' ? '📷 Foto' + (m.body ? ': ' + esc(m.body) : '') : (m.kind === 'audio' ? '🎤 Áudio' : (m.kind === 'video' ? '🎬 Vídeo' : (m.kind === 'file' ? '📎 Arquivo' : esc(m.body || '')))));
+          var el = document.createElement('div'); el.className = 'p-md space-y-xs';
+          el.innerHTML = '<div class="flex items-center justify-between gap-sm"><span class="font-bold text-on-surface text-body-sm truncate">' + esc(m.author_name || 'Membro') + '</span><span class="text-[12px] text-on-surface-variant shrink-0">' + esc(topicName[m.topic_id] || '') + ' · ' + fmtWhen(m.created_at) + '</span></div>'
+            + '<p class="text-body-md text-on-surface whitespace-pre-wrap break-words">' + text + '</p>'
+            + '<div class="flex gap-sm justify-end pt-xs"><button type="button" data-approve="' + m.id + '" class="h-9 px-3 rounded-full border border-outline-variant text-primary text-label-md hover:bg-primary/10 flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">visibility</span>Mostrar a todos</button><button type="button" data-del="' + m.id + '" class="h-9 px-3 rounded-full text-error text-label-md hover:bg-error/10 flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">delete</span>Apagar</button></div>';
+          list.appendChild(el);
+        });
+        list.querySelectorAll('[data-approve]').forEach(function (b) { b.onclick = async function () { var up = await sb.from('comu_messages').update({ moderation: 'ok' }).eq('id', b.getAttribute('data-approve')); if (up.error) { G.toast('Erro: ' + up.error.message); return; } G.toast('Mensagem liberada.'); loadHidden(); }; });
+        list.querySelectorAll('[data-del]').forEach(function (b) { b.onclick = async function () { var del = await sb.from('comu_messages').delete().eq('id', b.getAttribute('data-del')); if (del.error) { G.toast('Erro: ' + del.error.message); return; } G.toast('Mensagem apagada.'); loadHidden(); }; });
+      }
+      async function loadTerms() {
+        var list = document.getElementById('md-tm-list'); if (!list) return;
+        var r = await sb.from('comu_mod_terms').select('*').order('category').order('term');
+        if (st.destroyed) return;
+        if (r.error) { list.innerHTML = '<p class="p-lg text-error text-body-sm">' + esc(r.error.message) + '</p>'; return; }
+        var rows = r.data || [];
+        if (!rows.length) { list.innerHTML = '<p class="p-lg text-center text-on-surface-variant text-body-sm">Nenhuma palavra cadastrada.</p>'; return; }
+        list.innerHTML = '';
+        rows.forEach(function (t) {
+          var el = document.createElement('div'); el.className = 'flex items-center gap-md p-md';
+          el.innerHTML = '<div class="flex-1 min-w-0"><span class="font-bold text-on-surface ' + (t.active ? '' : 'line-through opacity-50') + '">' + esc(t.term) + '</span> <span class="text-[10px] px-2 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant">' + esc(catLabel(t.category)) + '</span></div>'
+            + '<button type="button" data-toggle="' + t.id + '" class="w-9 h-9 rounded-full flex items-center justify-center ' + (t.active ? 'text-primary' : 'text-outline') + ' hover:bg-surface-container-high" title="' + (t.active ? 'Desativar' : 'Ativar') + '"><span class="material-symbols-outlined text-[22px]">' + (t.active ? 'toggle_on' : 'toggle_off') + '</span></button>'
+            + '<button type="button" data-rm="' + t.id + '" class="w-9 h-9 rounded-full flex items-center justify-center text-error hover:bg-error/10" title="Remover"><span class="material-symbols-outlined text-[20px]">delete</span></button>';
+          list.appendChild(el);
+        });
+        list.querySelectorAll('[data-toggle]').forEach(function (b) { b.onclick = async function () { var id = b.getAttribute('data-toggle'); var t = rows.filter(function (x) { return x.id === id; })[0]; var up = await sb.from('comu_mod_terms').update({ active: !t.active }).eq('id', id); if (up.error) { G.toast('Erro: ' + up.error.message); return; } loadTerms(); }; });
+        list.querySelectorAll('[data-rm]').forEach(function (b) { b.onclick = async function () { var del = await sb.from('comu_mod_terms').delete().eq('id', b.getAttribute('data-rm')); if (del.error) { G.toast('Erro: ' + del.error.message); return; } loadTerms(); }; });
+      }
+      document.getElementById('md-add').addEventListener('click', async function () {
+        var term = document.getElementById('md-term').value.trim(); var cat = document.getElementById('md-cat').value;
+        if (!term) return;
+        var ins = await sb.from('comu_mod_terms').insert({ term: term, category: cat }); if (ins.error) { G.toast('Erro: ' + ins.error.message); return; }
+        document.getElementById('md-term').value = ''; G.toast('Palavra adicionada.'); loadTerms();
+      });
+      (function () { var ti = document.getElementById('md-term'); if (ti) ti.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('md-add').click(); } }); })();
+      var loadedTm = false;
+      function tab(w) {
+        var po = document.getElementById('md-pane-oc'), pt = document.getElementById('md-pane-tm'), to = document.getElementById('md-tab-oc'), tt = document.getElementById('md-tab-tm');
+        if (w === 'tm') { po.classList.add('hidden'); pt.classList.remove('hidden'); tt.classList.add('bg-primary', 'text-on-primary'); tt.classList.remove('text-on-surface-variant'); to.classList.remove('bg-primary', 'text-on-primary'); to.classList.add('text-on-surface-variant'); if (!loadedTm) { loadedTm = true; loadTerms(); } }
+        else { pt.classList.add('hidden'); po.classList.remove('hidden'); to.classList.add('bg-primary', 'text-on-primary'); to.classList.remove('text-on-surface-variant'); tt.classList.remove('bg-primary', 'text-on-primary'); tt.classList.add('text-on-surface-variant'); }
+      }
+      document.getElementById('md-tab-oc').addEventListener('click', function () { tab('oc'); });
+      document.getElementById('md-tab-tm').addEventListener('click', function () { tab('tm'); });
+      loadHidden();
+    },
+    destroy: function () { if (GVSI.views.moderacao._st) GVSI.views.moderacao._st.destroyed = true; }
   };
 })();

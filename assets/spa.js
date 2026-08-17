@@ -691,6 +691,7 @@ GVSI.views = GVSI.views || {};
     if (seg[0] === 'perfil') return { name: 'perfil', params: {} };
     if (seg[0] === 'suporte') return { name: 'suporte', params: {} };
     if (seg[0] === 'membros') return { name: 'membros', params: {} };
+    if (seg[0] === 'moderacao') return { name: 'moderacao', params: {} };
     if (seg[0] === 'grupos') return { name: 'grupos', params: {} };
     return { name: 'grupos', params: {} };
   }
