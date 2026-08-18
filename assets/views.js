@@ -1103,7 +1103,7 @@
       document.getElementById('edit-form').addEventListener('submit', async function (e) {
         e.preventDefault();
         var payload = { bio: document.getElementById('ef-bio').value.trim() || null, phone: document.getElementById('ef-phone').value.trim() || null, avatar_url: me.avatar_url || null };
-        if (me.role === 'admin') { var _nv = document.getElementById('ef-name').value.trim(); if (_nv) payload.full_name = _nv; } // admin pode editar o próprio nome
+        if (me.role === 'admin') { var _nv = document.getElementById('ef-name').value.trim(); if (_nv && _nv !== (me.full_name || '')) { payload.full_name = _nv; payload.name_locked = true; } } // admin edita o próprio nome (trava contra o sync do CSV)
         document.getElementById('ef-save').disabled = true;
         var up = await sb.from('lms_students').update(payload).eq('id', me.id).select().single();
         document.getElementById('ef-save').disabled = false;
