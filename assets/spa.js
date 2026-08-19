@@ -648,12 +648,14 @@ GVSI.views = GVSI.views || {};
     try {
       var r = await G.sb.rpc('comu_unread_counts');
       if (r.error || !r.data) return;
-      var map = {}; r.data.forEach(function (x) { map[x.slug] = Number(x.unread) || 0; });
+      var map = {}, total = 0; r.data.forEach(function (x) { var n = Number(x.unread) || 0; map[x.slug] = n; total += n; });
       document.querySelectorAll('.topic-item').forEach(function (item) {
         var b = item.querySelector('.unread-badge'); if (!b) return;
         var n = map[item.dataset.slug] || 0;
         if (n > 0) { b.textContent = n > 99 ? '99+' : n; b.classList.remove('hidden'); } else { b.classList.add('hidden'); }
       });
+      // #5 — contador de pendências no título da aba: "(3) Comunidade do Giovanni"
+      try { var base = document.title.replace(/^\(\d+\+?\)\s*/, ''); document.title = (total > 0 ? '(' + (total > 99 ? '99+' : total) + ') ' : '') + base; } catch (e) {}
     } catch (e) {}
   };
   G.updateSidebarProfile = function () {
