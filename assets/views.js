@@ -489,6 +489,7 @@
               if (cEdit) it.push({ icon: 'edit', label: 'Editar', run: function () { startEdit(mm); } });
               if (cDelete) it.push({ icon: 'delete', label: 'Apagar', danger: true, run: function () { doDelete(mm); } });
               if (cBan) it.push({ icon: 'gavel', label: 'Banir usuário', danger: true, run: function () { doBan(mm); } });
+              if (isAdmin && !isSupport && mm.author_id && mm.author_id !== me.id) it.push({ icon: 'support_agent', label: 'Responder no suporte', run: function () { replyInSupport(mm); } });
               if (isAdmin && mm.moderation === 'hidden') it.unshift({ icon: 'visibility', label: 'Mostrar a todos', run: function () { doApprove(mm); } });
               return it;
             };
@@ -578,6 +579,14 @@
           G.toast((m.author_name || 'Membro') + ' foi banido.');
         }
         function updateMessage(m) { if (m && m.status === 'deleted') { removeMessage(m.id); return; } var wrap = msgsEl.querySelector('[data-msg-id="' + m.id + '"]'); if (!wrap) { if (m && m.moderation === 'ok' && (Date.now() - new Date(m.created_at).getTime()) < 600000) addMessage(m, nearBottom()); return; } renderMsgBody(wrap.querySelector('.msg-body'), m, me.id && m.author_id === me.id); }
+        async function replyInSupport(m) {
+          var quote = m.kind === 'text' ? (m.body || '') : (m.kind === 'image' ? '📷 Foto' : (m.kind === 'audio' ? '🎤 Áudio' : (m.kind === 'video' ? '🎬 Vídeo' : (m.kind === 'file' ? '📎 Arquivo' : (m.body || '')))));
+          var ok = await G.confirmDialog({ title: 'Responder no suporte?', text: 'Abre uma conversa privada com ' + (m.author_name || 'o membro') + '. Quando você responder lá, esta mensagem some do grupo.', ok: 'Abrir no suporte' });
+          if (!ok) return;
+          var r = await sb.rpc('comu_support_open_for', { p_user_id: m.author_id, p_origin_message_id: m.id, p_topic_name: (topic && topic.name) || '', p_quote: quote });
+          if (r.error) { G.toast('Não foi possível: ' + r.error.message); return; }
+          G._openTicketId = r.data; G.toast('Abrindo no suporte…'); G.navigate('/suporte');
+        }
         async function doApprove(m) {
           var up = await sb.from('comu_messages').update({ moderation: 'ok' }).eq('id', m.id).select('id,moderation').single();
           if (up.error) { G.toast('Não foi possível: ' + up.error.message); return; }
@@ -1604,6 +1613,8 @@
         var _ch = document.getElementById('convo-history'); if (_ch) _ch.addEventListener('click', function () { if (self.currentTicket) openHistoryPanel(self.currentTicket); });
         ['convo-name', 'convo-avatar'].forEach(function (id) { var el = document.getElementById(id); if (el) { el.style.cursor = 'pointer'; el.title = 'Ver / editar perfil'; el.addEventListener('click', function () { if (self.currentTicket) openProfileEditor(self.currentTicket); }); } });
         await loadTags(); loadTickets();
+        // #3 — abrir direto o ticket que veio de "Responder no suporte"
+        if (G._openTicketId) { var _oid = G._openTicketId; G._openTicketId = null; (async function () { var rr = await sb.from('comu_support_tickets').select('*, member:lms_students!user_id(full_name,avatar_url,email,phone)').eq('id', _oid).maybeSingle(); if (rr && rr.data && !self.destroyed) openTicket(rr.data); })(); }
         self.channels.push(sb.channel('tickets-list').on('postgres_changes', { event: '*', schema: 'public', table: 'comu_support_tickets' }, function () { loadTickets(); }).subscribe());
       }
     };
