@@ -124,13 +124,15 @@
                   '<button type="submit" id="btn-send" class="h-11 px-5 ml-auto bg-primary text-on-primary rounded-xl flex items-center gap-xs shadow-lg active:scale-95 transition-all shrink-0" aria-label="Enviar mensagem"><span class="material-symbols-outlined fill text-[24px]">send</span><span class="text-body-md font-bold">Enviar</span></button>' +
                 '</div>' +
               '</div>' +
-              '<div id="rec-bar" class="hidden flex items-center gap-sm px-sm py-1">' +
-                '<span class="w-3 h-3 rounded-full bg-error animate-pulse shrink-0"></span>' +
-                '<span class="material-symbols-outlined text-error">mic</span>' +
+              '<div id="rec-bar" class="hidden flex items-center gap-sm px-sm py-1 flex-wrap">' +
+                '<span id="rec-dot" class="w-3 h-3 rounded-full bg-error animate-pulse shrink-0"></span>' +
                 '<span id="rec-time" class="text-body-lg text-on-surface tabular-nums">0:00</span>' +
+                '<audio id="rec-preview" class="hidden"></audio>' +
                 '<span class="flex-grow"></span>' +
-                '<button type="button" id="rec-cancel" class="h-11 px-3 rounded-xl border border-outline-variant text-on-surface flex items-center gap-xs shrink-0" aria-label="Cancelar gravação"><span class="material-symbols-outlined text-[24px]">close</span><span class="text-body-sm">Cancelar</span></button>' +
-                '<button type="button" id="rec-send" class="h-11 px-4 bg-primary text-on-primary rounded-xl flex items-center gap-xs shadow shrink-0" aria-label="Enviar áudio"><span class="material-symbols-outlined fill text-[24px]">send</span><span class="text-body-sm font-bold">Enviar</span></button>' +
+                '<button type="button" id="rec-pause" class="h-11 px-3 rounded-xl border border-outline-variant text-on-surface flex items-center gap-xs shrink-0" aria-label="Pausar"><span class="material-symbols-outlined text-[22px]" id="rec-pause-ic">pause</span><span class="text-body-sm" id="rec-pause-lbl">Pausar</span></button>' +
+                '<button type="button" id="rec-listen" class="hidden h-11 px-3 rounded-xl border border-outline-variant text-primary items-center gap-xs shrink-0" aria-label="Ouvir"><span class="material-symbols-outlined text-[22px]" id="rec-listen-ic">play_arrow</span><span class="text-body-sm" id="rec-listen-lbl">Ouvir</span></button>' +
+                '<button type="button" id="rec-cancel" class="h-11 px-3 rounded-xl border border-outline-variant text-error flex items-center gap-xs shrink-0" aria-label="Excluir gravação"><span class="material-symbols-outlined text-[22px]">delete</span><span class="text-body-sm">Excluir</span></button>' +
+                '<button type="button" id="rec-send" class="h-11 px-4 bg-primary text-on-primary rounded-xl flex items-center gap-xs shadow shrink-0" aria-label="Enviar áudio"><span class="material-symbols-outlined fill text-[22px]">send</span><span class="text-body-sm font-bold">Enviar</span></button>' +
               '</div>' +
             '</form>' +
           '</div>' +
@@ -887,9 +889,37 @@
           self.recMime = pickMime(); self.recChunks = [];
           try { self.mediaRecorder = new MediaRecorder(self.recStream, self.recMime ? { mimeType: self.recMime } : undefined); } catch (e) { self.mediaRecorder = new MediaRecorder(self.recStream); }
           self.mediaRecorder.ondataavailable = function (ev) { if (ev.data && ev.data.size) self.recChunks.push(ev.data); };
-          self.mediaRecorder.start(); self.recSeconds = 0; updateRecTime(); self.recTimer = setInterval(function () { self.recSeconds++; updateRecTime(); }, 1000); setRecUI(true);
+          self.mediaRecorder.start(1000); self.recSeconds = 0; self.recPaused = false; updateRecTime();
+          var _pl = document.getElementById('rec-pause-lbl'), _pic = document.getElementById('rec-pause-ic'); if (_pl) _pl.textContent = 'Pausar'; if (_pic) _pic.textContent = 'pause';
+          var _lst = document.getElementById('rec-listen'); if (_lst) { _lst.classList.add('hidden'); _lst.classList.remove('flex'); }
+          var _dot = document.getElementById('rec-dot'); if (_dot) _dot.classList.add('animate-pulse');
+          self.recTimer = setInterval(function () { self.recSeconds++; updateRecTime(); }, 1000); setRecUI(true);
         }
-        function cancelRecording() { if (self.recTimer) clearInterval(self.recTimer); if (self.mediaRecorder && self.mediaRecorder.state !== 'inactive') { self.mediaRecorder.onstop = function () { stopStream(); }; try { self.mediaRecorder.stop(); } catch (e) { stopStream(); } } else stopStream(); self.recChunks = []; setRecUI(false); }
+        function stopPreview() { var a = document.getElementById('rec-preview'); if (a) { try { a.pause(); } catch (e) {} a.removeAttribute('src'); } var li = document.getElementById('rec-listen-ic'), ll = document.getElementById('rec-listen-lbl'); if (li) li.textContent = 'play_arrow'; if (ll) ll.textContent = 'Ouvir'; }
+        function togglePause() {
+          if (!self.mediaRecorder) return;
+          var pl = document.getElementById('rec-pause-lbl'), pic = document.getElementById('rec-pause-ic'), lst = document.getElementById('rec-listen'), dot = document.getElementById('rec-dot');
+          if (!self.recPaused) {
+            try { self.mediaRecorder.pause(); } catch (e) {}
+            if (self.recTimer) clearInterval(self.recTimer); self.recPaused = true;
+            if (pl) pl.textContent = 'Continuar'; if (pic) pic.textContent = 'fiber_manual_record'; if (dot) dot.classList.remove('animate-pulse');
+            if (lst) { lst.classList.remove('hidden'); lst.classList.add('flex'); }
+          } else {
+            stopPreview();
+            try { self.mediaRecorder.resume(); } catch (e) {} self.recPaused = false;
+            self.recTimer = setInterval(function () { self.recSeconds++; updateRecTime(); }, 1000);
+            if (pl) pl.textContent = 'Pausar'; if (pic) pic.textContent = 'pause'; if (dot) dot.classList.add('animate-pulse');
+            if (lst) { lst.classList.add('hidden'); lst.classList.remove('flex'); }
+          }
+        }
+        function toggleListen() {
+          var a = document.getElementById('rec-preview'), li = document.getElementById('rec-listen-ic'), ll = document.getElementById('rec-listen-lbl');
+          if (!a) return;
+          if (a.src && !a.paused) { a.pause(); if (li) li.textContent = 'play_arrow'; if (ll) ll.textContent = 'Ouvir'; return; }
+          if (!self.recChunks || !self.recChunks.length) { G.toast('Nada gravado ainda.'); return; }
+          try { var blob = new Blob(self.recChunks, { type: self.recMime || 'audio/webm' }); a.src = URL.createObjectURL(blob); a.play(); if (li) li.textContent = 'pause'; if (ll) ll.textContent = 'Pausar'; a.onended = function () { if (li) li.textContent = 'play_arrow'; if (ll) ll.textContent = 'Ouvir'; }; } catch (e) { G.toast('Não foi possível reproduzir.'); }
+        }
+        function cancelRecording() { stopPreview(); self.recPaused = false; if (self.recTimer) clearInterval(self.recTimer); if (self.mediaRecorder && self.mediaRecorder.state !== 'inactive') { self.mediaRecorder.onstop = function () { stopStream(); }; try { self.mediaRecorder.stop(); } catch (e) { stopStream(); } } else stopStream(); self.recChunks = []; setRecUI(false); }
         function finishRecording() {
           if (!self.mediaRecorder) { setRecUI(false); return; }
           if (self.recTimer) clearInterval(self.recTimer); var secs = self.recSeconds; setRecUI(false);
@@ -931,9 +961,11 @@
         var attachBtn = document.getElementById('btn-attach');
         if (attachBtn) attachBtn.addEventListener('click', function () { try { var ci = document.getElementById('chat-input'); G._draftCaption = ci ? (ci.innerText || '').trim() : ''; if (ci) ci.innerHTML = ''; } catch (e) {} });
         var recCancelBtn = document.getElementById('rec-cancel');
-        if (recCancelBtn) recCancelBtn.addEventListener('click', function () { if (self.recording) { cancelRecording(); G.toast('Gravação cancelada'); } });
+        if (recCancelBtn) recCancelBtn.addEventListener('click', function () { if (self.recording) { cancelRecording(); G.toast('Áudio descartado'); } });
         var recSendBtn = document.getElementById('rec-send');
         if (recSendBtn) recSendBtn.addEventListener('click', function () { if (self.recording) finishRecording(); });
+        var recPauseBtn = document.getElementById('rec-pause'); if (recPauseBtn) recPauseBtn.addEventListener('click', function () { if (self.recording) togglePause(); });
+        var recListenBtn = document.getElementById('rec-listen'); if (recListenBtn) recListenBtn.addEventListener('click', function () { toggleListen(); });
 
         // ---- envio de texto ----
         form.addEventListener('submit', async function (e) {
@@ -1217,7 +1249,7 @@
           '<div class="pt-14 lg:pl-[var(--side-w)] h-[100dvh] flex">' +
             '<aside id="list-panel" class="w-full lg:w-[380px] lg:border-r border-outline-variant flex flex-col shrink-0"><div class="p-sm border-b border-outline-variant"><div class="relative"><span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[20px] pointer-events-none">search</span><input id="sup-search" type="text" autocomplete="off" placeholder="Buscar por nome, telefone ou e-mail" class="w-full bg-surface-container-low border border-outline-variant rounded-xl py-2 pl-10 pr-3 text-body-sm text-on-surface focus:ring-2 focus:ring-primary/30 placeholder:text-on-surface-variant"></div></div><div class="p-sm flex gap-1 border-b border-outline-variant"><button data-filter="todos" class="flex-1 py-2 rounded-lg text-label-md font-label-md bg-primary text-on-primary transition-colors">Todos</button><button data-filter="pendentes" class="flex-1 py-2 rounded-lg text-label-md font-label-md text-on-surface-variant hover:bg-surface-container-high transition-colors">Pendentes</button><button data-filter="resolvidos" class="flex-1 py-2 rounded-lg text-label-md font-label-md text-on-surface-variant hover:bg-surface-container-high transition-colors">Resolvidos</button></div><div id="ticket-list" class="flex-1 overflow-y-auto custom-scrollbar"><p class="p-lg text-center text-on-surface-variant text-body-sm">Carregando…</p></div></aside>' +
             '<section id="convo-panel" class="hidden lg:flex flex-1 flex-col min-w-0"><div id="convo-empty" class="flex-1 flex flex-col items-center justify-center text-center gap-md p-xl text-on-surface-variant"><span class="material-symbols-outlined text-[48px]">forum</span><p class="text-body-md max-w-xs">Selecione uma conversa para ver o histórico e responder.</p></div>' +
-              '<div id="convo-main" class="hidden flex-1 flex-col min-h-0"><div class="min-h-16 shrink-0 border-b border-outline-variant px-md py-2 flex items-center"><div class="max-w-3xl mx-auto w-full flex items-center gap-md"><button id="convo-back" class="lg:hidden text-primary flex items-center" aria-label="Voltar"><span class="material-symbols-outlined">arrow_back</span></button><span id="convo-avatar" class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center text-outline shrink-0 overflow-hidden"><span class="material-symbols-outlined">person</span></span><div class="flex-1 min-w-0"><h2 id="convo-name" class="font-bold text-on-surface truncate"></h2><p id="convo-protocol" class="text-body-sm text-outline truncate"></p><div id="convo-rating" class="hidden flex-wrap items-center gap-1 mt-0.5"></div><div id="convo-tags" class="flex flex-wrap items-center gap-1 mt-1"></div></div><button type="button" id="btn-profile" class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors shrink-0" aria-label="Editar perfil do membro" title="Editar perfil"><span class="material-symbols-outlined">manage_accounts</span></button><button type="button" id="btn-tags" class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors shrink-0" aria-label="Tags do contato"><span class="material-symbols-outlined">sell</span></button><button id="btn-resolve" class="bg-primary text-on-primary rounded-full px-4 py-2 text-label-md font-label-md active:scale-95 transition disabled:opacity-60 flex items-center gap-xs"><span class="material-symbols-outlined text-[18px]">check_circle</span><span id="btn-resolve-label">Marcar como resolvido</span></button></div></div>' +
+              '<div id="convo-main" class="hidden flex-1 flex-col min-h-0"><div class="min-h-16 shrink-0 border-b border-outline-variant px-md py-2 flex items-center"><div class="max-w-3xl mx-auto w-full flex items-center gap-md"><button id="convo-back" class="lg:hidden text-primary flex items-center" aria-label="Voltar"><span class="material-symbols-outlined">arrow_back</span></button><span id="convo-avatar" class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center text-outline shrink-0 overflow-hidden"><span class="material-symbols-outlined">person</span></span><div class="flex-1 min-w-0"><h2 id="convo-name" class="font-bold text-on-surface truncate"></h2><p id="convo-protocol" class="text-body-sm text-outline truncate"></p><div id="convo-rating" class="hidden flex-wrap items-center gap-1 mt-0.5"></div><button type="button" id="convo-history" class="hidden items-center gap-1 mt-0.5 text-[12px] text-primary hover:underline"><span class="material-symbols-outlined text-[14px]">history</span><span id="convo-history-lbl"></span></button><div id="convo-tags" class="flex flex-wrap items-center gap-1 mt-1"></div></div><button type="button" id="btn-history" class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors shrink-0" aria-label="Conversas anteriores" title="Conversas anteriores"><span class="material-symbols-outlined">history</span></button><button type="button" id="btn-profile" class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors shrink-0" aria-label="Editar perfil do membro" title="Editar perfil"><span class="material-symbols-outlined">manage_accounts</span></button><button type="button" id="btn-tags" class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors shrink-0" aria-label="Tags do contato"><span class="material-symbols-outlined">sell</span></button><button id="btn-resolve" class="bg-primary text-on-primary rounded-full px-4 py-2 text-label-md font-label-md active:scale-95 transition disabled:opacity-60 flex items-center gap-xs"><span class="material-symbols-outlined text-[18px]">check_circle</span><span id="btn-resolve-label">Marcar como resolvido</span></button></div></div>' +
                 '<div id="convo-scroll" class="flex-1 overflow-y-auto custom-scrollbar p-md"><div id="convo-messages" class="flex flex-col gap-md max-w-3xl mx-auto w-full"></div></div>' +
                 '<form id="convo-form" class="shrink-0 border-t border-outline-variant p-sm"><div class="max-w-3xl mx-auto w-full flex flex-col gap-sm"><textarea id="convo-input" rows="1" autocomplete="off" placeholder="Responder…" class="w-full bg-surface-container-low border border-outline-variant rounded-xl px-md py-3 text-body-md focus:ring-2 focus:ring-primary/20 text-on-surface placeholder:text-on-surface-variant resize-none max-h-32 overflow-y-auto whitespace-pre-wrap"></textarea><div class="flex flex-wrap items-center gap-sm"><button type="button" id="convo-emoji" class="h-11 w-11 rounded-xl border border-outline-variant text-on-surface hover:bg-surface-container-high transition-colors flex items-center justify-center shrink-0" aria-label="Emojis"><span class="material-symbols-outlined text-[24px]">mood</span></button><button type="button" id="convo-attach" class="h-11 px-3 rounded-xl border border-outline-variant text-on-surface hover:bg-surface-container-high transition-colors flex items-center gap-xs shrink-0" aria-label="Anexar foto ou vídeo"><span class="material-symbols-outlined text-[24px]">attach_file</span><span class="text-body-sm font-label-md">Anexar</span></button><button type="button" id="convo-audio-btn" class="h-11 px-3 rounded-xl border border-outline-variant text-on-surface hover:bg-surface-container-high transition-colors flex items-center gap-xs shrink-0" aria-label="Enviar áudio"><span class="material-symbols-outlined text-[24px]">mic</span><span class="text-body-sm font-label-md">Áudio</span></button><button type="submit" class="h-11 px-5 ml-auto bg-primary text-on-primary rounded-xl flex items-center gap-xs shadow-lg active:scale-95 transition-all shrink-0" aria-label="Enviar"><span class="material-symbols-outlined fill text-[24px]">send</span><span class="text-body-md font-bold">Enviar</span></button></div></div><input id="convo-file-media" type="file" class="hidden"><input id="convo-file-audio" type="file" accept="audio/*" class="hidden"></form></div>' +
             '</section>' +
@@ -1319,6 +1351,41 @@
         }
         function statusLabel(s) { return s === 'aberto' ? 'Pendente' : (s === 'aguardando' ? 'Aguardando' : (s === 'resolvido' ? 'Resolvido' : 'Fechado')); }
         function statusClass(s) { return s === 'aberto' ? 'bg-tertiary-container text-on-tertiary-container' : (s === 'aguardando' ? 'bg-primary/15 text-primary' : 'bg-secondary-container text-on-secondary-container'); }
+        // Histórico: quantas conversas anteriores esse membro já teve
+        async function renderHistory(tk) {
+          var chip = document.getElementById('convo-history'), lbl = document.getElementById('convo-history-lbl');
+          if (chip) { chip.classList.add('hidden'); chip.classList.remove('flex'); }
+          if (!tk || !tk.user_id) return;
+          var r = await sb.from('comu_support_tickets').select('id', { count: 'exact', head: true }).eq('user_id', tk.user_id).neq('id', tk.id);
+          if (self.destroyed || !chip) return;
+          var n = r.count || 0;
+          if (n > 0) { if (lbl) lbl.textContent = n + (n === 1 ? ' conversa anterior' : ' conversas anteriores'); chip.classList.remove('hidden'); chip.classList.add('flex'); }
+        }
+        function openHistoryPanel(tk) {
+          if (!tk || !tk.user_id) { G.toast('Este contato não tem histórico.'); return; }
+          var overlay = document.createElement('div'); overlay.className = 'fixed inset-0 z-[95] flex items-center justify-center p-container-margin bg-black/40';
+          var panel = document.createElement('div'); panel.className = 'w-full max-w-md bg-surface-container-lowest rounded-2xl shadow-xl border border-outline-variant/40 p-lg space-y-md max-h-[85vh] overflow-y-auto custom-scrollbar';
+          panel.innerHTML = '<p class="text-body-sm text-on-surface-variant text-center py-md">Carregando…</p>';
+          overlay.appendChild(panel); document.body.appendChild(overlay);
+          overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
+          (async function () {
+            var r = await sb.from('comu_support_tickets').select('id,protocol,status,created_at,rating').eq('user_id', tk.user_id).order('created_at', { ascending: false });
+            if (self.destroyed) { overlay.remove(); return; }
+            if (r.error) { panel.innerHTML = '<p class="text-body-sm text-error text-center">' + esc(r.error.message) + '</p>'; return; }
+            var rows = r.data || [];
+            var h = '<div class="flex items-center justify-between"><h3 class="font-headline-sm text-headline-sm text-on-surface">Conversas de ' + esc((tk.member && tk.member.full_name) || 'membro') + '</h3><button type="button" class="hp-close w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high"><span class="material-symbols-outlined">close</span></button></div>';
+            h += '<div class="divide-y divide-outline-variant/20">';
+            rows.forEach(function (t) {
+              var w = ''; try { w = new Date(t.created_at).toLocaleDateString('pt-BR') + ' ' + timeShort(t.created_at); } catch (e) {}
+              var cur = t.id === tk.id;
+              h += '<button type="button" data-tk="' + t.id + '" class="w-full text-left flex items-center gap-md p-sm hover:bg-surface-container-low ' + (cur ? 'opacity-60 pointer-events-none' : '') + '"><span class="flex-1 min-w-0"><span class="font-bold text-on-surface text-body-sm">' + esc(t.protocol) + (cur ? ' (atual)' : '') + '</span><span class="block text-[12px] text-on-surface-variant">' + w + (t.rating ? ' · ' + t.rating + '★' : '') + '</span></span><span class="text-[10px] px-2 py-0.5 rounded-full ' + statusClass(t.status) + '">' + statusLabel(t.status) + '</span></button>';
+            });
+            h += '</div>';
+            panel.innerHTML = h;
+            panel.querySelector('.hp-close').onclick = function () { overlay.remove(); };
+            panel.querySelectorAll('[data-tk]').forEach(function (b) { b.onclick = function () { var id = b.getAttribute('data-tk'); var row = rows.filter(function (x) { return x.id === id; })[0]; overlay.remove(); if (row) openTicket(Object.assign({}, row, { member: tk.member, user_id: tk.user_id })); }; });
+          })();
+        }
         // avaliação (estrelas) que o usuário deu naquele atendimento — mostrada no cabeçalho
         function renderConvoRating() {
           var el = document.getElementById('convo-rating'); if (!el) return;
@@ -1436,7 +1503,7 @@
           self.currentTicket = tk; self.seen = Object.create(null);
           document.getElementById('convo-empty').classList.add('hidden'); var cm = document.getElementById('convo-main'); cm.classList.remove('hidden'); cm.classList.add('flex');
           document.getElementById('list-panel').classList.add('hidden'); document.getElementById('convo-panel').classList.remove('hidden');
-          var m = tk.member || {}; document.getElementById('convo-name').textContent = m.full_name || 'Membro'; document.getElementById('convo-protocol').textContent = tk.protocol + ' · ' + statusLabel(tk.status); updateResolveBtn(); refreshConvoTags(); renderConvoRating(); var _av = document.getElementById('convo-avatar'); if (_av) _av.innerHTML = m.avatar_url ? '<img src="' + esc(m.avatar_url) + '" class="w-full h-full object-cover">' : '<span class="material-symbols-outlined">person</span>';
+          var m = tk.member || {}; document.getElementById('convo-name').textContent = m.full_name || 'Membro'; document.getElementById('convo-protocol').textContent = tk.protocol + ' · ' + statusLabel(tk.status); updateResolveBtn(); refreshConvoTags(); renderConvoRating(); renderHistory(tk); var _av = document.getElementById('convo-avatar'); if (_av) _av.innerHTML = m.avatar_url ? '<img src="' + esc(m.avatar_url) + '" class="w-full h-full object-cover">' : '<span class="material-symbols-outlined">person</span>';
           document.getElementById('convo-messages').innerHTML = '';
           var r = await sb.from('comu_messages').select('*').eq('ticket_id', tk.id).order('created_at', { ascending: true }); if (self.destroyed) return;
           (r.data || []).forEach(addMsg); loadReactSup((r.data || []).map(function (m) { return m.id; })); scrollConvo(); subscribeConvo(tk.id); updateConvoComposer(); loadTickets();
@@ -1533,6 +1600,8 @@
         (function () { var si = document.getElementById('sup-search'); if (si) { var st; si.addEventListener('input', function () { self.search = si.value; clearTimeout(st); st = setTimeout(loadTickets, 200); }); } })();
         document.getElementById('btn-tags').addEventListener('click', function () { if (self.currentTicket) openTagsPanel(self.currentTicket); });
         document.getElementById('btn-profile').addEventListener('click', function () { if (self.currentTicket) openProfileEditor(self.currentTicket); });
+        document.getElementById('btn-history').addEventListener('click', function () { if (self.currentTicket) openHistoryPanel(self.currentTicket); });
+        var _ch = document.getElementById('convo-history'); if (_ch) _ch.addEventListener('click', function () { if (self.currentTicket) openHistoryPanel(self.currentTicket); });
         ['convo-name', 'convo-avatar'].forEach(function (id) { var el = document.getElementById(id); if (el) { el.style.cursor = 'pointer'; el.title = 'Ver / editar perfil'; el.addEventListener('click', function () { if (self.currentTicket) openProfileEditor(self.currentTicket); }); } });
         await loadTags(); loadTickets();
         self.channels.push(sb.channel('tickets-list').on('postgres_changes', { event: '*', schema: 'public', table: 'comu_support_tickets' }, function () { loadTickets(); }).subscribe());
