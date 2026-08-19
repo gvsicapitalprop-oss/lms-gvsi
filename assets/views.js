@@ -114,6 +114,7 @@
                   '<button type="button" id="fmt-bold" class="h-11 px-3 rounded-lg hover:bg-surface-container-high flex items-center justify-center text-on-surface-variant" aria-label="Negrito" title="Negrito (**texto**)"><span class="material-symbols-outlined text-[22px]">format_bold</span></button>' +
                   '<button type="button" id="fmt-italic" class="h-11 px-3 rounded-lg hover:bg-surface-container-high flex items-center justify-center text-on-surface-variant" aria-label="Itálico" title="Itálico (*texto*)"><span class="material-symbols-outlined text-[22px]">format_italic</span></button>' +
                   '<button type="button" id="btn-emoji" class="h-11 px-3 rounded-lg hover:bg-surface-container-high flex items-center justify-center text-on-surface-variant" aria-label="Emoji" title="Emoji"><span class="material-symbols-outlined text-[24px]">mood</span></button>' +
+                  '<button type="button" id="btn-temp" class="hidden h-11 px-3 rounded-lg hover:bg-surface-container-high items-center justify-center text-on-surface-variant gap-1" aria-label="Mensagem temporária" title="Mensagem temporária (some sozinha)"><span class="material-symbols-outlined text-[22px]">timer</span><span id="btn-temp-lbl" class="text-[12px] font-bold"></span></button>' +
                 '</div>' +
                 '<div class="flex flex-wrap items-center gap-sm">' +
                   '<a id="btn-attach" href="/enviar/' + esc(slug) + '" class="h-11 px-3 rounded-xl border border-outline-variant text-on-surface hover:bg-surface-container-high transition-colors flex items-center gap-xs shrink-0" aria-label="Anexar foto ou arquivo"><span class="material-symbols-outlined text-[24px]">attach_file</span><span class="text-body-sm font-label-md">Anexar</span></a>' +
@@ -433,6 +434,8 @@
           if (m.status === 'deleted') { container.innerHTML = '<div class="rounded-xl p-md ' + (mine ? 'rounded-tr-none' : 'rounded-tl-none') + ' bg-surface-container-high text-on-surface-variant text-body-sm italic flex items-center gap-xs"><span class="material-symbols-outlined text-[16px]">block</span>mensagem apagada</div>'; return; }
           var when = timeStr(m.created_at);
           var edited = (m.status === 'edited' && mine) ? ' <span class="text-[12px] opacity-80">(editado)</span>' : '';
+          var tempTag = '';
+          if (m.expires_at) { var _lms = new Date(m.expires_at).getTime() - Date.now(); var _lt = _lms <= 0 ? 'expira' : (_lms >= 3600000 ? Math.round(_lms / 3600000) + 'h' : Math.max(1, Math.round(_lms / 60000)) + 'min'); tempTag = '<span class="inline-flex items-center gap-[1px] text-[11px] ' + (mine ? 'text-white/85' : 'text-on-surface-variant') + '" title="Mensagem temporária — some sozinha"><span class="material-symbols-outlined text-[13px]">timer</span>' + _lt + '</span>'; }
           var content;
           if (m.kind === 'image' && m.media_url) content = '<img src="' + esc(m.media_url) + '" data-full="' + esc(m.media_url) + '" class="msg-img rounded-lg max-w-full mb-xs cursor-zoom-in" alt="">' + (m.body ? '<p class="' + (mine ? '' : 'text-on-surface ') + 'font-body-md">' + G.fmt(m.body) + edited + '</p>' : '');
           else if (m.kind === 'video' && m.media_url) content = '<video controls preload="metadata" src="' + esc(m.media_url) + '" class="rounded-lg max-w-full mb-xs" style="max-height:20rem"></video>' + (m.body ? '<p class="' + (mine ? '' : 'text-on-surface ') + 'font-body-md">' + G.fmt(m.body) + edited + '</p>' : '');
@@ -445,7 +448,7 @@
           }
           var inner;
           var meBadge = isAdmin ? '<span class="inline-flex items-center gap-[2px] text-[11px] font-bold text-on-primary bg-primary rounded-full px-2 py-[1px] leading-none"><span class="material-symbols-outlined text-[13px]" style="font-variation-settings:\'FILL\' 1">verified</span>Equipe</span>' : '';
-          if (mine) inner = '<div class="msg-head flex items-center gap-xs mr-sm mb-xs"><span class="text-[13px] text-on-surface-variant">' + when + '</span>' + meBadge + '<span class="font-label-md text-label-md text-primary">Você</span></div><div class="message-gradient-outgoing text-white shadow-lg rounded-xl rounded-tr-none p-md">' + content + '</div>';
+          if (mine) inner = '<div class="msg-head flex items-center gap-xs mr-sm mb-xs"><span class="text-[13px] text-on-surface-variant">' + when + '</span>' + meBadge + tempTag + '<span class="font-label-md text-label-md text-primary">Você</span></div><div class="message-gradient-outgoing text-white shadow-lg rounded-xl rounded-tr-none p-md">' + content + '</div>';
           else {
             var isAuthorAdmin = !!(G.adminIds && m.author_id && G.adminIds[m.author_id]);
             var avRing = isAuthorAdmin ? ' ring-2 ring-primary ring-offset-1 ring-offset-surface' : '';
@@ -458,7 +461,7 @@
               ? 'bg-primary/10 dark:bg-primary/20 shadow-[0px_6px_24px_rgba(0,0,0,0.10)] rounded-xl rounded-tl-none p-md border-2 border-primary/50 ring-1 ring-primary/15'
               : 'bg-surface-container-high shadow-[0px_4px_20px_rgba(0,0,0,0.05)] rounded-xl rounded-tl-none p-md border border-outline-variant/40';
             if (modHidden) bubbleCls += ' ring-2 ring-error/50 opacity-70';
-            inner = '<div class="flex items-start gap-sm">' + av + '<div class="flex flex-col min-w-0"><div class="msg-head flex items-center gap-xs ml-sm mb-xs"><span class="' + nameCls + '">' + esc(G.shortName(m.author_name) || 'Membro') + '</span>' + adminBadge + modTag + '<span class="text-[13px] text-on-surface-variant">' + when + '</span></div><div class="' + bubbleCls + '">' + content + '</div></div></div>';
+            inner = '<div class="flex items-start gap-sm">' + av + '<div class="flex flex-col min-w-0"><div class="msg-head flex items-center gap-xs ml-sm mb-xs"><span class="' + nameCls + '">' + esc(G.shortName(m.author_name) || 'Membro') + '</span>' + adminBadge + modTag + tempTag + '<span class="text-[13px] text-on-surface-variant">' + when + '</span></div><div class="' + bubbleCls + '">' + content + '</div></div></div>';
           }
           container.innerHTML = inner;
           G.mountAudios(container);
@@ -520,7 +523,7 @@
         function markRead() { if (!me.id || !topic) return; clearTimeout(self.readT); self.readT = setTimeout(function () { if (self.destroyed) return; sb.from('comu_topic_reads').upsert({ topic_id: topic.id, user_id: me.id, last_read_at: new Date().toISOString() }, { onConflict: 'topic_id,user_id' }).then(function () { G.applyUnread(); }, function () {}); }, 600); }
         // poda: em conversas muito longas, mantém ~250 msgs no DOM (evita travar com o tempo). Só quando no fim; rolar pra cima recarrega.
         function pruneTop() { if (msgsEl.children.length <= 350 || !nearBottom()) return; while (msgsEl.children.length > 250) { var first = msgsEl.firstChild; if (!first) break; var id = first.getAttribute && first.getAttribute('data-msg-id'); if (id && seen[id]) delete seen[id]; msgsEl.removeChild(first); } var f = msgsEl.firstChild, ts = null; while (f) { var c = f.getAttribute && f.getAttribute('data-created'); if (c) { ts = c; break; } f = f.nextSibling; } if (ts) { oldestTs = ts; noOlder = false; } }
-        function addMessage(m, scroll, live) { if (!m || seen[m.id]) return; seen[m.id] = true; msgsEl.appendChild(bubble(m)); renderReactions(m.id); emptyEl.classList.add('hidden'); msgsEl.classList.remove('hidden'); if (scroll) scrollBottom(); else updateScrollBtn(); markRead(); if (live && me.id && m.author_id !== me.id) G.playPing(); if (!isSupport && m.kind !== 'system') { try { G.lastMsgs[slug] = { body: m.body, kind: m.kind, author_name: m.author_name, created_at: m.created_at }; if (G.applyTopicPreviews) G.applyTopicPreviews(); } catch (e) {} } regroup(); pruneTop(); }
+        function addMessage(m, scroll, live) { if (!m || seen[m.id]) return; if (m.expires_at && new Date(m.expires_at).getTime() <= Date.now()) return; seen[m.id] = true; msgsEl.appendChild(bubble(m)); renderReactions(m.id); emptyEl.classList.add('hidden'); msgsEl.classList.remove('hidden'); if (scroll) scrollBottom(); else updateScrollBtn(); markRead(); if (live && me.id && m.author_id !== me.id) G.playPing(); if (!isSupport && m.kind !== 'system') { try { G.lastMsgs[slug] = { body: m.body, kind: m.kind, author_name: m.author_name, created_at: m.created_at }; if (G.applyTopicPreviews) G.applyTopicPreviews(); } catch (e) {} } if (m.expires_at) { var _d = new Date(m.expires_at).getTime() - Date.now(); if (_d > 0 && _d < 90000000) setTimeout(function () { removeMessage(m.id); }, _d + 400); } regroup(); pruneTop(); }
         function startEdit(m) {
           var wrap = msgsEl.querySelector('[data-msg-id="' + m.id + '"]'); if (!wrap) return;
           var body = wrap.querySelector('.msg-body'); var isMine = me.id && m.author_id === me.id; body.innerHTML = '';
@@ -763,7 +766,7 @@
         if (topic) {
           // Carrega as N mais RECENTES (não as antigas) e pagina pra cima ao rolar.
           var CH_PAGE = 40;
-          var COLS = 'id,topic_id,author_id,ticket_id,kind,body,media_url,media_meta,author_name,author_avatar,status,created_at,edited_at,reply_to,reply_author,reply_snippet,moderation';
+          var COLS = 'id,topic_id,author_id,ticket_id,kind,body,media_url,media_meta,author_name,author_avatar,status,created_at,edited_at,reply_to,reply_author,reply_snippet,moderation,expires_at';
           var oldestTs = null, noOlder = false, loadingOlder = false;
           var lr = await sb.from('comu_messages').select(COLS).eq('topic_id', topic.id).neq('status', 'deleted').order('created_at', { ascending: false }).limit(CH_PAGE);
           if (self.destroyed) return;
@@ -869,6 +872,20 @@
         // Áudio: alunos só no suporte. Admin/equipe em qualquer lugar.
         if (micBtn && !isAdmin && !isSupport) { micBtn.classList.add('hidden'); }
         else if (micBtn) micBtn.addEventListener('click', function () { if (!self.recording) startRecording(); });
+        // Mensagem temporária (só admin): some sozinha após o tempo escolhido
+        var tempMs = null;
+        var tempBtn = document.getElementById('btn-temp');
+        if (tempBtn && isAdmin && !isSupport) {
+          tempBtn.classList.remove('hidden'); tempBtn.classList.add('flex');
+          var TEMP_OPTS = [null, 3600000, 21600000, 86400000], TEMP_LBL = ['', '1h', '6h', '24h'], ti = 0;
+          var tlbl = document.getElementById('btn-temp-lbl');
+          tempBtn.addEventListener('click', function () {
+            ti = (ti + 1) % TEMP_OPTS.length; tempMs = TEMP_OPTS[ti];
+            if (tlbl) tlbl.textContent = TEMP_LBL[ti];
+            tempBtn.classList.toggle('text-primary', !!tempMs); tempBtn.classList.toggle('bg-primary/10', !!tempMs); tempBtn.classList.toggle('text-on-surface-variant', !tempMs);
+            G.toast(tempMs ? ('Mensagem temporária: some em ' + TEMP_LBL[ti]) : 'Mensagem temporária desligada');
+          });
+        }
         // Ao anexar, leva o texto já digitado no chat como legenda da mídia (não perde a mensagem).
         var attachBtn = document.getElementById('btn-attach');
         if (attachBtn) attachBtn.addEventListener('click', function () { try { var ci = document.getElementById('chat-input'); G._draftCaption = ci ? (ci.innerText || '').trim() : ''; if (ci) ci.innerHTML = ''; } catch (e) {} });
@@ -887,7 +904,7 @@
           var rs = replyState;
           var ins;
           if (isSupport) ins = await sb.rpc('comu_send_support_message', { p_body: body, p_kind: 'text', p_author_name: me.full_name || 'Membro' });
-          else ins = await sb.from('comu_messages').insert(Object.assign({ topic_id: topic.id, author_id: me.id, kind: 'text', body: body, author_name: me.full_name || 'Membro', author_avatar: me.avatar_url || null }, rs ? { reply_to: rs.id, reply_author: rs.author, reply_snippet: rs.snippet } : {})).select().single();
+          else ins = await sb.from('comu_messages').insert(Object.assign({ topic_id: topic.id, author_id: me.id, kind: 'text', body: body, author_name: me.full_name || 'Membro', author_avatar: me.avatar_url || null }, rs ? { reply_to: rs.id, reply_author: rs.author, reply_snippet: rs.snippet } : {}, (isAdmin && tempMs) ? { expires_at: new Date(Date.now() + tempMs).toISOString() } : {})).select().single();
           if (ins.error) {
             console.error(ins.error); input.innerHTML = prevHTML;      // não perde o texto digitado
             var em = ins.error.message || '';
