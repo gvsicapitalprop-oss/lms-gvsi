@@ -91,9 +91,11 @@
               '<div class="flex flex-col min-w-0 justify-center"><h1 id="chat-title" class="font-headline-sm text-headline-sm font-bold text-primary leading-tight truncate">Comunidade do Giovanni</h1><span id="chat-subtitle" class="text-body-sm text-on-surface-variant leading-tight">Grupo da comunidade</span></div>' +
             '</div>' +
             '<div class="flex items-center gap-xs">' +
+              '<button type="button" id="chat-search-btn" class="text-primary flex items-center w-9 h-9 justify-center rounded-full hover:bg-surface-container-high" aria-label="Buscar mensagens"><span class="material-symbols-outlined">search</span></button>' +
               '<button type="button" data-theme-toggle class="lg:hidden text-primary flex items-center" aria-label="Tema"><span class="material-symbols-outlined" data-theme-icon>dark_mode</span></button>' +
             '</div>' +
           '</header>' +
+          '<div id="chat-search-panel" class="hidden fixed top-16 lg:top-[89px] left-0 right-0 lg:left-[var(--side-w)] z-40 bg-surface border-b border-outline-variant shadow-lg"><div class="max-w-3xl mx-auto p-sm"><div class="relative"><span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[20px] pointer-events-none">search</span><input id="chat-search-input" type="text" autocomplete="off" placeholder="Buscar nas mensagens deste grupo…" class="w-full bg-surface-container-low border border-outline-variant rounded-xl py-2 pl-10 pr-10 text-body-md text-on-surface focus:ring-2 focus:ring-primary/30"><button type="button" id="chat-search-close" class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high"><span class="material-symbols-outlined text-[20px]">close</span></button></div><div id="chat-search-results" class="max-h-[50vh] overflow-y-auto custom-scrollbar mt-sm space-y-0.5"></div></div></div>' +
           '<main id="chat-scroll" class="lg:pl-[var(--side-w)] h-[100dvh] pt-16 lg:pt-[89px] pb-64 lg:pb-52 flex flex-col overflow-y-auto custom-scrollbar">' +
             '<div id="chat-messages" class="hidden w-full max-w-3xl mx-auto flex flex-col gap-lg px-container-margin py-lg"></div>' +
             '<div id="chat-loading" class="flex-grow flex items-center justify-center text-on-surface-variant text-body-sm gap-sm"><span class="material-symbols-outlined animate-spin">progress_activity</span> Carregando…</div>' +
@@ -831,6 +833,45 @@
           }
           refreshTicketInfo();
           if (me.id) { sb.from('comu_topic_reads').upsert({ topic_id: topic.id, user_id: me.id, last_read_at: new Date().toISOString() }, { onConflict: 'topic_id,user_id' }).then(function () { G.applyUnread(); }, function () {}); }
+          // ---- busca de mensagens neste tópico ----
+          async function jumpToMessage(id) {
+            var tries = 0;
+            while (!msgsEl.querySelector('[data-msg-id="' + id + '"]') && !noOlder && tries < 25) { await loadOlder(); tries++; }
+            var t = msgsEl.querySelector('[data-msg-id="' + id + '"]');
+            if (t) { t.scrollIntoView({ behavior: 'smooth', block: 'center' }); t.style.transition = 'background-color .3s'; t.style.backgroundColor = 'rgba(37,99,235,0.18)'; setTimeout(function () { t.style.backgroundColor = ''; }, 1400); }
+            else G.toast('Mensagem muito antiga para abrir aqui.');
+          }
+          (function () {
+            var sBtn = document.getElementById('chat-search-btn'), sPanel = document.getElementById('chat-search-panel'), sInput = document.getElementById('chat-search-input'), sClose = document.getElementById('chat-search-close'), sRes = document.getElementById('chat-search-results');
+            if (!sBtn || !sPanel) return;
+            if (isSupport) { sBtn.classList.add('hidden'); return; }
+            function closeS() { sPanel.classList.add('hidden'); sInput.value = ''; sRes.innerHTML = ''; }
+            sBtn.addEventListener('click', function () { if (sPanel.classList.contains('hidden')) { sPanel.classList.remove('hidden'); sInput.focus(); } else closeS(); });
+            if (sClose) sClose.addEventListener('click', closeS);
+            sInput.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeS(); });
+            var sTmr;
+            sInput.addEventListener('input', function () {
+              clearTimeout(sTmr); var q = sInput.value.trim();
+              if (q.length < 2) { sRes.innerHTML = ''; return; }
+              sRes.innerHTML = '<p class="p-md text-center text-on-surface-variant text-body-sm">Buscando…</p>';
+              sTmr = setTimeout(async function () {
+                var r = await sb.rpc('comu_search_messages', { p_topic: topic.id, p_q: q });
+                if (self.destroyed) return;
+                if (r.error) { sRes.innerHTML = '<p class="p-md text-error text-body-sm">' + esc(r.error.message) + '</p>'; return; }
+                var rows = r.data || [];
+                if (!rows.length) { sRes.innerHTML = '<p class="p-md text-center text-on-surface-variant text-body-sm">Nada encontrado.</p>'; return; }
+                sRes.innerHTML = '';
+                rows.forEach(function (m) {
+                  var w = ''; try { w = new Date(m.created_at).toLocaleDateString('pt-BR') + ' ' + timeStr(m.created_at); } catch (e) {}
+                  var snip = esc((m.body || '').replace(/\s+/g, ' ').slice(0, 90));
+                  var el = document.createElement('button'); el.type = 'button'; el.className = 'w-full text-left p-sm rounded-lg hover:bg-surface-container-low';
+                  el.innerHTML = '<div class="flex justify-between gap-sm"><span class="font-bold text-on-surface text-body-sm truncate">' + esc(G.shortName(m.author_name) || 'Membro') + '</span><span class="text-[12px] text-on-surface-variant shrink-0">' + w + '</span></div><div class="text-body-sm text-on-surface-variant truncate">' + snip + '</div>';
+                  el.addEventListener('click', function () { closeS(); jumpToMessage(m.id); });
+                  sRes.appendChild(el);
+                });
+              }, 250);
+            });
+          })();
         } else { loadingEl.classList.add('hidden'); emptyEl.classList.remove('hidden'); }
 
         // ---- gravação de voz (toque para gravar / toque para enviar) ----
