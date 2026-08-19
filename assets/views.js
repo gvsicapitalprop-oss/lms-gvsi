@@ -1298,8 +1298,8 @@
           if (r.error) { list.innerHTML = '<p class="p-md text-error text-body-sm">' + esc(r.error.message) + '</p>'; return; }
           // se a conversa aberta recebeu avaliação/mudou status, reflete no cabeçalho
           if (self.currentTicket) { var _cur = (r.data || []).filter(function (x) { return x.id === self.currentTicket.id; })[0]; if (_cur) { self.currentTicket.rating = _cur.rating; self.currentTicket.solved = _cur.solved; self.currentTicket.status = _cur.status; renderConvoRating(); } }
-          var rows = r.data; var query = (self.search || '').trim().toLowerCase();
-          if (query) rows = rows.filter(function (tk) { var m = tk.member || {}; return [m.full_name, m.email, m.phone, tk.protocol].some(function (v) { return v && String(v).toLowerCase().indexOf(query) >= 0; }); });
+          var rows = r.data; var query = G.deburr((self.search || '').trim());
+          if (query) rows = rows.filter(function (tk) { var m = tk.member || {}; return [m.full_name, m.email, m.phone, tk.protocol].some(function (v) { return v && G.deburr(v).indexOf(query) >= 0; }); });
           if (!rows.length) { list.innerHTML = '<p class="p-lg text-center text-on-surface-variant text-body-sm">' + (query ? 'Nenhum resultado para a busca.' : 'Nenhuma conversa.') + '</p>'; return; }
           rows.forEach(function (tk) {
             var m = tk.member || {}; var el = document.createElement('button'); var chips = contactTagChips(tk.user_id);
@@ -1526,9 +1526,9 @@
       function findUser(id) { for (var i = 0; i < st.all.length; i++) if (st.all[i].id === id) return st.all[i]; return null; }
       function paint() {
         var list = document.getElementById('mb-list'); if (!list) return;
-        var q = (st.search || '').trim().toLowerCase();
+        var q = G.deburr((st.search || '').trim());
         var rows = st.all;
-        if (q) rows = rows.filter(function (u) { return [u.full_name, u.email].some(function (v) { return v && String(v).toLowerCase().indexOf(q) >= 0; }); });
+        if (q) rows = rows.filter(function (u) { return [u.full_name, u.email].some(function (v) { return v && G.deburr(v).indexOf(q) >= 0; }); });
         var cap = 60, shown = rows.slice(0, cap);
         var cnt = document.getElementById('mb-count'); if (cnt) cnt.textContent = q ? (rows.length + ' resultado(s)') : ('Total: ' + st.all.length + ' membros' + (rows.length > cap ? ' · mostrando ' + cap + ' (refine a busca)' : ''));
         if (!shown.length) { list.innerHTML = '<p class="p-lg text-center text-on-surface-variant text-body-sm">Nenhum membro encontrado.</p>'; return; }

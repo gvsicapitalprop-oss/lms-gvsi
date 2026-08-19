@@ -40,6 +40,8 @@ GVSI.views = GVSI.views || {};
   // Exibição: só os 2 primeiros nomes (o nome completo continua no banco).
   G.shortName = function (name) { var p = String(name || '').trim().split(/\s+/).filter(Boolean); return p.slice(0, 2).join(' '); };
   G.humanSize = function (n) { n = +n || 0; return n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : (n >= 1024 ? Math.round(n / 1024) + ' KB' : n + ' B'); };
+  // Normaliza texto p/ busca: minúsculas + remove acentos (Débora -> debora)
+  G.deburr = function (s) { try { return String(s == null ? '' : s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); } catch (e) { return String(s == null ? '' : s).toLowerCase(); } };
   // Modal de entrada de texto (substitui window.prompt do navegador)
   G.promptDialog = function (opts) {
     opts = opts || {};
