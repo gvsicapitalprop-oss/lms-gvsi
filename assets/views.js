@@ -403,7 +403,7 @@
           var ty = file.type || '';
           var kind = ty.indexOf('image') === 0 ? 'image' : (ty.indexOf('video') === 0 ? 'video' : (ty.indexOf('audio') === 0 ? 'audio' : null));
           if (!kind) { if (isAdmin) kind = 'file'; else { G.toast('Só imagem, vídeo ou áudio.'); return; } } // admin pode enviar qualquer arquivo
-          if (kind === 'video' && !isAdmin) { G.toast('Vídeo é só para a equipe.'); return; }
+          if (kind === 'video' && !isAdmin && !isSupport) { G.toast('Vídeo só pode ser enviado no suporte.'); return; }
           if (kind === 'audio' && !isAdmin && !isSupport) { G.toast('Áudio só pode ser enviado no suporte.'); return; }
           if (kind === 'image') { openImageComposer(file); return; } // imagem: redimensionar/legendar antes de enviar
           G.toast('Enviando…');
@@ -440,12 +440,13 @@
           var edited = (m.status === 'edited' && mine) ? ' <span class="text-[12px] opacity-80">(editado)</span>' : '';
           var tempTag = '';
           if (m.expires_at) { var _lms = new Date(m.expires_at).getTime() - Date.now(); var _lt = _lms <= 0 ? 'expira' : (_lms >= 3600000 ? Math.round(_lms / 3600000) + 'h' : Math.max(1, Math.round(_lms / 60000)) + 'min'); tempTag = '<span class="inline-flex items-center gap-[1px] text-[11px] ' + (mine ? 'text-white/85' : 'text-on-surface-variant') + '" title="Mensagem temporária — some sozinha"><span class="material-symbols-outlined text-[13px]">timer</span>' + _lt + '</span>'; }
+          var authorIsAdmin = (mine && isAdmin) || !!(G.adminIds && m.author_id && G.adminIds[m.author_id]); // links clicáveis só nas mensagens da equipe
           var content;
-          if (m.kind === 'image' && m.media_url) content = '<img src="' + esc(m.media_url) + '" data-full="' + esc(m.media_url) + '" class="msg-img rounded-lg max-w-full mb-xs cursor-zoom-in" alt="">' + (m.body ? '<p class="' + (mine ? '' : 'text-on-surface ') + 'font-body-md">' + G.fmt(m.body) + edited + '</p>' : '');
-          else if (m.kind === 'video' && m.media_url) content = '<video controls preload="metadata" src="' + esc(m.media_url) + '" class="rounded-lg max-w-full mb-xs" style="max-height:20rem"></video>' + (m.body ? '<p class="' + (mine ? '' : 'text-on-surface ') + 'font-body-md">' + G.fmt(m.body) + edited + '</p>' : '');
+          if (m.kind === 'image' && m.media_url) content = '<img src="' + esc(m.media_url) + '" data-full="' + esc(m.media_url) + '" class="msg-img rounded-lg max-w-full mb-xs cursor-zoom-in" alt="">' + (m.body ? '<p class="' + (mine ? '' : 'text-on-surface ') + 'font-body-md">' + G.fmt(m.body, authorIsAdmin) + edited + '</p>' : '');
+          else if (m.kind === 'video' && m.media_url) content = '<video controls preload="metadata" src="' + esc(m.media_url) + '" class="rounded-lg max-w-full mb-xs" style="max-height:20rem"></video>' + (m.body ? '<p class="' + (mine ? '' : 'text-on-surface ') + 'font-body-md">' + G.fmt(m.body, authorIsAdmin) + edited + '</p>' : '');
           else if (m.kind === 'audio' && m.media_url) content = G.audioHtml(m.media_url, mine);
-          else if (m.kind === 'file' && m.media_url) content = G.fileCard(m, mine) + (m.body ? '<p class="' + (mine ? '' : 'text-on-surface ') + 'font-body-md mt-xs">' + G.fmt(m.body) + edited + '</p>' : '');
-          else content = '<p class="' + (mine ? '' : 'text-on-surface ') + 'font-body-md whitespace-pre-wrap break-words">' + G.fmt(m.body) + edited + '</p>';
+          else if (m.kind === 'file' && m.media_url) content = G.fileCard(m, mine) + (m.body ? '<p class="' + (mine ? '' : 'text-on-surface ') + 'font-body-md mt-xs">' + G.fmt(m.body, authorIsAdmin) + edited + '</p>' : '');
+          else content = '<p class="' + (mine ? '' : 'text-on-surface ') + 'font-body-md whitespace-pre-wrap break-words">' + G.fmt(m.body, authorIsAdmin) + edited + '</p>';
           if (m.reply_to && (m.reply_snippet || m.reply_author)) {
             var qB = mine ? 'border-white/50' : 'border-primary/60', qN = mine ? 'text-white' : 'text-primary', qT = mine ? 'text-white/85' : 'text-on-surface-variant', qBg = mine ? 'bg-white/10' : 'bg-black/5 dark:bg-white/10';
             content = '<div class="reply-quote mb-xs border-l-4 ' + qB + ' ' + qBg + ' rounded px-2 py-1 cursor-pointer" data-goto="' + esc(m.reply_to) + '"><p class="text-[12px] font-bold ' + qN + ' truncate">' + esc(G.shortName(m.reply_author) || 'Membro') + '</p><p class="text-[13px] ' + qT + ' truncate">' + esc(m.reply_snippet || '') + '</p></div>' + content;
@@ -525,10 +526,19 @@
             prevA = aid; prevT = t;
           }
         }
+        function applyDayDividers() {
+          var olds = msgsEl.querySelectorAll('.day-divider'); for (var j = 0; j < olds.length; j++) olds[j].remove();
+          var lastKey = null, kids = Array.prototype.slice.call(msgsEl.children);
+          for (var i = 0; i < kids.length; i++) {
+            var el = kids[i], c = el.getAttribute && el.getAttribute('data-created'); if (!c) continue;
+            var d = new Date(c), key = d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate();
+            if (key !== lastKey) { lastKey = key; var div = document.createElement('div'); div.className = 'day-divider w-full flex justify-center my-2'; div.innerHTML = '<span class="text-[12px] font-bold text-on-surface-variant bg-surface-container-high rounded-full px-3 py-1 shadow-sm">' + G.dayLabel(c) + '</span>'; msgsEl.insertBefore(div, el); }
+          }
+        }
         function markRead() { if (!me.id || !topic) return; clearTimeout(self.readT); self.readT = setTimeout(function () { if (self.destroyed) return; sb.from('comu_topic_reads').upsert({ topic_id: topic.id, user_id: me.id, last_read_at: new Date().toISOString() }, { onConflict: 'topic_id,user_id' }).then(function () { G.applyUnread(); }, function () {}); }, 600); }
         // poda: em conversas muito longas, mantém ~250 msgs no DOM (evita travar com o tempo). Só quando no fim; rolar pra cima recarrega.
         function pruneTop() { if (msgsEl.children.length <= 350 || !nearBottom()) return; while (msgsEl.children.length > 250) { var first = msgsEl.firstChild; if (!first) break; var id = first.getAttribute && first.getAttribute('data-msg-id'); if (id && seen[id]) delete seen[id]; msgsEl.removeChild(first); } var f = msgsEl.firstChild, ts = null; while (f) { var c = f.getAttribute && f.getAttribute('data-created'); if (c) { ts = c; break; } f = f.nextSibling; } if (ts) { oldestTs = ts; noOlder = false; } }
-        function addMessage(m, scroll, live) { if (!m || seen[m.id]) return; if (m.expires_at && new Date(m.expires_at).getTime() <= Date.now()) return; seen[m.id] = true; msgsEl.appendChild(bubble(m)); renderReactions(m.id); emptyEl.classList.add('hidden'); msgsEl.classList.remove('hidden'); if (scroll) scrollBottom(); else updateScrollBtn(); markRead(); if (live && me.id && m.author_id !== me.id) G.playPing(); if (!isSupport && m.kind !== 'system') { try { G.lastMsgs[slug] = { body: m.body, kind: m.kind, author_name: m.author_name, created_at: m.created_at }; if (G.applyTopicPreviews) G.applyTopicPreviews(); } catch (e) {} } if (m.expires_at) { var _d = new Date(m.expires_at).getTime() - Date.now(); if (_d > 0 && _d < 90000000) setTimeout(function () { removeMessage(m.id); }, _d + 400); } regroup(); pruneTop(); }
+        function addMessage(m, scroll, live) { if (!m || seen[m.id]) return; if (m.expires_at && new Date(m.expires_at).getTime() <= Date.now()) return; seen[m.id] = true; msgsEl.appendChild(bubble(m)); renderReactions(m.id); emptyEl.classList.add('hidden'); msgsEl.classList.remove('hidden'); if (scroll) scrollBottom(); else updateScrollBtn(); markRead(); if (live && me.id && m.author_id !== me.id) G.playPing(); if (!isSupport && m.kind !== 'system') { try { G.lastMsgs[slug] = { body: m.body, kind: m.kind, author_name: m.author_name, created_at: m.created_at }; if (G.applyTopicPreviews) G.applyTopicPreviews(); } catch (e) {} } if (m.expires_at) { var _d = new Date(m.expires_at).getTime() - Date.now(); if (_d > 0 && _d < 90000000) setTimeout(function () { removeMessage(m.id); }, _d + 400); } applyDayDividers(); regroup(); pruneTop(); }
         function startEdit(m) {
           var wrap = msgsEl.querySelector('[data-msg-id="' + m.id + '"]'); if (!wrap) return;
           var body = wrap.querySelector('.msg-body'); var isMine = me.id && m.author_id === me.id; body.innerHTML = '';
@@ -795,7 +805,7 @@
           function prependMessages(rows) {
             var frag = document.createDocumentFragment(), ids = [];
             rows.forEach(function (m) { if (m && !seen[m.id]) { seen[m.id] = true; frag.appendChild(bubble(m)); ids.push(m.id); } });
-            if (frag.childNodes.length) { msgsEl.insertBefore(frag, msgsEl.firstChild); msgsEl.classList.remove('hidden'); emptyEl.classList.add('hidden'); regroup(); }
+            if (frag.childNodes.length) { msgsEl.insertBefore(frag, msgsEl.firstChild); msgsEl.classList.remove('hidden'); emptyEl.classList.add('hidden'); applyDayDividers(); regroup(); }
             if (ids.length) loadReactions(ids);
           }
           async function loadOlder() {
@@ -1065,12 +1075,11 @@
       document.getElementById('file-audio').addEventListener('change', function () { if (this.files[0]) showSel(this.files[0], 'audio'); });
       document.getElementById('act-file').addEventListener('click', function () { document.getElementById('file-any').click(); });
       document.getElementById('file-any').addEventListener('change', function () { if (this.files[0]) showSel(this.files[0], 'file'); });
-      // #7 — membro: FOTO sempre; VÍDEO só admin; ÁUDIO só no suporte. Admin envia ARQUIVO de qualquer tipo.
+      // #7 — membro: FOTO sempre; VÍDEO e ÁUDIO só no suporte. Admin envia ARQUIVO de qualquer tipo.
       if (me.role !== 'admin') {
-        var av = document.getElementById('act-video'); if (av) av.classList.add('hidden');
         var isSup = !!(topic && topic.post_policy === 'support');
-        if (!isSup) { var aa = document.getElementById('act-audio'); if (aa) aa.classList.add('hidden'); }
-        var ag = document.getElementById('act-grid'); if (ag) ag.className = 'grid grid-cols-' + (isSup ? '2' : '1') + ' gap-sm';
+        if (!isSup) { var av = document.getElementById('act-video'); if (av) av.classList.add('hidden'); var aa = document.getElementById('act-audio'); if (aa) aa.classList.add('hidden'); }
+        var ag = document.getElementById('act-grid'); if (ag) ag.className = 'grid grid-cols-' + (isSup ? '3' : '1') + ' gap-sm';
       } else {
         var af = document.getElementById('act-file'); if (af) { af.classList.remove('hidden'); af.classList.add('flex'); }
         var ag2 = document.getElementById('act-grid'); if (ag2) ag2.className = 'grid grid-cols-2 gap-sm'; // 4 itens em 2x2
@@ -1440,12 +1449,13 @@
         self.onSupDoc = function (e) { if (!supMenu.classList.contains('hidden') && !supMenu.contains(e.target)) hideSupMenu(); if (!supPicker.classList.contains('hidden') && !supPicker.contains(e.target)) hideSupPicker(); };
         document.addEventListener('click', self.onSupDoc);
         function contentHtml(msg) {
+          var isAgent = !(self.currentTicket && msg.author_id === self.currentTicket.user_id); // links clicáveis nas mensagens do suporte
           if (msg.kind === 'image' && msg.media_url) return '<img src="' + esc(msg.media_url) + '" data-full="' + esc(msg.media_url) + '" class="sup-img rounded-lg max-w-full cursor-zoom-in">';
           if (msg.kind === 'video' && msg.media_url) return '<video controls preload="metadata" src="' + esc(msg.media_url) + '" class="rounded-lg max-w-full" style="max-height:20rem"></video>';
           if (msg.kind === 'audio' && msg.media_url) return G.audioHtml(msg.media_url, msg.author_id === me.id);
-          if (msg.kind === 'file' && msg.media_url) return G.fileCard(msg, msg.author_id === me.id) + (msg.body ? '<p class="font-body-md mt-xs">' + G.fmt(msg.body) + '</p>' : '');
+          if (msg.kind === 'file' && msg.media_url) return G.fileCard(msg, msg.author_id === me.id) + (msg.body ? '<p class="font-body-md mt-xs">' + G.fmt(msg.body, isAgent) + '</p>' : '');
           var mine = msg.author_id === me.id; var edited = msg.status === 'edited' ? ' <span class="text-[12px] opacity-80">(editado)</span>' : '';
-          return '<p class="font-body-md whitespace-pre-wrap break-words ' + (mine ? '' : 'text-on-surface') + '">' + G.fmt(msg.body || '') + edited + '</p>';
+          return '<p class="font-body-md whitespace-pre-wrap break-words ' + (mine ? '' : 'text-on-surface') + '">' + G.fmt(msg.body || '', isAgent) + edited + '</p>';
         }
         function renderReactSup(id) { var row = document.querySelector('[data-react-sup="' + id + '"]'); if (!row) return; var data = self.reactMap[id] || {}; row.innerHTML = ''; Object.keys(data).forEach(function (em) { var users = data[em]; if (!users || !users.length) return; var mineR = users.indexOf(me.id) !== -1; var chip = document.createElement('button'); chip.type = 'button'; chip.className = 'px-3 py-1 rounded-full text-body-sm flex items-center gap-1 border transition-colors ' + (mineR ? 'bg-primary/15 border-primary/40 text-primary' : 'bg-surface-container-high border-outline-variant/50 text-on-surface-variant'); chip.innerHTML = '<span>' + em + '</span><span class="font-bold">' + users.length + '</span>'; chip.addEventListener('click', function () { toggleReactSup(id, em); }); row.appendChild(chip); }); }
         async function toggleReactSup(id, em) { if (!me.id) return; var data = self.reactMap[id] || (self.reactMap[id] = {}); var have = (data[em] || []).indexOf(me.id) !== -1; Object.keys(data).forEach(function (e) { var i = data[e].indexOf(me.id); if (i !== -1) data[e].splice(i, 1); }); if (!have) (data[em] = data[em] || []).push(me.id); renderReactSup(id); await sb.from('comu_message_reactions').delete().eq('message_id', id).eq('user_id', me.id); if (!have) await sb.from('comu_message_reactions').insert({ message_id: id, user_id: me.id, reaction: em, user_name: me.full_name || null }); }
@@ -1465,7 +1475,7 @@
           }
           self.msgById[msg.id] = msg;
           var mine = msg.author_id === me.id;
-          var wrap = document.createElement('div'); wrap.setAttribute('data-msg-id', msg.id);
+          var wrap = document.createElement('div'); wrap.setAttribute('data-msg-id', msg.id); wrap.setAttribute('data-created', msg.created_at || '');
           var bubble = document.createElement('div'); bubble.className = 'sup-bubble ' + (mine ? 'message-gradient-outgoing text-white rounded-xl rounded-tr-none p-md shadow' : 'bg-surface-container-lowest border border-outline-variant/30 rounded-xl rounded-tl-none p-md');
           bubble.innerHTML = contentHtml(msg); G.mountAudios(bubble);
           var react = document.createElement('div'); react.setAttribute('data-react-sup', msg.id); react.className = 'flex flex-wrap items-center gap-xs mt-xs ' + (mine ? 'justify-end' : '');
@@ -1481,6 +1491,17 @@
           bindSupActions(bubble, msg.id);
           container.appendChild(wrap);
           renderReactSup(msg.id);
+          applyDayDividersSup();
+        }
+        function applyDayDividersSup() {
+          var cont = document.getElementById('convo-messages'); if (!cont) return;
+          var olds = cont.querySelectorAll('.day-divider'); for (var j = 0; j < olds.length; j++) olds[j].remove();
+          var lastKey = null, kids = Array.prototype.slice.call(cont.children);
+          for (var i = 0; i < kids.length; i++) {
+            var el = kids[i], c = el.getAttribute && el.getAttribute('data-created'); if (!c) continue;
+            var d = new Date(c), key = d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate();
+            if (key !== lastKey) { lastKey = key; var div = document.createElement('div'); div.className = 'day-divider w-full flex justify-center my-2'; div.innerHTML = '<span class="text-[12px] font-bold text-on-surface-variant bg-surface-container-high rounded-full px-3 py-1 shadow-sm">' + G.dayLabel(c) + '</span>'; cont.insertBefore(div, el); }
+          }
         }
         function scrollConvo() { var s = document.getElementById('convo-scroll'); s.scrollTop = s.scrollHeight; }
         function updateResolveBtn() { var lbl = document.getElementById('btn-resolve-label'), b = document.getElementById('btn-resolve'); var s = self.currentTicket && self.currentTicket.status; if (s === 'aberto') { lbl.textContent = 'Marcar como resolvido'; b.disabled = false; } else if (s === 'aguardando') { lbl.textContent = 'Aguardando resposta…'; b.disabled = true; } else { lbl.textContent = 'Resolvido'; b.disabled = true; } }
