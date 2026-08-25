@@ -1738,6 +1738,8 @@
         // #3 — abrir direto o ticket que veio de "Responder no suporte"
         if (G._openTicketId) { var _oid = G._openTicketId; G._openTicketId = null; (async function () { var rr = await sb.from('comu_support_tickets').select('*, member:lms_students!user_id(full_name,avatar_url,email,phone)').eq('id', _oid).maybeSingle(); if (rr && rr.data && !self.destroyed) openTicket(rr.data); })(); }
         self.channels.push(sb.channel('tickets-list').on('postgres_changes', { event: '*', schema: 'public', table: 'comu_support_tickets' }, function () { loadTickets(); }).subscribe());
+        // tags aplicadas (inclusive pela IA) atualizam a lista/filtro ao vivo
+        self.channels.push(sb.channel('contact-tags').on('postgres_changes', { event: '*', schema: 'public', table: 'comu_support_contact_tags' }, async function () { await loadTags(); renderTagFilter(); refreshConvoTags(); loadTickets(); }).subscribe());
       }
     };
   })();
