@@ -1126,6 +1126,11 @@
             '</div>' +
             '<div class="bg-surface-container-high rounded-xl p-lg shadow-sm border border-outline-variant/20 flex flex-col justify-center items-center text-center space-y-md"><div class="flex flex-wrap justify-center gap-x-lg gap-y-sm w-full"><div class="flex flex-col items-center min-w-[90px]"><span id="pf-msgcount" class="font-headline-sm text-headline-sm text-primary">0</span><span class="text-body-sm text-on-surface-variant text-center leading-tight">Mensagens</span></div><div class="flex flex-col items-center min-w-[90px]"><span class="font-headline-sm text-headline-sm text-secondary">0</span><span class="text-body-sm text-on-surface-variant text-center leading-tight">Conquistas</span></div></div><a href="#conquistas" class="w-full h-12 bg-primary text-on-primary rounded-xl font-label-md text-label-md hover:bg-primary/90 active:scale-[0.98] transition-all flex items-center justify-center">Ver conquistas</a></div>' +
           '</section>' +
+          '<section id="pf-ranking" class="hidden bg-surface-container-lowest rounded-xl p-lg border border-outline-variant/30 space-y-md">' +
+            '<div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">leaderboard</span><h3 class="font-headline-sm text-headline-sm text-on-surface">Ranking de engajamento</h3></div>' +
+            '<p class="text-body-sm text-on-surface-variant">Alunos que mais enviam mensagens nos grupos da comunidade (o suporte não conta).</p>' +
+            '<div id="pf-ranking-list" class="space-y-1"><p class="text-body-sm text-on-surface-variant">Carregando…</p></div>' +
+          '</section>' +
           '<section class="bg-surface-container-low rounded-xl p-lg border border-outline-variant/20 space-y-md">' +
             '<div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">format_size</span><h3 class="font-headline-sm text-headline-sm text-on-surface">Tamanho da letra</h3></div>' +
             '<p class="text-body-sm text-on-surface-variant">Deixe o texto do app maior ou menor, do jeito que ficar melhor pra você ler.</p>' +
@@ -1175,6 +1180,29 @@
       }
       fillUI();
       sb.from('comu_messages').select('id', { count: 'exact', head: true }).eq('author_id', me.id).then(function (r) { var el = document.getElementById('pf-msgcount'); if (el) el.textContent = r.count || 0; });
+
+      // Ranking de engajamento — só para administradores
+      if (me.role === 'admin') {
+        var secR = document.getElementById('pf-ranking'); if (secR) secR.classList.remove('hidden');
+        sb.rpc('comu_engagement_ranking', { p_limit: 20 }).then(function (r) {
+          var box = document.getElementById('pf-ranking-list'); if (!box) return;
+          if (r.error) { box.innerHTML = '<p class="text-body-sm text-error">' + esc(r.error.message) + '</p>'; return; }
+          var rows = r.data || [];
+          if (!rows.length) { box.innerHTML = '<p class="text-body-sm text-on-surface-variant">Ainda não há mensagens suficientes.</p>'; return; }
+          var max = rows[0].msg_count || 1;
+          var medal = ['🥇', '🥈', '🥉'];
+          box.innerHTML = rows.map(function (x, i) {
+            var pos = i < 3 ? '<span class="text-[18px] w-7 text-center shrink-0">' + medal[i] + '</span>' : '<span class="w-7 text-center shrink-0 font-bold text-on-surface-variant tabular-nums">' + (i + 1) + '</span>';
+            var av = x.avatar_url ? '<img src="' + esc(x.avatar_url) + '" class="w-9 h-9 rounded-full object-cover shrink-0">' : '<span class="w-9 h-9 rounded-full bg-surface-container-high flex items-center justify-center text-outline shrink-0"><span class="material-symbols-outlined text-[20px]">person</span></span>';
+            var crown = x.premium ? ' <span class="material-symbols-outlined text-[14px] text-amber-500 align-middle">workspace_premium</span>' : '';
+            var pct = Math.max(6, Math.round((x.msg_count / max) * 100));
+            return '<div class="flex items-center gap-md p-2 rounded-xl ' + (i < 3 ? 'bg-surface-container-high' : 'hover:bg-surface-container-low') + '">' + pos + av +
+              '<div class="flex-1 min-w-0"><p class="font-bold text-on-surface truncate text-body-md">' + esc(x.full_name || 'Membro') + crown + '</p>' +
+              '<div class="h-1.5 rounded-full bg-outline-variant/30 mt-1 overflow-hidden"><div class="h-full rounded-full bg-primary" style="width:' + pct + '%"></div></div></div>' +
+              '<span class="font-headline-sm text-headline-sm text-primary tabular-nums shrink-0">' + x.msg_count + '</span></div>';
+          }).join('');
+        });
+      }
 
       var modal = document.getElementById('edit-modal');
       function openEdit() {
