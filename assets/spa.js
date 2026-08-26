@@ -681,7 +681,10 @@ GVSI.views = GVSI.views || {};
       '<div class="p-lg"><p class="text-body-md text-on-surface whitespace-pre-wrap leading-relaxed">' + G.fmt(n.body || '', true) + '</p>' +
       '<button type="button" id="news-close" class="w-full mt-lg h-11 rounded-full bg-primary text-on-primary font-label-md active:scale-[0.98] transition">Entendi</button></div></div>';
     document.body.appendChild(ov);
-    function close() { ov.remove(); try { G.sb.from('comu_news_reads').insert({ news_id: n.id, user_id: G.me.id }); } catch (e) {} }
+    var marked = false;
+    function markRead() { if (marked) return; marked = true; try { G.sb.from('comu_news_reads').upsert({ news_id: n.id, user_id: G.me.id }, { onConflict: 'news_id,user_id' }).then(function () {}, function () {}); } catch (e) {} }
+    function close() { markRead(); ov.remove(); }
+    markRead();
     ov.querySelector('#news-close').onclick = close;
     ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
   };
