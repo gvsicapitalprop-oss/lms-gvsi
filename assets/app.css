@@ -138,6 +138,14 @@ body {
 .hide-scrollbar::-webkit-scrollbar { display: none; }
 .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
+/* ---- Mensagens grandes (tabelas com TAB, textos longos) sempre cabem na tela ---- */
+.msg-body, #convo-messages .sup-bubble { tab-size: 2; -moz-tab-size: 2; }
+.msg-body p, #convo-messages .sup-bubble p { overflow-wrap: anywhere; word-break: break-word; }
+.msg-body, .msg-body *,
+#convo-messages .sup-bubble, #convo-messages .sup-bubble * { max-width: 100%; }
+/* overflow horizontal não pode atrapalhar o arrastar vertical (chat e suporte) */
+#chat-scroll { overflow-x: hidden; }
+
 /* ---- Superfícies translúcidas ---- */
 .glass-input {
   background: rgba(255, 255, 255, 0.8);
