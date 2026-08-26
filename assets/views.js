@@ -1510,8 +1510,8 @@
           if (query) rows = rows.filter(function (tk) { var m = tk.member || {}; return [m.full_name, m.email, m.phone, tk.protocol].some(function (v) { return v && G.deburr(v).indexOf(query) >= 0; }); });
           if (self.tagFilter === '__waiting__') rows = rows.filter(function (tk) { return (tk.status === 'aberto' || tk.status === 'aguardando') && !tk.last_agent_at; });
           else if (self.tagFilter) rows = rows.filter(function (tk) { return (self.contactTags[tk.user_id] || []).indexOf(self.tagFilter) !== -1; });
-          // premium sempre no topo (sort estável mantém a ordem por recência dentro de cada grupo)
-          rows = rows.slice().sort(function (a, b) { return ((b.member && b.member.premium) ? 1 : 0) - ((a.member && a.member.premium) ? 1 : 0); });
+          // premium no topo só em Pendentes (em Resolvidos mantém a ordem normal por data)
+          if (self.filter !== 'resolvidos') rows = rows.slice().sort(function (a, b) { return ((b.member && b.member.premium) ? 1 : 0) - ((a.member && a.member.premium) ? 1 : 0); });
           if (!rows.length) { list.innerHTML = '<p class="p-lg text-center text-on-surface-variant text-body-sm">' + ((query || self.tagFilter) ? 'Nenhuma conversa com esse filtro.' : 'Nenhuma conversa.') + '</p>'; return; }
           rows.forEach(function (tk) {
             var m = tk.member || {}; var el = document.createElement('button'); var chips = contactTagChips(tk.user_id);
