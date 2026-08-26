@@ -1126,10 +1126,15 @@
             '</div>' +
             '<div class="bg-surface-container-high rounded-xl p-lg shadow-sm border border-outline-variant/20 flex flex-col justify-center items-center text-center space-y-md"><div class="flex flex-wrap justify-center gap-x-lg gap-y-sm w-full"><div class="flex flex-col items-center min-w-[90px]"><span id="pf-msgcount" class="font-headline-sm text-headline-sm text-primary">0</span><span class="text-body-sm text-on-surface-variant text-center leading-tight">Mensagens</span></div><div class="flex flex-col items-center min-w-[90px]"><span class="font-headline-sm text-headline-sm text-secondary">0</span><span class="text-body-sm text-on-surface-variant text-center leading-tight">Conquistas</span></div></div><a href="#conquistas" class="w-full h-12 bg-primary text-on-primary rounded-xl font-label-md text-label-md hover:bg-primary/90 active:scale-[0.98] transition-all flex items-center justify-center">Ver conquistas</a></div>' +
           '</section>' +
-          '<section id="pf-ranking" class="hidden bg-surface-container-lowest rounded-xl p-lg border border-outline-variant/30 space-y-md">' +
-            '<div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">leaderboard</span><h3 class="font-headline-sm text-headline-sm text-on-surface">Ranking de engajamento</h3></div>' +
-            '<p class="text-body-sm text-on-surface-variant">Alunos que mais enviam mensagens nos grupos da comunidade (o suporte não conta).</p>' +
-            '<div id="pf-ranking-list" class="space-y-1"><p class="text-body-sm text-on-surface-variant">Carregando…</p></div>' +
+          '<section id="pf-ranking" class="hidden bg-surface-container-lowest rounded-xl border border-outline-variant/30 overflow-hidden">' +
+            '<button type="button" id="pf-ranking-toggle" class="w-full flex items-center justify-between p-lg hover:bg-surface-container-high transition-colors text-left">' +
+              '<span class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">leaderboard</span><span class="font-headline-sm text-headline-sm text-on-surface">Ranking de engajamento</span></span>' +
+              '<span id="pf-ranking-chevron" class="material-symbols-outlined text-outline transition-transform">expand_more</span>' +
+            '</button>' +
+            '<div id="pf-ranking-body" class="hidden px-lg pb-lg space-y-md">' +
+              '<p class="text-body-sm text-on-surface-variant">Alunos que mais enviam mensagens nos grupos da comunidade (o suporte não conta).</p>' +
+              '<div id="pf-ranking-list" class="space-y-1"><p class="text-body-sm text-on-surface-variant">Carregando…</p></div>' +
+            '</div>' +
           '</section>' +
           '<section class="bg-surface-container-low rounded-xl p-lg border border-outline-variant/20 space-y-md">' +
             '<div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">format_size</span><h3 class="font-headline-sm text-headline-sm text-on-surface">Tamanho da letra</h3></div>' +
@@ -1181,9 +1186,21 @@
       fillUI();
       sb.from('comu_messages').select('id', { count: 'exact', head: true }).eq('author_id', me.id).then(function (r) { var el = document.getElementById('pf-msgcount'); if (el) el.textContent = r.count || 0; });
 
-      // Ranking de engajamento — só para administradores
+      // Ranking de engajamento — só para administradores, aberto sob demanda por um botão
       if (me.role === 'admin') {
         var secR = document.getElementById('pf-ranking'); if (secR) secR.classList.remove('hidden');
+        var rankLoaded = false;
+        var rankTgl = document.getElementById('pf-ranking-toggle');
+        if (rankTgl) rankTgl.addEventListener('click', function () {
+          var body = document.getElementById('pf-ranking-body'); var chev = document.getElementById('pf-ranking-chevron');
+          if (!body) return;
+          body.classList.toggle('hidden');
+          var isOpen = !body.classList.contains('hidden');
+          if (chev) chev.style.transform = isOpen ? 'rotate(180deg)' : '';
+          if (isOpen && !rankLoaded) { rankLoaded = true; loadRanking(); }
+        });
+      }
+      function loadRanking() {
         sb.rpc('comu_engagement_ranking', { p_limit: 20 }).then(function (r) {
           var box = document.getElementById('pf-ranking-list'); if (!box) return;
           if (r.error) { box.innerHTML = '<p class="text-body-sm text-error">' + esc(r.error.message) + '</p>'; return; }
