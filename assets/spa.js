@@ -570,6 +570,7 @@ GVSI.views = GVSI.views || {};
     primary: { bg: 'bg-primary-container', fg: 'text-on-primary-container' },
     secondary: { bg: 'bg-secondary-container', fg: 'text-on-secondary-container' },
     tertiary: { bg: 'bg-tertiary-container', fg: 'text-on-tertiary-container' },
+    gold: { bg: 'bg-amber-400/20', fg: 'text-amber-600 dark:text-amber-300' },
   };
   G.topics = [];
   async function loadTopics() {
@@ -620,7 +621,7 @@ GVSI.views = GVSI.views || {};
     return '<a href="/chat/' + t.id + '" data-slug="' + t.id + '" class="topic-item flex items-center gap-md p-md rounded-xl transition-colors cursor-pointer ' +
       (active ? 'bg-surface-container-high' : 'hover:bg-surface-container-low') + '">' +
       '<div class="w-12 h-12 rounded-full ' + tone.bg + ' flex items-center justify-center ' + tone.fg + ' shrink-0"><span class="material-symbols-outlined text-[24px]">' + t.icon + '</span></div>' +
-      '<div class="flex-1 min-w-0"><h3 class="font-bold text-on-surface truncate">' + G.esc(t.name) + '</h3><p class="topic-preview text-body-sm text-on-surface-variant truncate" data-desc="' + G.esc(t.desc) + '">' + (topicPreview(t.id) || G.esc(t.desc)) + '</p></div>' +
+      '<div class="flex-1 min-w-0"><h3 class="font-bold text-on-surface truncate">' + G.esc(t.name) + (t.premium ? ' <span class="material-symbols-outlined text-[16px] text-amber-500 align-middle">workspace_premium</span>' : '') + '</h3><p class="topic-preview text-body-sm text-on-surface-variant truncate" data-desc="' + G.esc(t.desc) + '">' + (topicPreview(t.id) || G.esc(t.desc)) + '</p></div>' +
       '<div class="flex flex-col items-end gap-1 shrink-0 ml-1"><span class="topic-time text-[12px] text-on-surface-variant/80 tabular-nums whitespace-nowrap">' + topicTime(t.id) + '</span>' +
       '<span class="unread-badge hidden min-w-[24px] h-6 px-1.5 rounded-full bg-primary text-on-primary text-[13px] font-bold flex items-center justify-center">0</span></div></a>';
   }
@@ -660,6 +661,29 @@ GVSI.views = GVSI.views || {};
       // #5 — contador de pendências no título da aba: "(3) Comunidade do Giovanni"
       try { var base = document.title.replace(/^\(\d+\+?\)\s*/, ''); document.title = (total > 0 ? '(' + (total > 99 ? '99+' : total) + ') ' : '') + base; } catch (e) {}
     } catch (e) {}
+  };
+  G.showNews = async function () {
+    if (!G.sb || !G.me || document.getElementById('news-modal')) return;
+    var r = await G.sb.from('comu_news').select('id,title,body,icon').eq('active', true).order('created_at', { ascending: false });
+    if (r.error || !r.data || !r.data.length) return;
+    var reads = await G.sb.from('comu_news_reads').select('news_id');
+    var seen = {}; (reads.data || []).forEach(function (x) { seen[x.news_id] = 1; });
+    var n = r.data.filter(function (x) { return !seen[x.id]; })[0];
+    if (!n) return;
+    var ov = document.createElement('div');
+    ov.id = 'news-modal';
+    ov.className = 'fixed inset-0 z-[120] flex items-center justify-center p-container-margin bg-black/50';
+    ov.innerHTML =
+      '<div class="w-full max-w-md rounded-3xl overflow-hidden shadow-2xl border border-amber-400/40 bg-surface-container-lowest">' +
+      '<div class="px-lg pt-lg pb-md text-center" style="background:linear-gradient(135deg,#f6c343,#e0a500)">' +
+      '<span class="material-symbols-outlined text-[44px] text-black/80">' + G.esc(n.icon || 'workspace_premium') + '</span>' +
+      '<h3 class="font-headline-sm text-headline-sm font-bold text-black/90 mt-1">' + G.esc(n.title) + '</h3></div>' +
+      '<div class="p-lg"><p class="text-body-md text-on-surface whitespace-pre-wrap leading-relaxed">' + G.fmt(n.body || '', true) + '</p>' +
+      '<button type="button" id="news-close" class="w-full mt-lg h-11 rounded-full bg-primary text-on-primary font-label-md active:scale-[0.98] transition">Entendi</button></div></div>';
+    document.body.appendChild(ov);
+    function close() { ov.remove(); try { G.sb.from('comu_news_reads').insert({ news_id: n.id, user_id: G.me.id }); } catch (e) {} }
+    ov.querySelector('#news-close').onclick = close;
+    ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
   };
   G.updateSidebarProfile = function () {
     var m = G.me || {};
@@ -736,7 +760,7 @@ GVSI.views = GVSI.views || {};
     if (!session) { location.replace('/login'); return; }
     var user = (await G.sb.auth.getUser()).data.user;
     // perfil próprio + garante registro em lms_students
-    var pr = await G.sb.from('lms_students').select('id,full_name,email,bio,phone,avatar_url,role,needs_password').eq('id', user.id).maybeSingle();
+    var pr = await G.sb.from('lms_students').select('id,full_name,email,bio,phone,avatar_url,role,needs_password,premium').eq('id', user.id).maybeSingle();
     G.me = pr.data || { id: user.id, email: user.email, full_name: null, avatar_url: null, role: 'student' };
     if (!pr.data) {
       try { await G.sb.from('lms_students').upsert({ id: user.id, email: user.email, full_name: (user.user_metadata && user.user_metadata.full_name) || (user.email || '').split('@')[0] }, { onConflict: 'id', ignoreDuplicates: true }); } catch (e) {}
@@ -753,9 +777,11 @@ GVSI.views = GVSI.views || {};
     initTheme();
     G.updateSidebarProfile();
     G.topics = await loadTopics();
+    if (G.me && G.me.premium) { var _sup = G.topics.filter(function (t) { return t.id === 'suporte'; })[0]; if (_sup) { _sup.name = 'Suporte Premium'; _sup.tone = 'gold'; _sup.desc = 'Atendimento prioritário da mentoria.'; _sup.premium = true; } }
     G.renderTopicList(document.getElementById('side-topics'), '');
     G.applyUnread();
     G.loadLastMessages();
+    setTimeout(function () { try { G.showNews(); } catch (e) {} }, 800);
     // Badges/preview da sidebar: por POLL leve (15s) + ao voltar o foco — NÃO
     // por postgres_changes global, que não escala (1 msg = 1 leitura RLS por
     // usuário conectado). As mensagens do tópico ABERTO já chegam via Broadcast.

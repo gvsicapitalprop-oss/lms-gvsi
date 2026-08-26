@@ -67,6 +67,7 @@
       if (S.msgMenu && S.msgMenu.parentNode) S.msgMenu.remove();
       ['img-lightbox', 'img-editor'].forEach(function (id) { var el = document.getElementById(id); if (el) el.remove(); });
       if (S.recTimer) clearInterval(S.recTimer);
+      if (S.slaTimer) clearInterval(S.slaTimer);
       if (S.recStream) { try { S.recStream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {} }
       if (S.onPickerDoc) document.removeEventListener('click', S.onPickerDoc);
       if (S.onReactPopDoc) document.removeEventListener('click', S.onReactPopDoc);
@@ -1470,7 +1471,7 @@
         }
         function timeShort(iso) { try { var d = new Date(iso); if (Date.now() - d.getTime() < 86400000) return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); return d.toLocaleDateString('pt-BR'); } catch (e) { return ''; } }
         async function loadTickets() {
-          var q = sb.from('comu_support_tickets').select('*, member:lms_students!user_id(full_name,avatar_url,email,phone)').order('last_message_at', { ascending: false });
+          var q = sb.from('comu_support_tickets').select('*, member:lms_students!user_id(full_name,avatar_url,email,phone,premium)').order('last_message_at', { ascending: false });
           if (self.filter === 'pendentes') q = q.in('status', ['aberto', 'aguardando']); if (self.filter === 'resolvidos') q = q.in('status', ['resolvido', 'fechado']);
           var r = await q; if (self.destroyed) return;
           var list = document.getElementById('ticket-list'); list.innerHTML = '';
@@ -1484,11 +1485,30 @@
           if (!rows.length) { list.innerHTML = '<p class="p-lg text-center text-on-surface-variant text-body-sm">' + ((query || self.tagFilter) ? 'Nenhuma conversa com esse filtro.' : 'Nenhuma conversa.') + '</p>'; return; }
           rows.forEach(function (tk) {
             var m = tk.member || {}; var el = document.createElement('button'); var chips = contactTagChips(tk.user_id);
+            var premium = !!m.premium;
             var _waiting = (tk.status === 'aberto' || tk.status === 'aguardando') && !tk.last_agent_at; // membro mandou e ainda não foi respondido
-            var _wtag = _waiting ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-error/20 text-error font-bold inline-flex items-center gap-[2px]"><span class="material-symbols-outlined text-[12px]">schedule</span>Aguardando você</span>' : '';
-            el.className = 'w-full text-left flex items-center gap-md p-md hover:bg-surface-container-low transition-colors border-b border-outline-variant/30 ' + (self.currentTicket && self.currentTicket.id === tk.id ? 'bg-surface-container-high' : '');
-            el.innerHTML = '<span class="w-11 h-11 rounded-full bg-surface-container-high flex items-center justify-center text-outline overflow-hidden shrink-0">' + (m.avatar_url ? '<img src="' + esc(m.avatar_url) + '" class="w-full h-full object-cover">' : '<span class="material-symbols-outlined">person</span>') + '</span><span class="flex-1 min-w-0"><span class="flex items-center justify-between gap-xs"><span class="font-bold text-on-surface truncate">' + esc(m.full_name || 'Membro') + '</span><span class="text-[13px] text-on-surface-variant shrink-0">' + timeShort(tk.last_message_at) + '</span></span><span class="flex items-center justify-between gap-xs mt-0.5"><span class="text-body-sm text-outline truncate">' + esc(tk.protocol) + '</span><span class="text-[10px] px-2 py-0.5 rounded-full ' + statusClass(tk.status) + '">' + statusLabel(tk.status) + '</span></span>' + ((_wtag || chips) ? '<span class="flex flex-wrap gap-1 mt-1">' + _wtag + chips + '</span>' : '') + '</span>';
+            var slaChip = '';
+            if (premium && _waiting && tk.last_message_at) {
+              var _dl = new Date(tk.last_message_at).getTime() + 10 * 60000;
+              slaChip = '<span class="sla-count text-[10px] px-2 py-0.5 rounded-full font-bold inline-flex items-center gap-[2px] bg-amber-400/25 text-amber-700 dark:text-amber-300" data-deadline="' + _dl + '"><span class="material-symbols-outlined text-[12px]">timer</span><span class="sla-txt">--:--</span></span>';
+            }
+            var _wtag = (_waiting && !premium) ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-error/20 text-error font-bold inline-flex items-center gap-[2px]"><span class="material-symbols-outlined text-[12px]">schedule</span>Aguardando você</span>' : '';
+            var premChip = premium ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-400/25 text-amber-700 dark:text-amber-300 font-bold inline-flex items-center gap-[2px]"><span class="material-symbols-outlined text-[12px]">workspace_premium</span>Premium</span>' : '';
+            var extra = premChip + slaChip + _wtag + chips;
+            el.className = 'w-full text-left flex items-center gap-md p-md transition-colors border-b border-outline-variant/30 ' + (premium ? 'border-l-4 border-l-amber-400 bg-amber-400/5 hover:bg-amber-400/10 ' : 'hover:bg-surface-container-low ') + (self.currentTicket && self.currentTicket.id === tk.id ? 'bg-surface-container-high' : '');
+            el.innerHTML = '<span class="w-11 h-11 rounded-full ' + (premium ? 'ring-2 ring-amber-400 ' : '') + 'bg-surface-container-high flex items-center justify-center text-outline overflow-hidden shrink-0">' + (m.avatar_url ? '<img src="' + esc(m.avatar_url) + '" class="w-full h-full object-cover">' : '<span class="material-symbols-outlined">person</span>') + '</span><span class="flex-1 min-w-0"><span class="flex items-center justify-between gap-xs"><span class="font-bold text-on-surface truncate">' + esc(m.full_name || 'Membro') + (premium ? ' <span class="material-symbols-outlined text-[15px] text-amber-500 align-middle">workspace_premium</span>' : '') + '</span><span class="text-[13px] text-on-surface-variant shrink-0">' + timeShort(tk.last_message_at) + '</span></span><span class="flex items-center justify-between gap-xs mt-0.5"><span class="text-body-sm text-outline truncate">' + esc(tk.protocol) + '</span><span class="text-[10px] px-2 py-0.5 rounded-full ' + statusClass(tk.status) + '">' + statusLabel(tk.status) + '</span></span>' + (extra ? '<span class="flex flex-wrap gap-1 mt-1">' + extra + '</span>' : '') + '</span>';
             el.addEventListener('click', function () { openTicket(tk); }); list.appendChild(el);
+          });
+          updateSlas();
+        }
+        function updateSlas() {
+          document.querySelectorAll('.sla-count').forEach(function (el) {
+            var dl = parseInt(el.getAttribute('data-deadline'), 10); if (!dl) return;
+            var diff = dl - Date.now(); var over = diff < 0; var s = Math.floor(Math.abs(diff) / 1000);
+            var mm = String(Math.floor(s / 60)).padStart(2, '0'), ss = String(s % 60).padStart(2, '0');
+            var txt = el.querySelector('.sla-txt'); if (txt) txt.textContent = (over ? 'Atrasado ' : 'Responder ') + mm + ':' + ss;
+            el.classList.toggle('bg-error/20', over); el.classList.toggle('text-error', over);
+            el.classList.toggle('bg-amber-400/25', !over); el.classList.toggle('text-amber-700', !over); el.classList.toggle('dark:text-amber-300', !over);
           });
         }
         // ---- ações nas mensagens do suporte (reagir/editar/apagar) — igual aos grupos ----
@@ -1735,6 +1755,7 @@
         var _ch = document.getElementById('convo-history'); if (_ch) _ch.addEventListener('click', function () { if (self.currentTicket) openHistoryPanel(self.currentTicket); });
         ['convo-name', 'convo-avatar'].forEach(function (id) { var el = document.getElementById(id); if (el) { el.style.cursor = 'pointer'; el.title = 'Ver / editar perfil'; el.addEventListener('click', function () { if (self.currentTicket) openProfileEditor(self.currentTicket); }); } });
         await loadTags(); renderTagFilter(); loadTickets();
+        self.slaTimer = setInterval(updateSlas, 1000);
         // #3 — abrir direto o ticket que veio de "Responder no suporte"
         if (G._openTicketId) { var _oid = G._openTicketId; G._openTicketId = null; (async function () { var rr = await sb.from('comu_support_tickets').select('*, member:lms_students!user_id(full_name,avatar_url,email,phone)').eq('id', _oid).maybeSingle(); if (rr && rr.data && !self.destroyed) openTicket(rr.data); })(); }
         self.channels.push(sb.channel('tickets-list').on('postgres_changes', { event: '*', schema: 'public', table: 'comu_support_tickets' }, function () { loadTickets(); }).subscribe());
