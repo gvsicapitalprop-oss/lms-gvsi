@@ -120,17 +120,32 @@ GVSI.views = GVSI.views || {};
     });
   };
   // Visualizador de imagem em tela cheia (usado no suporte e onde precisar)
-  G.lightbox = function (url) {
+  G.lightbox = function (url, opts) {
     if (!url) return;
+    opts = opts || {};
+    var isVideo = opts.video || /\.(mp4|webm|mov|m4v|ogv|ogg)(\?|$)/i.test(url);
     var ov = document.createElement('div'); ov.className = 'fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4';
-    var img = document.createElement('img'); img.src = url; img.alt = ''; img.className = 'max-w-full max-h-[88vh] rounded-lg object-contain';
+    var media;
+    if (isVideo) {
+      media = document.createElement('video'); media.src = url; media.controls = true; media.autoplay = true; media.setAttribute('playsinline', ''); media.className = 'max-w-full max-h-[88vh] rounded-lg';
+    } else {
+      media = document.createElement('img'); media.src = url; media.alt = ''; media.className = 'max-w-full max-h-[88vh] rounded-lg object-contain transition-transform duration-150 cursor-zoom-in';
+      var zoomed = false;
+      media.addEventListener('click', function (e) { e.stopPropagation(); zoomed = !zoomed; media.style.transform = zoomed ? 'scale(2)' : ''; media.classList.toggle('cursor-zoom-in', !zoomed); media.classList.toggle('cursor-zoom-out', zoomed); });
+    }
     var close = document.createElement('button'); close.type = 'button'; close.className = 'absolute top-4 right-4 h-11 w-11 rounded-full bg-white/15 text-white flex items-center justify-center hover:bg-white/25'; close.innerHTML = '<span class="material-symbols-outlined">close</span>'; close.onclick = function () { cleanup(); };
     function onKey(ev) { if (ev.key === 'Escape') cleanup(); }
-    function cleanup() { ov.remove(); document.removeEventListener('keydown', onKey); }
-    ov.appendChild(img); ov.appendChild(close);
+    function cleanup() { try { if (isVideo) media.pause(); } catch (e) {} ov.remove(); document.removeEventListener('keydown', onKey); }
+    ov.appendChild(media); ov.appendChild(close);
     ov.addEventListener('click', function (e) { if (e.target === ov) cleanup(); });
     document.addEventListener('keydown', onKey);
     document.body.appendChild(ov);
+  };
+  // Vídeo na bolha com botão de ampliar (usado no chat e no suporte)
+  G.videoHtml = function (url) {
+    var u = G.esc(url);
+    return '<div class="relative inline-block max-w-full mb-xs"><video controls preload="metadata" src="' + u + '" class="rounded-lg max-w-full block" style="max-height:20rem"></video>' +
+      '<button type="button" class="vid-expand absolute top-2 right-2 h-8 w-8 rounded-full bg-black/55 text-white flex items-center justify-center hover:bg-black/75" data-full="' + u + '" title="Ampliar" aria-label="Ampliar"><span class="material-symbols-outlined text-[18px]">open_in_full</span></button></div>';
   };
   // Seletor de emojis reutilizável: insere no cursor de um <textarea>/<input> ou contenteditable
   G.emojiPicker = (function () {

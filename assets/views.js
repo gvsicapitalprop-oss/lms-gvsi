@@ -444,7 +444,7 @@
           var authorIsAdmin = (mine && isAdmin) || !!(G.adminIds && m.author_id && G.adminIds[m.author_id]); // links clicáveis só nas mensagens da equipe
           var content;
           if (m.kind === 'image' && m.media_url) content = '<img src="' + esc(m.media_url) + '" data-full="' + esc(m.media_url) + '" class="msg-img rounded-lg max-w-full mb-xs cursor-zoom-in" alt="">' + (m.body ? '<p class="' + (mine ? '' : 'text-on-surface ') + 'font-body-md">' + G.fmt(m.body, authorIsAdmin) + edited + '</p>' : '');
-          else if (m.kind === 'video' && m.media_url) content = '<video controls preload="metadata" src="' + esc(m.media_url) + '" class="rounded-lg max-w-full mb-xs" style="max-height:20rem"></video>' + (m.body ? '<p class="' + (mine ? '' : 'text-on-surface ') + 'font-body-md">' + G.fmt(m.body, authorIsAdmin) + edited + '</p>' : '');
+          else if (m.kind === 'video' && m.media_url) content = G.videoHtml(m.media_url) + (m.body ? '<p class="' + (mine ? '' : 'text-on-surface ') + 'font-body-md">' + G.fmt(m.body, authorIsAdmin) + edited + '</p>' : '');
           else if (m.kind === 'audio' && m.media_url) content = G.audioHtml(m.media_url, mine);
           else if (m.kind === 'file' && m.media_url) content = G.fileCard(m, mine) + (m.body ? '<p class="' + (mine ? '' : 'text-on-surface ') + 'font-body-md mt-xs">' + G.fmt(m.body, authorIsAdmin) + edited + '</p>' : '');
           else content = '<p class="' + (mine ? '' : 'text-on-surface ') + 'font-body-md whitespace-pre-wrap break-words">' + G.fmt(m.body, authorIsAdmin) + edited + '</p>';
@@ -475,6 +475,8 @@
           if (qEl) qEl.addEventListener('click', function () { var t = msgsEl.querySelector('[data-msg-id="' + qEl.getAttribute('data-goto') + '"]'); if (t) { t.scrollIntoView({ behavior: 'smooth', block: 'center' }); t.style.transition = 'background-color .3s'; t.style.backgroundColor = 'rgba(37,99,235,0.15)'; setTimeout(function () { t.style.backgroundColor = ''; }, 900); } });
           var mimg = container.querySelector('.msg-img');
           if (mimg) mimg.addEventListener('click', function () { openLightbox(mimg.getAttribute('data-full'), m); });
+          var mvid = container.querySelector('.vid-expand');
+          if (mvid) mvid.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); G.lightbox(mvid.getAttribute('data-full'), { video: true }); });
           // #12 — ações (Reagir/Responder/Editar/Apagar/Banir) só no clique direito (desktop) ou toque longo (mobile)
           container._m = m;
           if (!container._menuBound) {
@@ -1603,7 +1605,7 @@
           var isAgent = !(self.currentTicket && msg.author_id === self.currentTicket.user_id); // links clicáveis nas mensagens do suporte
           var quote = (msg.reply_to && (msg.reply_snippet || msg.reply_author)) ? '<div class="reply-quote mb-xs border-l-4 border-primary/60 bg-black/5 dark:bg-white/10 rounded px-2 py-1 cursor-pointer" data-goto="' + esc(msg.reply_to) + '"><p class="text-[12px] font-bold text-primary truncate">' + esc(G.shortName(msg.reply_author) || 'Membro') + '</p><p class="text-[13px] text-on-surface-variant truncate">' + esc(msg.reply_snippet || '') + '</p></div>' : '';
           if (msg.kind === 'image' && msg.media_url) return quote + '<img src="' + esc(msg.media_url) + '" data-full="' + esc(msg.media_url) + '" class="sup-img rounded-lg max-w-full cursor-zoom-in">';
-          if (msg.kind === 'video' && msg.media_url) return quote + '<video controls preload="metadata" src="' + esc(msg.media_url) + '" class="rounded-lg max-w-full" style="max-height:20rem"></video>';
+          if (msg.kind === 'video' && msg.media_url) return quote + G.videoHtml(msg.media_url);
           if (msg.kind === 'audio' && msg.media_url) return quote + G.audioHtml(msg.media_url, msg.author_id === me.id);
           if (msg.kind === 'file' && msg.media_url) return quote + G.fileCard(msg, msg.author_id === me.id) + (msg.body ? '<p class="font-body-md mt-xs">' + G.fmt(msg.body, isAgent) + '</p>' : '');
           var mine = msg.author_id === me.id; var edited = msg.status === 'edited' ? ' <span class="text-[12px] opacity-80">(editado)</span>' : '';
@@ -1736,7 +1738,7 @@
         }
         document.getElementById('convo-attach').addEventListener('click', function () { document.getElementById('convo-file-media').click(); });
         document.getElementById('convo-emoji').addEventListener('click', function (e) { e.stopPropagation(); G.emojiPicker(this, document.getElementById('convo-input'), false); });
-        (function () { var cms = document.getElementById('convo-messages'); if (cms) cms.addEventListener('click', function (e) { if (!e.target || !e.target.closest) return; var im = e.target.closest('.sup-img'); if (im) { G.lightbox(im.getAttribute('data-full') || im.getAttribute('src')); return; } var rq = e.target.closest('.reply-quote'); if (rq) { var t = cms.querySelector('[data-msg-id="' + rq.getAttribute('data-goto') + '"]'); if (t) { t.scrollIntoView({ behavior: 'smooth', block: 'center' }); t.style.transition = 'background-color .3s'; t.style.backgroundColor = 'rgba(37,99,235,0.15)'; setTimeout(function () { t.style.backgroundColor = ''; }, 900); } } }); })();
+        (function () { var cms = document.getElementById('convo-messages'); if (cms) cms.addEventListener('click', function (e) { if (!e.target || !e.target.closest) return; var im = e.target.closest('.sup-img'); if (im) { G.lightbox(im.getAttribute('data-full') || im.getAttribute('src')); return; } var ve = e.target.closest('.vid-expand'); if (ve) { e.preventDefault(); G.lightbox(ve.getAttribute('data-full'), { video: true }); return; } var rq = e.target.closest('.reply-quote'); if (rq) { var t = cms.querySelector('[data-msg-id="' + rq.getAttribute('data-goto') + '"]'); if (t) { t.scrollIntoView({ behavior: 'smooth', block: 'center' }); t.style.transition = 'background-color .3s'; t.style.backgroundColor = 'rgba(37,99,235,0.15)'; setTimeout(function () { t.style.backgroundColor = ''; }, 900); } } }); })();
         // arrastar/soltar ou colar imagem no atendimento (imagem passa pelo editor de pré-envio)
         (function () {
           var ci = document.getElementById('convo-input'), main = document.getElementById('convo-main');
