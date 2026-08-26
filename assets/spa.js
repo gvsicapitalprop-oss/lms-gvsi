@@ -647,6 +647,39 @@ GVSI.views = GVSI.views || {};
     if (rest.length) html += (Object.keys(used).length ? groupHeaderHtml('Outros') : '') + rest.map(function (t) { return topicItemHtml(t, activeId); }).join('');
     container.innerHTML = html;
   };
+  G.notifSupported = function () { return typeof window !== 'undefined' && 'Notification' in window; };
+  G.notifyEnabled = function () { try { return localStorage.getItem('gvsi-notif') === '1' && G.notifSupported() && Notification.permission === 'granted'; } catch (e) { return false; } };
+  G._notifPrev = null;
+  function notifPreviewText(lm) {
+    if (!lm) return 'Novas mensagens';
+    if (lm.kind === 'image') return '📷 Foto';
+    if (lm.kind === 'video') return '🎬 Vídeo';
+    if (lm.kind === 'audio') return '🎤 Áudio';
+    if (lm.kind === 'file') return '📎 Arquivo';
+    var b = (lm.body || '').replace(/\s+/g, ' ').trim();
+    return b ? (b.length > 120 ? b.slice(0, 117) + '…' : b) : 'Novas mensagens';
+  }
+  G.maybeNotify = function (map) {
+    // só notifica quando o usuário NÃO está olhando (aba oculta/minimizada); senão os badges já bastam
+    if (!G.notifyEnabled() || !document.hidden) { G._notifPrev = map; return; }
+    var prev = G._notifPrev;
+    if (prev) {
+      var byId = {}; (G.topics || []).forEach(function (t) { byId[t.id] = t; });
+      Object.keys(map).forEach(function (slug) {
+        var now = map[slug] || 0, was = prev[slug] || 0;
+        if (now > was && now > 0) {
+          var t = byId[slug]; var lm = (G.lastMsgs || {})[slug];
+          var title = (t && t.name) || 'Comunidade do Giovanni';
+          var body = lm && lm.author_name ? lm.author_name + ': ' + notifPreviewText(lm) : notifPreviewText(lm);
+          try {
+            var n = new Notification(title, { body: body, tag: 'gvsi-' + slug, icon: '/assets/favicon.png', badge: '/assets/favicon.png' });
+            n.onclick = function () { try { window.focus(); } catch (e) {} try { location.href = '/chat/' + slug; } catch (e) {} n.close(); };
+          } catch (e) {}
+        }
+      });
+    }
+    G._notifPrev = map;
+  };
   G.applyUnread = async function () {
     if (!G.sb) return;
     try {
@@ -660,6 +693,7 @@ GVSI.views = GVSI.views || {};
       });
       // #5 — contador de pendências no título da aba: "(3) Comunidade do Giovanni"
       try { var base = document.title.replace(/^\(\d+\+?\)\s*/, ''); document.title = (total > 0 ? '(' + (total > 99 ? '99+' : total) + ') ' : '') + base; } catch (e) {}
+      try { G.maybeNotify(map); } catch (e) {}
     } catch (e) {}
   };
   G.showNews = async function () {
@@ -788,7 +822,7 @@ GVSI.views = GVSI.views || {};
     // Badges/preview da sidebar: por POLL leve (15s) + ao voltar o foco — NÃO
     // por postgres_changes global, que não escala (1 msg = 1 leitura RLS por
     // usuário conectado). As mensagens do tópico ABERTO já chegam via Broadcast.
-    function refreshSidebar() { if (document.hidden) return; G.applyUnread(); G.loadLastMessages(); }
+    function refreshSidebar() { if (document.hidden && !G.notifyEnabled()) return; Promise.resolve(G.loadLastMessages()).then(function () { G.applyUnread(); }); }
     if (G._sidebarPoll) clearInterval(G._sidebarPoll);
     G._sidebarPoll = setInterval(refreshSidebar, 15000);
     document.addEventListener('visibilitychange', function () { if (!document.hidden) refreshSidebar(); });

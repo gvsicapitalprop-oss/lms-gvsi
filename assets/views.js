@@ -1160,7 +1160,7 @@
             '<button type="button" id="pf-mod" class="hidden w-full items-center justify-between p-lg hover:bg-surface-container-high transition-colors text-left"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">shield</span><span class="font-body-md text-body-md text-on-surface">Moderação</span></div><span class="material-symbols-outlined text-outline">chevron_right</span></button>' +
             '<button type="button" data-edit-open class="w-full flex items-center justify-between p-lg hover:bg-surface-container-high transition-colors text-left"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">person_edit</span><span class="font-body-md text-body-md text-on-surface">Editar perfil</span></div><span class="material-symbols-outlined text-outline">chevron_right</span></button>' +
             '<button type="button" data-soon class="w-full flex items-center justify-between p-lg hover:bg-surface-container-high transition-colors text-left"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">shield</span><span class="font-body-md text-body-md text-on-surface">Privacidade e segurança</span></div><span class="material-symbols-outlined text-outline">chevron_right</span></button>' +
-            '<button type="button" data-soon class="w-full flex items-center justify-between p-lg hover:bg-surface-container-high transition-colors text-left"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">notifications</span><span class="font-body-md text-body-md text-on-surface">Configurações de notificação</span></div><span class="material-symbols-outlined text-outline">chevron_right</span></button>' +
+            '<button type="button" id="pf-notif" class="w-full flex items-center justify-between p-lg hover:bg-surface-container-high transition-colors text-left"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">notifications</span><span class="font-body-md text-body-md text-on-surface">Notificações do navegador</span></div><span id="pf-notif-state" class="text-body-sm text-on-surface-variant">—</span></button>' +
             '<button type="button" id="pf-install" class="w-full flex items-center justify-between p-lg hover:bg-surface-container-high transition-colors text-left"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">install_mobile</span><span class="font-body-md text-body-md text-on-surface">Instalar o app no celular</span></div><span class="material-symbols-outlined text-outline">chevron_right</span></button>' +
             '<button type="button" data-signout class="w-full flex items-center justify-between p-lg hover:bg-error/10 transition-colors text-left"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-error">logout</span><span class="font-body-md text-body-md text-error">Sair da conta</span></div></button>' +
           '</div></section>' +
@@ -1220,6 +1220,33 @@
           }).join('');
         });
       }
+
+      // Notificações do navegador — ligar/desligar
+      (function () {
+        var btn = document.getElementById('pf-notif'), st = document.getElementById('pf-notif-state');
+        if (!btn || !st) return;
+        function paint() {
+          if (!G.notifSupported()) { st.textContent = 'Indisponível'; return; }
+          if (Notification.permission === 'denied') { st.innerHTML = '<span class="text-error">Bloqueado</span>'; return; }
+          var on = false; try { on = localStorage.getItem('gvsi-notif') === '1'; } catch (e) {}
+          on = on && Notification.permission === 'granted';
+          st.innerHTML = on ? '<span class="text-primary font-bold">Ativadas</span>' : 'Desativadas';
+        }
+        paint();
+        btn.addEventListener('click', async function () {
+          if (!G.notifSupported()) { G.toast('Seu navegador não suporta notificações.'); return; }
+          if (Notification.permission === 'denied') { G.toast('As notificações estão bloqueadas. Libere nas configurações do navegador (cadeado ao lado do endereço).'); return; }
+          var on = false; try { on = localStorage.getItem('gvsi-notif') === '1'; } catch (e) {}
+          if (on && Notification.permission === 'granted') { try { localStorage.setItem('gvsi-notif', '0'); } catch (e) {} G.toast('Notificações desativadas.'); paint(); return; }
+          var perm = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
+          if (perm === 'granted') {
+            try { localStorage.setItem('gvsi-notif', '1'); } catch (e) {}
+            G.toast('Notificações ativadas!');
+            try { var n = new Notification('Comunidade do Giovanni', { body: 'Pronto! Você receberá avisos de novas mensagens.', icon: '/assets/favicon.png' }); n.onclick = function () { try { window.focus(); } catch (e) {} n.close(); }; } catch (e) {}
+          } else { G.toast('Permissão de notificação negada.'); }
+          paint();
+        });
+      })();
 
       var modal = document.getElementById('edit-modal');
       function openEdit() {
