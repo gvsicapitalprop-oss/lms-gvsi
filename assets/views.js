@@ -48,10 +48,10 @@
           var ch = d.challenge, days = d.days || [];
           function fd(iso) { var p = String(iso).split('-'); return p[2] + '/' + p[1]; }
           function wd(iso) { var p = String(iso).split('-'); var dt = new Date(+p[0], +p[1] - 1, +p[2]); return ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'][dt.getDay()]; }
-          var CFG = { cumprido: ['check_circle', 'bg-primary/15 text-primary', 'Feito'], falha_sem: ['cancel', 'bg-error/15 text-error', 'Sem operar'], falha_excesso: ['warning', 'bg-amber-400/20 text-amber-700 dark:text-amber-300', 'Demais'], hoje: ['schedule', 'bg-blue-500/15 text-blue-500', 'Hoje'], futuro: ['lock_clock', 'bg-surface-container-high text-on-surface-variant', '—'] };
+          var CFG = { cumprido: ['check_circle', 'bg-primary/15 text-primary', 'Feito'], falha_sem: ['cancel', 'bg-error/15 text-error', 'Sem operar'], falha_invalido: ['rule', 'bg-amber-400/20 text-amber-700 dark:text-amber-300', 'Sem os campos'], falha_excesso: ['warning', 'bg-amber-400/20 text-amber-700 dark:text-amber-300', 'Demais'], hoje: ['schedule', 'bg-blue-500/15 text-blue-500', 'Hoje'], futuro: ['lock_clock', 'bg-surface-container-high text-on-surface-variant', '—'] };
           var cells = days.map(function (x) {
             var c = CFG[x.status] || CFG.futuro; var cnt = x.count;
-            var sub = (x.status === 'cumprido' || x.status === 'falha_excesso') ? (cnt + ' op') : (x.status === 'hoje' ? (cnt + '/' + ch.max) : (x.status === 'falha_sem' ? '0 op' : ''));
+            var sub = (x.status === 'cumprido' || x.status === 'falha_excesso') ? (cnt + ' op') : (x.status === 'hoje' ? (cnt + '/' + ch.max) : (x.status === 'falha_invalido' ? ((x.raw || 0) + ' print') : (x.status === 'falha_sem' ? '0 op' : '')));
             return '<div class="flex-1 min-w-0 rounded-xl p-2 text-center ' + c[1] + '"><div class="text-[11px] font-bold uppercase opacity-80">' + wd(x.date) + '</div><div class="text-[12px] tabular-nums">' + fd(x.date) + '</div><span class="material-symbols-outlined text-[22px] my-0.5 block">' + c[0] + '</span><div class="text-[11px] font-bold leading-tight">' + c[2] + '</div>' + (sub ? '<div class="text-[10px] opacity-80">' + sub + '</div>' : '') + '</div>';
           }).join('');
           var inner = box.querySelector('div'); if (!inner) return;
