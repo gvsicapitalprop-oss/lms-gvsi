@@ -728,9 +728,9 @@ GVSI.views = GVSI.views || {};
     }).join('');
     var fab = document.createElement('button');
     fab.id = 'challenge-fab'; fab.type = 'button';
-    fab.className = 'fixed bottom-24 lg:bottom-6 right-4 lg:right-6 z-[71] h-12 w-12 rounded-full bg-amber-500 text-black shadow-lg flex items-center justify-center active:scale-95 transition';
-    fab.setAttribute('aria-label', 'Desafio'); fab.title = 'Desafio';
-    fab.innerHTML = '<span class="material-symbols-outlined">emoji_events</span>';
+    fab.className = 'fixed bottom-24 lg:bottom-6 right-4 lg:right-6 z-[71] h-12 pl-3 pr-4 rounded-full bg-amber-500 text-black shadow-lg flex items-center gap-1.5 active:scale-95 transition';
+    fab.setAttribute('aria-label', 'Ver meu desafio'); fab.title = 'Ver meu desafio';
+    fab.innerHTML = '<span class="material-symbols-outlined text-[22px]">emoji_events</span><span class="text-label-md font-bold whitespace-nowrap">Meu Desafio</span>';
     var pop = document.createElement('div');
     pop.id = 'challenge-pop';
     pop.className = 'hidden fixed right-4 lg:right-6 z-[72] w-[330px] max-w-[92vw] bg-surface-container-lowest border border-amber-400/40 rounded-2xl shadow-2xl p-lg';
@@ -746,6 +746,8 @@ GVSI.views = GVSI.views || {};
     document.addEventListener('click', function (e) { if (!pop.classList.contains('hidden') && !pop.contains(e.target) && e.target !== fab && !fab.contains(e.target)) pop.classList.add('hidden'); });
     window.addEventListener('resize', function () { try { G.positionChallengeFab(G._route); if (!pop.classList.contains('hidden')) positionPop(); } catch (e) {} });
     G.positionChallengeFab(G._route);
+    // Primeira vez: abre o balão sozinho pra pessoa já ver os dados do desafio dela
+    try { if (localStorage.getItem('gvsi-chal-hint') !== '1') { localStorage.setItem('gvsi-chal-hint', '1'); setTimeout(function () { try { G.positionChallengeFab(G._route); positionPop(); pop.classList.remove('hidden'); } catch (e) {} }, 900); } } catch (e) {}
   };
   // Sobe o botão acima do compositor na tela de chat; nas outras, fica no canto (classes bottom-24/lg:bottom-6)
   G.positionChallengeFab = function (routeName) {
