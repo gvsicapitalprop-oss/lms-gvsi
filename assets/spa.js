@@ -728,12 +728,12 @@ GVSI.views = GVSI.views || {};
     }).join('');
     var fab = document.createElement('button');
     fab.id = 'challenge-fab'; fab.type = 'button';
-    fab.className = 'fixed bottom-40 lg:bottom-24 right-4 lg:right-6 z-[71] h-12 w-12 rounded-full bg-amber-500 text-black shadow-lg flex items-center justify-center active:scale-95 transition';
+    fab.className = 'fixed bottom-24 lg:bottom-6 right-4 lg:right-6 z-[71] h-12 w-12 rounded-full bg-amber-500 text-black shadow-lg flex items-center justify-center active:scale-95 transition';
     fab.setAttribute('aria-label', 'Desafio'); fab.title = 'Desafio';
     fab.innerHTML = '<span class="material-symbols-outlined">emoji_events</span>';
     var pop = document.createElement('div');
     pop.id = 'challenge-pop';
-    pop.className = 'hidden fixed bottom-56 lg:bottom-40 right-4 lg:right-6 z-[72] w-[330px] max-w-[92vw] bg-surface-container-lowest border border-amber-400/40 rounded-2xl shadow-2xl p-lg';
+    pop.className = 'hidden fixed bottom-40 lg:bottom-24 right-4 lg:right-6 z-[72] w-[330px] max-w-[92vw] bg-surface-container-lowest border border-amber-400/40 rounded-2xl shadow-2xl p-lg';
     pop.innerHTML =
       '<div class="flex items-center justify-between mb-xs"><h3 class="font-bold text-on-surface flex items-center gap-1"><span class="material-symbols-outlined text-amber-500 text-[20px]">emoji_events</span>' + G.esc(ch.name) + '</h3><button type="button" id="challenge-pop-x" class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high"><span class="material-symbols-outlined text-[20px]">close</span></button></div>' +
       '<p class="text-body-sm text-on-surface-variant mb-sm">' + fd(ch.start) + ' a ' + fd(ch.end) + ' · ' + ch.min + '–' + ch.max + ' operações/dia</p>' +
