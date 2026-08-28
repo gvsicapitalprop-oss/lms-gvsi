@@ -740,7 +740,7 @@ GVSI.views = GVSI.views || {};
       '<p class="text-[12px] text-on-surface mb-sm"><b>Como cumprir:</b> a cada operação, poste o <b>print</b> no tópico <b>Resultados / Feedbacks</b> com <b>contexto, evento e localização</b> na legenda (pode abreviar: c/cx, v/e, l/loc). Faça de ' + ch.min + ' a ' + ch.max + ' por dia.</p>' +
       '<div class="flex gap-1">' + cells + '</div>';
     document.body.appendChild(fab); document.body.appendChild(pop);
-    function positionPop() { var r = fab.getBoundingClientRect(); pop.style.bottom = (window.innerHeight - r.top + 8) + 'px'; }
+    function positionPop() { var r = fab.getBoundingClientRect(); pop.style.bottom = (window.innerHeight - r.top + 8) + 'px'; pop.style.right = Math.max(8, (window.innerWidth - r.right)) + 'px'; }
     fab.addEventListener('click', function (e) { e.stopPropagation(); if (pop.classList.contains('hidden')) { positionPop(); pop.classList.remove('hidden'); } else pop.classList.add('hidden'); });
     pop.querySelector('#challenge-pop-x').addEventListener('click', function () { pop.classList.add('hidden'); });
     document.addEventListener('click', function (e) { if (!pop.classList.contains('hidden') && !pop.contains(e.target) && e.target !== fab && !fab.contains(e.target)) pop.classList.add('hidden'); });
@@ -752,6 +752,11 @@ GVSI.views = GVSI.views || {};
   // Sobe o botão acima do compositor na tela de chat; nas outras, fica no canto (classes bottom-24/lg:bottom-6)
   G.positionChallengeFab = function (routeName) {
     var fab = document.getElementById('challenge-fab'); if (!fab) return;
+    // colisão com o botão "Tutorial": se ele estiver visível no canto, alinhar lado a lado (à esquerda dele)
+    var onb = document.getElementById('onb-fab');
+    var onbVisible = onb && onb.offsetParent !== null && !onb.classList.contains('hidden');
+    var base = (window.matchMedia && window.matchMedia('(min-width:1024px)').matches) ? 24 : 16;
+    fab.style.right = onbVisible ? (base + onb.getBoundingClientRect().width + 12) + 'px' : '';
     if (routeName === 'chat') {
       var comp = document.getElementById('chat-composer');
       if (comp) { var top = comp.getBoundingClientRect().top; fab.style.bottom = Math.max(96, (window.innerHeight - top + 12)) + 'px'; return; }
