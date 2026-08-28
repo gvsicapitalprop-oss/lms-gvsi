@@ -733,16 +733,28 @@ GVSI.views = GVSI.views || {};
     fab.innerHTML = '<span class="material-symbols-outlined">emoji_events</span>';
     var pop = document.createElement('div');
     pop.id = 'challenge-pop';
-    pop.className = 'hidden fixed bottom-40 lg:bottom-24 right-4 lg:right-6 z-[72] w-[330px] max-w-[92vw] bg-surface-container-lowest border border-amber-400/40 rounded-2xl shadow-2xl p-lg';
+    pop.className = 'hidden fixed right-4 lg:right-6 z-[72] w-[330px] max-w-[92vw] bg-surface-container-lowest border border-amber-400/40 rounded-2xl shadow-2xl p-lg';
     pop.innerHTML =
       '<div class="flex items-center justify-between mb-xs"><h3 class="font-bold text-on-surface flex items-center gap-1"><span class="material-symbols-outlined text-amber-500 text-[20px]">emoji_events</span>' + G.esc(ch.name) + '</h3><button type="button" id="challenge-pop-x" class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high"><span class="material-symbols-outlined text-[20px]">close</span></button></div>' +
       '<p class="text-body-sm text-on-surface-variant mb-sm">' + fd(ch.start) + ' a ' + fd(ch.end) + ' · ' + ch.min + '–' + ch.max + ' operações/dia</p>' +
       '<p class="text-[12px] text-on-surface mb-sm"><b>Como cumprir:</b> a cada operação, poste o <b>print</b> no tópico <b>Resultados / Feedbacks</b> com <b>contexto, evento e localização</b> na legenda (pode abreviar: c/cx, v/e, l/loc). Faça de ' + ch.min + ' a ' + ch.max + ' por dia.</p>' +
       '<div class="flex gap-1">' + cells + '</div>';
     document.body.appendChild(fab); document.body.appendChild(pop);
-    fab.addEventListener('click', function (e) { e.stopPropagation(); pop.classList.toggle('hidden'); });
+    function positionPop() { var r = fab.getBoundingClientRect(); pop.style.bottom = (window.innerHeight - r.top + 8) + 'px'; }
+    fab.addEventListener('click', function (e) { e.stopPropagation(); if (pop.classList.contains('hidden')) { positionPop(); pop.classList.remove('hidden'); } else pop.classList.add('hidden'); });
     pop.querySelector('#challenge-pop-x').addEventListener('click', function () { pop.classList.add('hidden'); });
     document.addEventListener('click', function (e) { if (!pop.classList.contains('hidden') && !pop.contains(e.target) && e.target !== fab && !fab.contains(e.target)) pop.classList.add('hidden'); });
+    window.addEventListener('resize', function () { try { G.positionChallengeFab(G._route); if (!pop.classList.contains('hidden')) positionPop(); } catch (e) {} });
+    G.positionChallengeFab(G._route);
+  };
+  // Sobe o botão acima do compositor na tela de chat; nas outras, fica no canto (classes bottom-24/lg:bottom-6)
+  G.positionChallengeFab = function (routeName) {
+    var fab = document.getElementById('challenge-fab'); if (!fab) return;
+    if (routeName === 'chat') {
+      var comp = document.getElementById('chat-composer');
+      if (comp) { var top = comp.getBoundingClientRect().top; fab.style.bottom = Math.max(96, (window.innerHeight - top + 12)) + 'px'; return; }
+    }
+    fab.style.bottom = '';
   };
   G.showNews = async function () {
     if (!G.sb || !G.me || document.getElementById('news-modal')) return;
@@ -814,6 +826,7 @@ GVSI.views = GVSI.views || {};
   var current = null;
   async function render() {
     var route = parseRoute();
+    G._route = route.name;
     try { var _p = location.pathname; if (_p && _p !== '/') localStorage.setItem('gvsi-route', _p); } catch (e) {}
     var view = G.views[route.name] || G.views.grupos;
     if (current && current.destroy) { try { current.destroy(); } catch (e) {} }
@@ -824,6 +837,7 @@ GVSI.views = GVSI.views || {};
     current = view;
     try { await view.render(el, route.params); } catch (e) { console.error('view error', e); }
     G.updateThemeIcons();
+    try { requestAnimationFrame(function () { if (G.positionChallengeFab) G.positionChallengeFab(route.name); }); } catch (e) {}
   }
   G.render = render;
   window.addEventListener('popstate', render);
