@@ -19,8 +19,8 @@
           '<div class="flex items-center"><img src="assets/logo-light.svg?v=2" alt="GVSI" class="h-10 w-auto dark:hidden"><img src="assets/logo-dark.svg?v=4" alt="GVSI" class="h-10 w-auto hidden dark:block brightness-0 invert"></div>' +
           '<button type="button" data-theme-toggle class="text-primary flex items-center" aria-label="Tema"><span class="material-symbols-outlined" data-theme-icon>dark_mode</span></button>' +
         '</header>' +
-        '<div class="lg:pl-[var(--side-w)] min-h-screen pt-14 lg:pt-0">' +
-          '<div id="challenge-widget" class="hidden lg:pt-lg px-container-margin pt-lg"><div class="max-w-3xl mx-auto"></div></div>' +
+        '<div class="lg:pl-[var(--side-w)] min-h-screen pt-14 lg:pt-0 lg:flex lg:flex-col">' +
+          '<div id="challenge-widget" class="hidden lg:pt-lg px-container-margin pt-lg shrink-0"><div class="max-w-3xl mx-auto"></div></div>' +
           '<div class="lg:hidden pb-16"><div class="px-container-margin py-lg">' +
             '<div class="mb-lg relative"><span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline">search</span>' +
             '<input id="topic-search" class="w-full bg-surface-container-low border border-outline-variant rounded-xl py-3 pl-12 pr-4 focus:ring-2 focus:ring-primary focus:border-primary transition-all text-body-md text-on-surface" placeholder="Procurar tópicos na comunidade" type="text"></div>' +
@@ -28,7 +28,7 @@
             '<div id="topic-list" class="flex flex-col bg-surface-container-lowest rounded-xl shadow-sm p-sm gap-1"></div>' +
             '<p id="no-results" class="hidden text-center text-on-surface-variant py-lg">Nenhum tópico encontrado.</p>' +
           '</div></div>' +
-          '<div class="hidden lg:flex min-h-screen flex-col items-center justify-center text-center gap-md p-xl">' +
+          '<div class="hidden lg:flex lg:flex-1 flex-col items-center justify-center text-center gap-md p-xl">' +
             '<div class="w-20 h-20 rounded-full bg-surface-container-high flex items-center justify-center text-primary"><span class="material-symbols-outlined text-[40px]">forum</span></div>' +
             '<div class="space-y-xs max-w-md"><h2 class="font-headline-md text-headline-md text-on-surface text-balance">Bem-vindo à Comunidade do Giovanni</h2><p class="text-body-md text-on-surface-variant text-balance">Selecione um tópico na barra lateral para começar a conversar.</p></div>' +
           '</div>' +
@@ -61,7 +61,7 @@
             '<div class="flex items-center justify-between gap-2 mb-md flex-wrap"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-primary">emoji_events</span><h3 class="font-headline-sm text-headline-sm text-on-surface">' + esc(ch.name) + '</h3></div><span class="text-body-sm text-on-surface-variant">' + fd(ch.start) + ' a ' + fd(ch.end) + ' · ' + ch.min + '–' + ch.max + ' op/dia</span></div>' +
             banner +
             '<div class="flex gap-1">' + cells + '</div>' +
-            '<p class="text-[12px] text-on-surface-variant mt-md">Envie seus prints (com <b>evento, contexto e localização</b>) no tópico <b>Resultados / Feedbacks</b>. Faça de 1 a 2 operações por dia.</p>' +
+            '<p class="text-[12px] text-on-surface-variant mt-md">Envie seus prints (com <b>evento, contexto e localização</b>) no tópico <b>Prints das Operações</b>. Faça de 1 a 2 operações por dia.</p>' +
             '</div>';
           box.classList.remove('hidden');
         }, function () {});

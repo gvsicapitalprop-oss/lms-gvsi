@@ -738,7 +738,7 @@ GVSI.views = GVSI.views || {};
       '<div class="flex items-center justify-between mb-xs"><h3 class="font-bold text-on-surface flex items-center gap-1"><span class="material-symbols-outlined text-amber-500 text-[20px]">emoji_events</span>' + G.esc(ch.name) + '</h3><button type="button" id="challenge-pop-x" class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high"><span class="material-symbols-outlined text-[20px]">close</span></button></div>' +
       '<p class="text-body-sm text-on-surface-variant mb-sm">' + fd(ch.start) + ' a ' + fd(ch.end) + ' · ' + ch.min + '–' + ch.max + ' operações/dia</p>' +
       (!d.started ? '<div class="mb-sm rounded-xl bg-primary/10 border border-primary/25 px-3 py-2 text-[12px] text-primary flex items-center gap-2"><span class="material-symbols-outlined text-[18px]">celebration</span><span>Você já está participando! O desafio <b>começa ' + ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'][(function () { var p = String(ch.start).split('-'); return new Date(+p[0], +p[1] - 1, +p[2]).getDay(); })()] + ' (' + fd(ch.start) + ')</b>. Suas operações contam a partir daí.</span></div>' : '') +
-      '<p class="text-[12px] text-on-surface mb-sm"><b>Como cumprir:</b> a cada operação, poste o <b>print</b> no tópico <b>Resultados / Feedbacks</b> com <b>contexto, evento e localização</b> na legenda (pode abreviar: c/cx, v/e, l/loc). Faça de ' + ch.min + ' a ' + ch.max + ' por dia.</p>' +
+      '<p class="text-[12px] text-on-surface mb-sm"><b>Como cumprir:</b> a cada operação, poste o <b>print</b> no tópico <b>Prints das Operações</b> com <b>contexto, evento e localização</b> na legenda (pode abreviar: c/cx, v/e, l/loc). Faça de ' + ch.min + ' a ' + ch.max + ' por dia.</p>' +
       '<div class="flex gap-1">' + cells + '</div>';
     document.body.appendChild(fab); document.body.appendChild(pop);
     function positionPop() { var r = fab.getBoundingClientRect(); pop.style.bottom = (window.innerHeight - r.top + 8) + 'px'; pop.style.right = Math.max(8, (window.innerWidth - r.right)) + 'px'; }
@@ -758,7 +758,9 @@ GVSI.views = GVSI.views || {};
     var onbVisible = onb && onb.offsetParent !== null && !onb.classList.contains('hidden');
     var base = (window.matchMedia && window.matchMedia('(min-width:1024px)').matches) ? 24 : 16;
     fab.style.right = onbVisible ? (base + onb.getBoundingClientRect().width + 12) + 'px' : '';
-    if (routeName === 'chat') {
+    var isDesktop = (window.matchMedia && window.matchMedia('(min-width:1024px)').matches);
+    if (routeName === 'chat' && !isDesktop) {
+      // no mobile o compositor ocupa a largura toda: sobe o botão acima dele (no desktop ele é centralizado, então fica no canto)
       var comp = document.getElementById('chat-composer');
       if (comp) { var top = comp.getBoundingClientRect().top; fab.style.bottom = Math.max(96, (window.innerHeight - top + 12)) + 'px'; return; }
     }
