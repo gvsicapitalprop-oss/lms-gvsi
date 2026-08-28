@@ -88,6 +88,7 @@
       if (!S) return;
       S.destroyed = true;
       (S.channels || []).forEach(function (c) { try { sb.removeChannel(c); } catch (e) {} });
+      if (S.dropView) { try { ['dragover', 'dragenter'].forEach(function (ev) { S.dropView.removeEventListener(ev, S.onDragPrev); }); S.dropView.removeEventListener('drop', S.onDrop); } catch (e) {} }
       if (S.picker && S.picker.parentNode) S.picker.remove();
       if (S.reactPop && S.reactPop.parentNode) S.reactPop.remove();
       if (S.mentionMenu && S.mentionMenu.parentNode) S.mentionMenu.remove();
@@ -447,8 +448,13 @@
             if (!self.destroyed && res.data) addMessage(res.data, true);
           } catch (e) { G.toast('Não foi possível enviar.'); }
         }
-        ['dragover', 'dragenter'].forEach(function (ev) { view.addEventListener(ev, function (e) { e.preventDefault(); }); });
-        view.addEventListener('drop', function (e) { e.preventDefault(); var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (f) sendFile(f); });
+        // drop com handlers nomeados guardados em S e removidos no cleanup (senão vazam entre telas
+        // e o arquivo solto no suporte dispara os drops de chats visitados antes)
+        self.dropView = view;
+        self.onDragPrev = function (e) { e.preventDefault(); };
+        self.onDrop = function (e) { e.preventDefault(); if (self.destroyed) return; var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (f) sendFile(f); };
+        ['dragover', 'dragenter'].forEach(function (ev) { view.addEventListener(ev, self.onDragPrev); });
+        view.addEventListener('drop', self.onDrop);
         // colar: imagem/mídia envia; texto cola normal (respeitando o teto)
         input.addEventListener('paste', function (e) {
           var dt = e.clipboardData || window.clipboardData;
