@@ -711,6 +711,39 @@ GVSI.views = GVSI.views || {};
       try { G.maybeNotify(map); } catch (e) {}
     } catch (e) {}
   };
+  // Balão flutuante do Desafio (aparece em qualquer tela, só para participantes)
+  G.setupChallengeFab = async function () {
+    if (!G.sb || !G.me || document.getElementById('challenge-fab')) return;
+    var r;
+    try { r = await G.sb.rpc('comu_challenge_for_me'); } catch (e) { return; }
+    var d = r && r.data; if (!d || r.error || !d.participating || !d.challenge) return;
+    var ch = d.challenge, days = d.days || [];
+    function fd(iso) { var p = String(iso).split('-'); return p[2] + '/' + p[1]; }
+    function wd(iso) { var p = String(iso).split('-'); var dt = new Date(+p[0], +p[1] - 1, +p[2]); return ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'][dt.getDay()]; }
+    var CFG = { cumprido: ['check_circle', 'bg-primary/15 text-primary', 'Feito'], falha_sem: ['cancel', 'bg-error/15 text-error', 'Sem operar'], falha_invalido: ['rule', 'bg-amber-400/20 text-amber-700 dark:text-amber-300', 'Sem campos'], falha_excesso: ['warning', 'bg-amber-400/20 text-amber-700 dark:text-amber-300', 'Demais'], hoje: ['schedule', 'bg-blue-500/15 text-blue-500', 'Hoje'], futuro: ['lock_clock', 'bg-surface-container-high text-on-surface-variant', '—'] };
+    var cells = days.map(function (x) {
+      var c = CFG[x.status] || CFG.futuro; var cnt = x.count;
+      var sub = (x.status === 'cumprido' || x.status === 'falha_excesso') ? (cnt + ' op') : (x.status === 'hoje' ? (cnt + '/' + ch.max) : (x.status === 'falha_invalido' ? ((x.raw || 0) + ' print') : (x.status === 'falha_sem' ? '0 op' : '')));
+      return '<div class="flex-1 min-w-0 rounded-lg p-1 text-center ' + c[1] + '"><div class="text-[10px] font-bold uppercase opacity-80">' + wd(x.date) + '</div><div class="text-[10px] tabular-nums">' + fd(x.date) + '</div><span class="material-symbols-outlined text-[18px] block">' + c[0] + '</span>' + (sub ? '<div class="text-[9px] opacity-80 leading-none">' + sub + '</div>' : '') + '</div>';
+    }).join('');
+    var fab = document.createElement('button');
+    fab.id = 'challenge-fab'; fab.type = 'button';
+    fab.className = 'fixed bottom-40 lg:bottom-24 right-4 lg:right-6 z-[71] h-12 w-12 rounded-full bg-amber-500 text-black shadow-lg flex items-center justify-center active:scale-95 transition';
+    fab.setAttribute('aria-label', 'Desafio'); fab.title = 'Desafio';
+    fab.innerHTML = '<span class="material-symbols-outlined">emoji_events</span>';
+    var pop = document.createElement('div');
+    pop.id = 'challenge-pop';
+    pop.className = 'hidden fixed bottom-56 lg:bottom-40 right-4 lg:right-6 z-[72] w-[330px] max-w-[92vw] bg-surface-container-lowest border border-amber-400/40 rounded-2xl shadow-2xl p-lg';
+    pop.innerHTML =
+      '<div class="flex items-center justify-between mb-xs"><h3 class="font-bold text-on-surface flex items-center gap-1"><span class="material-symbols-outlined text-amber-500 text-[20px]">emoji_events</span>' + G.esc(ch.name) + '</h3><button type="button" id="challenge-pop-x" class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high"><span class="material-symbols-outlined text-[20px]">close</span></button></div>' +
+      '<p class="text-body-sm text-on-surface-variant mb-sm">' + fd(ch.start) + ' a ' + fd(ch.end) + ' · ' + ch.min + '–' + ch.max + ' operações/dia</p>' +
+      '<p class="text-[12px] text-on-surface mb-sm"><b>Como cumprir:</b> a cada operação, poste o <b>print</b> no tópico <b>Resultados / Feedbacks</b> com <b>contexto, evento e localização</b> na legenda (pode abreviar: c/cx, v/e, l/loc). Faça de ' + ch.min + ' a ' + ch.max + ' por dia.</p>' +
+      '<div class="flex gap-1">' + cells + '</div>';
+    document.body.appendChild(fab); document.body.appendChild(pop);
+    fab.addEventListener('click', function (e) { e.stopPropagation(); pop.classList.toggle('hidden'); });
+    pop.querySelector('#challenge-pop-x').addEventListener('click', function () { pop.classList.add('hidden'); });
+    document.addEventListener('click', function (e) { if (!pop.classList.contains('hidden') && !pop.contains(e.target) && e.target !== fab && !fab.contains(e.target)) pop.classList.add('hidden'); });
+  };
   G.showNews = async function () {
     if (!G.sb || !G.me || document.getElementById('news-modal')) return;
     var r = await G.sb.from('comu_news').select('id,title,body,icon').eq('active', true).order('created_at', { ascending: false });
@@ -834,6 +867,7 @@ GVSI.views = GVSI.views || {};
     G.applyUnread();
     G.loadLastMessages();
     setTimeout(function () { try { G.showNews(); } catch (e) {} }, 800);
+    setTimeout(function () { try { G.setupChallengeFab(); } catch (e) {} }, 1000);
     // Badges/preview da sidebar: por POLL leve (15s) + ao voltar o foco — NÃO
     // por postgres_changes global, que não escala (1 msg = 1 leitura RLS por
     // usuário conectado). As mensagens do tópico ABERTO já chegam via Broadcast.
