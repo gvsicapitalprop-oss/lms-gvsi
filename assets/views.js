@@ -61,7 +61,7 @@
             '<div class="flex items-center justify-between gap-2 mb-md flex-wrap"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-primary">emoji_events</span><h3 class="font-headline-sm text-headline-sm text-on-surface">' + esc(ch.name) + '</h3></div><span class="text-body-sm text-on-surface-variant">' + fd(ch.start) + ' a ' + fd(ch.end) + ' · ' + ch.min + '–' + ch.max + ' op/dia</span></div>' +
             banner +
             '<div class="flex gap-1">' + cells + '</div>' +
-            '<p class="text-[12px] text-on-surface-variant mt-md">Envie seus prints (com <b>evento, contexto e localização</b>) no tópico <b>Prints das Operações</b>. Faça de 1 a 2 operações por dia.</p>' +
+            '<p class="text-[12px] text-on-surface-variant mt-md">Poste o <b>print</b> de cada operação no tópico <b>Prints das Operações</b>. Faça de 1 a 2 operações por dia.</p>' +
             '</div>';
           box.classList.remove('hidden');
         }, function () {});
