@@ -874,6 +874,7 @@ GVSI.views = GVSI.views || {};
     if (seg[0] === 'enviar') return { name: 'enviar', params: { topico: decodeURIComponent(seg[1] || '') } };
     if (seg[0] === 'perfil') return { name: 'perfil', params: {} };
     if (seg[0] === 'suporte') return { name: 'suporte', params: {} };
+    if (seg[0] === 'ia-suporte') return { name: 'iasuporte', params: {} };
     if (seg[0] === 'membros') return { name: 'membros', params: {} };
     if (seg[0] === 'moderacao') return { name: 'moderacao', params: {} };
     if (seg[0] === 'grupos') return { name: 'grupos', params: {} };

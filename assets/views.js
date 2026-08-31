@@ -1194,6 +1194,7 @@
           '<section class="bg-surface-container-low rounded-xl border border-outline-variant/20 overflow-hidden"><div class="divide-y divide-outline-variant/20">' +
             '<button type="button" id="pf-admin" class="hidden w-full items-center justify-between p-lg hover:bg-surface-container-high transition-colors text-left"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">group</span><span class="font-body-md text-body-md text-on-surface">Gerenciar membros</span></div><span class="material-symbols-outlined text-outline">chevron_right</span></button>' +
             '<button type="button" id="pf-mod" class="hidden w-full items-center justify-between p-lg hover:bg-surface-container-high transition-colors text-left"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">shield</span><span class="font-body-md text-body-md text-on-surface">Moderação</span></div><span class="material-symbols-outlined text-outline">chevron_right</span></button>' +
+            '<button type="button" id="pf-ia" class="hidden w-full items-center justify-between p-lg hover:bg-surface-container-high transition-colors text-left"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">smart_toy</span><span class="font-body-md text-body-md text-on-surface">Rascunhos da IA</span></div><span id="pf-ia-badge" class="hidden text-[11px] font-bold text-on-primary bg-primary rounded-full px-2 py-[1px] leading-none">0</span></button>' +
             '<button type="button" data-edit-open class="w-full flex items-center justify-between p-lg hover:bg-surface-container-high transition-colors text-left"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">person_edit</span><span class="font-body-md text-body-md text-on-surface">Editar perfil</span></div><span class="material-symbols-outlined text-outline">chevron_right</span></button>' +
             '<button type="button" data-soon class="w-full flex items-center justify-between p-lg hover:bg-surface-container-high transition-colors text-left"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">shield</span><span class="font-body-md text-body-md text-on-surface">Privacidade e segurança</span></div><span class="material-symbols-outlined text-outline">chevron_right</span></button>' +
             '<button type="button" id="pf-notif" class="w-full flex items-center justify-between p-lg hover:bg-surface-container-high transition-colors text-left"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">notifications</span><span class="font-body-md text-body-md text-on-surface">Notificações do navegador</span></div><span id="pf-notif-state" class="text-body-sm text-on-surface-variant">—</span></button>' +
@@ -1344,6 +1345,7 @@
       // Link discreto de instalar o app (PWA)
       var pfAdmin = document.getElementById('pf-admin'); if (pfAdmin && me.role === 'admin') { pfAdmin.classList.remove('hidden'); pfAdmin.classList.add('flex'); pfAdmin.addEventListener('click', function () { G.navigate('/membros'); }); }
       var pfMod = document.getElementById('pf-mod'); if (pfMod && me.role === 'admin') { pfMod.classList.remove('hidden'); pfMod.classList.add('flex'); pfMod.addEventListener('click', function () { G.navigate('/moderacao'); }); }
+      var pfIa = document.getElementById('pf-ia'); if (pfIa && me.role === 'admin') { pfIa.classList.remove('hidden'); pfIa.classList.add('flex'); pfIa.addEventListener('click', function () { G.navigate('/ia-suporte'); }); (async function () { try { var cc = await sb.from('comu_ai_drafts').select('id', { count: 'exact', head: true }).eq('status', 'pending'); var bdg = document.getElementById('pf-ia-badge'); if (bdg && cc && cc.count) { bdg.textContent = cc.count; bdg.classList.remove('hidden'); } } catch (e) {} })(); }
       var pfInstall = document.getElementById('pf-install');
       if (pfInstall) {
         var already = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
@@ -2139,5 +2141,66 @@
       loadHidden();
     },
     destroy: function () { if (GVSI.views.moderacao._st) GVSI.views.moderacao._st.destroyed = true; }
+  };
+
+  GVSI.views.iasuporte = {
+    render: async function (view) {
+      var me = G.me || {};
+      if (me.role !== 'admin') { G.navigate('/'); return; }
+      var esc = G.esc, sb = G.sb;
+      var st = { destroyed: false, ch: null }; GVSI.views.iasuporte._st = st;
+      view.innerHTML =
+        '<header class="fixed top-0 left-0 right-0 lg:left-[var(--side-w)] z-50 bg-surface shadow-[0px_4px_20px_rgba(0,0,0,0.05)] h-14 flex items-center justify-between px-container-margin"><button type="button" id="ia-back" class="flex items-center gap-sm text-primary" aria-label="Voltar"><span class="material-symbols-outlined">arrow_back</span><span class="font-headline-sm text-headline-sm font-bold">IA · Rascunhos de suporte</span></button><span id="ia-count" class="text-body-sm text-on-surface-variant"></span></header>' +
+        '<div class="pt-14 lg:pl-[var(--side-w)] min-h-screen"><div class="max-w-3xl mx-auto px-container-margin py-lg space-y-md">' +
+          '<p class="text-body-sm text-on-surface-variant px-1">A IA responde cada dúvida do suporte aqui, oculto do aluno. <b>Aprovar</b> envia a resposta como Bruno e ensina a IA. <b>Recusar</b> guarda o motivo (a IA não repete) e um humano assume.</p>' +
+          '<div id="ia-list" class="space-y-md"><p class="p-lg text-center text-on-surface-variant text-body-sm">Carregando…</p></div>' +
+        '</div></div>';
+      document.getElementById('ia-back').addEventListener('click', function () { G.navigate('/perfil'); });
+      function fmtWhen(iso) { try { return new Date(iso).toLocaleString('pt-BR'); } catch (e) { return ''; } }
+      function setCount(n) { var c = document.getElementById('ia-count'); if (c) c.textContent = n ? (n + ' pendente' + (n > 1 ? 's' : '')) : ''; }
+      function emptyState() { var list = document.getElementById('ia-list'); if (list) list.innerHTML = '<div class="bg-surface-container-lowest rounded-xl border border-outline-variant/30 p-xl text-center"><span class="material-symbols-outlined text-[40px] text-outline">check_circle</span><p class="text-body-sm text-on-surface-variant mt-sm">Nenhum rascunho pendente.</p></div>'; }
+      function recount() { var left = document.querySelectorAll('#ia-list > .ia-card').length; setCount(left); if (!left) emptyState(); }
+      async function load() {
+        var list = document.getElementById('ia-list'); if (!list) return;
+        var r = await sb.from('comu_ai_drafts').select('id,ticket_id,member_question,draft_body,suggest_handoff,handoff_reason,created_at').eq('status', 'pending').order('created_at', { ascending: true });
+        if (st.destroyed) return;
+        if (r.error) { list.innerHTML = '<p class="p-lg text-error text-body-sm">' + esc(r.error.message) + '</p>'; return; }
+        var rows = r.data || [];
+        setCount(rows.length);
+        var protos = {};
+        var tids = rows.map(function (x) { return x.ticket_id; }).filter(Boolean);
+        if (tids.length) { var tr = await sb.from('comu_support_tickets').select('id,protocol').in('id', tids); if (!st.destroyed && tr && tr.data) tr.data.forEach(function (t) { protos[t.id] = t.protocol; }); }
+        if (st.destroyed) return;
+        if (!rows.length) { emptyState(); return; }
+        list.innerHTML = '';
+        rows.forEach(function (d) {
+          var handoff = d.suggest_handoff;
+          var body = (d.draft_body || '').replace(/\[MSG\]/g, '\n').trim();
+          var el = document.createElement('div'); el.className = 'ia-card bg-surface-container-lowest rounded-xl border border-outline-variant/30 overflow-hidden';
+          el.innerHTML =
+            '<div class="p-md border-b border-outline-variant/20 flex items-center justify-between gap-sm"><span class="text-[12px] text-on-surface-variant">' + esc(protos[d.ticket_id] || 'ticket') + ' · ' + fmtWhen(d.created_at) + '</span>' + (handoff ? '<span class="text-[11px] font-bold text-error bg-error/10 rounded-full px-2 py-[1px] leading-none">IA sugere humano</span>' : '') + '</div>' +
+            '<div class="p-md space-y-sm">' +
+              '<div><p class="text-[11px] font-label-md text-on-surface-variant mb-xs">DÚVIDA DO ALUNO</p><p class="text-body-md text-on-surface whitespace-pre-wrap break-words">' + esc(d.member_question || '') + '</p></div>' +
+              '<div><p class="text-[11px] font-label-md text-on-surface-variant mb-xs">RESPOSTA DA IA</p>' + (body ? '<p class="text-body-md text-on-surface whitespace-pre-wrap break-words">' + esc(body) + '</p>' : '<p class="text-body-sm italic text-on-surface-variant">A IA não propôs resposta' + (d.handoff_reason ? ' (' + esc(d.handoff_reason) + ')' : '') + '. Recomenda um humano.</p>') + '</div>' +
+            '</div>' +
+            '<div class="ia-reject hidden p-md border-t border-outline-variant/20 space-y-sm"><textarea class="ia-reason w-full bg-surface-container-low border border-outline-variant rounded-xl py-2 px-3 text-body-md text-on-surface resize-none" rows="2" placeholder="Por que está recusando? (a IA aprende com isso)"></textarea><div class="flex gap-sm justify-end"><button type="button" class="ia-reject-cancel h-9 px-3 rounded-full border border-outline-variant text-on-surface text-label-md">Cancelar</button><button type="button" class="ia-reject-go h-9 px-4 rounded-full bg-error text-white text-label-md">Confirmar recusa</button></div></div>' +
+            '<div class="ia-actions p-md border-t border-outline-variant/20 flex flex-wrap gap-sm justify-end">' +
+              '<button type="button" class="ia-open h-10 px-3 rounded-full border border-outline-variant text-on-surface text-label-md flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">forum</span>Ver conversa</button>' +
+              '<button type="button" class="ia-reject-open h-10 px-4 rounded-full border border-outline-variant text-error text-label-md flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">close</span>Recusar</button>' +
+              (body ? '<button type="button" class="ia-approve h-10 px-5 rounded-full bg-primary text-on-primary text-label-md flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">send</span>Aprovar e enviar</button>' : '') +
+            '</div>';
+          el.querySelector('.ia-open').onclick = function () { G._openTicketId = d.ticket_id; G.navigate('/suporte'); };
+          var ap = el.querySelector('.ia-approve');
+          if (ap) ap.onclick = async function () { ap.disabled = true; var r2 = await sb.rpc('comu_ai_draft_approve', { p_draft_id: d.id }); if (r2.error) { ap.disabled = false; G.toast('Erro: ' + r2.error.message); return; } G.toast('Enviado ao aluno ✓'); el.remove(); recount(); };
+          el.querySelector('.ia-reject-open').onclick = function () { el.querySelector('.ia-reject').classList.remove('hidden'); el.querySelector('.ia-actions').classList.add('hidden'); var ta = el.querySelector('.ia-reason'); if (ta) ta.focus(); };
+          el.querySelector('.ia-reject-cancel').onclick = function () { el.querySelector('.ia-reject').classList.add('hidden'); el.querySelector('.ia-actions').classList.remove('hidden'); };
+          el.querySelector('.ia-reject-go').onclick = async function () { var reason = (el.querySelector('.ia-reason').value || '').trim(); if (!reason) { G.toast('Escreve o motivo, por favor.'); return; } var b = el.querySelector('.ia-reject-go'); b.disabled = true; var r3 = await sb.rpc('comu_ai_draft_reject', { p_draft_id: d.id, p_reason: reason }); if (r3.error) { b.disabled = false; G.toast('Erro: ' + r3.error.message); return; } G.toast('Recusado. A IA vai evitar isso.'); el.remove(); recount(); };
+          list.appendChild(el);
+        });
+      }
+      try { st.ch = sb.channel('ia-drafts').on('postgres_changes', { event: '*', schema: 'public', table: 'comu_ai_drafts' }, function () { if (!st.destroyed) load(); }).subscribe(); } catch (e) {}
+      load();
+    },
+    destroy: function () { var st = GVSI.views.iasuporte._st; if (st) { st.destroyed = true; if (st.ch) { try { G.sb.removeChannel(st.ch); } catch (e) {} } } }
   };
 })();
