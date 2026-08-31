@@ -124,19 +124,52 @@ GVSI.views = GVSI.views || {};
     if (!url) return;
     opts = opts || {};
     var isVideo = opts.video || /\.(mp4|webm|mov|m4v|ogv|ogg)(\?|$)/i.test(url);
-    var ov = document.createElement('div'); ov.className = 'fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4';
+    var ov = document.createElement('div'); ov.className = 'fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 overflow-hidden';
     var media;
+    function cleanup() { try { if (isVideo && media) media.pause(); } catch (e) {} ov.remove(); document.removeEventListener('keydown', onKey); }
+    function onKey(ev) { if (ev.key === 'Escape') cleanup(); }
     if (isVideo) {
       media = document.createElement('video'); media.src = url; media.controls = true; media.autoplay = true; media.setAttribute('playsinline', ''); media.className = 'max-w-full max-h-[88vh] rounded-lg';
+      ov.appendChild(media);
     } else {
-      media = document.createElement('img'); media.src = url; media.alt = ''; media.className = 'max-w-full max-h-[88vh] rounded-lg object-contain transition-transform duration-150 cursor-zoom-in';
-      var zoomed = false;
-      media.addEventListener('click', function (e) { e.stopPropagation(); zoomed = !zoomed; media.style.transform = zoomed ? 'scale(2)' : ''; media.classList.toggle('cursor-zoom-in', !zoomed); media.classList.toggle('cursor-zoom-out', zoomed); });
+      media = document.createElement('img'); media.src = url; media.alt = ''; media.draggable = false;
+      media.className = 'max-w-full max-h-[88vh] rounded-lg object-contain select-none';
+      media.style.transformOrigin = 'center center'; media.style.touchAction = 'none'; media.style.cursor = 'zoom-in';
+      var scale = 1, tx = 0, ty = 0, MIN = 1, MAX = 6;
+      function apply() { media.style.transform = 'translate(' + tx + 'px,' + ty + 'px) scale(' + scale + ')'; media.style.cursor = scale > 1 ? 'grab' : 'zoom-in'; }
+      function setScale(ns) { ns = Math.min(MAX, Math.max(MIN, ns)); if (ns <= 1) { ns = 1; tx = 0; ty = 0; } scale = ns; apply(); }
+      var pointers = new Map(), dragging = false, sx = 0, sy = 0, stx = 0, sty = 0, pinchD = 0, pinchS = 1;
+      function dist() { var p = Array.from(pointers.values()); var dx = p[0].x - p[1].x, dy = p[0].y - p[1].y; return Math.hypot(dx, dy); }
+      media.addEventListener('pointerdown', function (e) {
+        e.stopPropagation(); pointers.set(e.pointerId, { x: e.clientX, y: e.clientY }); try { media.setPointerCapture(e.pointerId); } catch (x) {}
+        if (pointers.size === 2) { dragging = false; pinchD = dist(); pinchS = scale; }
+        else if (scale > 1) { dragging = true; sx = e.clientX; sy = e.clientY; stx = tx; sty = ty; media.style.cursor = 'grabbing'; }
+      });
+      media.addEventListener('pointermove', function (e) {
+        if (!pointers.has(e.pointerId)) return; pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (pointers.size === 2) { e.preventDefault(); if (pinchD > 0) setScale(pinchS * dist() / pinchD); }
+        else if (dragging) { tx = stx + (e.clientX - sx); ty = sty + (e.clientY - sy); apply(); }
+      });
+      function ptrUp(e) { pointers.delete(e.pointerId); if (pointers.size < 2) pinchD = 0; if (pointers.size === 0) { dragging = false; media.style.cursor = scale > 1 ? 'grab' : 'zoom-in'; } }
+      media.addEventListener('pointerup', ptrUp); media.addEventListener('pointercancel', ptrUp);
+      ov.addEventListener('wheel', function (e) { e.preventDefault(); setScale(scale * (e.deltaY < 0 ? 1.15 : 0.87)); }, { passive: false });
+      var moved = false;
+      media.addEventListener('pointerdown', function () { moved = false; });
+      media.addEventListener('pointermove', function () { moved = true; });
+      media.addEventListener('click', function (e) { e.stopPropagation(); });
+      media.addEventListener('dblclick', function (e) { e.stopPropagation(); setScale(scale > 1 ? 1 : 2.5); });
+      ov.appendChild(media);
+      // controles de zoom
+      var bar = document.createElement('div'); bar.className = 'absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/50 rounded-full px-2 py-1';
+      function zbtn(icon, fn) { var b = document.createElement('button'); b.type = 'button'; b.className = 'h-10 w-10 rounded-full text-white flex items-center justify-center hover:bg-white/15'; b.innerHTML = '<span class="material-symbols-outlined">' + icon + '</span>'; b.onclick = function (e) { e.stopPropagation(); fn(); }; return b; }
+      bar.appendChild(zbtn('remove', function () { setScale(scale - 0.5); }));
+      bar.appendChild(zbtn('restart_alt', function () { setScale(1); }));
+      bar.appendChild(zbtn('add', function () { setScale(scale + 0.5); }));
+      ov.appendChild(bar);
+      apply();
     }
-    var close = document.createElement('button'); close.type = 'button'; close.className = 'absolute top-4 right-4 h-11 w-11 rounded-full bg-white/15 text-white flex items-center justify-center hover:bg-white/25'; close.innerHTML = '<span class="material-symbols-outlined">close</span>'; close.onclick = function () { cleanup(); };
-    function onKey(ev) { if (ev.key === 'Escape') cleanup(); }
-    function cleanup() { try { if (isVideo) media.pause(); } catch (e) {} ov.remove(); document.removeEventListener('keydown', onKey); }
-    ov.appendChild(media); ov.appendChild(close);
+    var close = document.createElement('button'); close.type = 'button'; close.className = 'absolute top-4 right-4 h-11 w-11 rounded-full bg-white/15 text-white flex items-center justify-center hover:bg-white/25 z-10'; close.innerHTML = '<span class="material-symbols-outlined">close</span>'; close.onclick = function () { cleanup(); };
+    ov.appendChild(close);
     ov.addEventListener('click', function (e) { if (e.target === ov) cleanup(); });
     document.addEventListener('keydown', onKey);
     document.body.appendChild(ov);
