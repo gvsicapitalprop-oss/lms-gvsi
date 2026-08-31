@@ -1851,22 +1851,19 @@
           if (d) { if (!self.aiDraft || self.aiDraft.id !== d.id) self.aiMinimized = false; renderAiDraft(d); } else clearAiDraft();
         }
         async function approveDraft(d) {
+          // usa a MESMA RPC da tela de Rascunhos: envia como Saymon e alimenta a base (fonte única).
           var btn = document.getElementById('ai-draft-approve'); if (btn) { btn.disabled = true; btn.innerHTML = '<span class="material-symbols-outlined text-[20px] animate-spin">progress_activity</span>Enviando…'; }
-          var ins = await sb.from('comu_messages').insert({ topic_id: supportTopicId, author_id: me.id, ticket_id: d.ticket_id, kind: 'text', body: d.draft_body, author_name: me.full_name || 'Suporte', author_avatar: me.avatar_url || null }).select().single();
-          if (ins.error) { G.toast('Erro ao enviar: ' + ins.error.message); if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-symbols-outlined text-[20px]">check_circle</span>Aprovar e enviar'; } return; }
-          await sb.from('comu_ai_drafts').update({ status: 'approved', decided_at: new Date().toISOString(), decided_by: me.id, sent_message_id: ins.data.id }).eq('id', d.id);
-          if (d.member_question && (d.draft_body || '').trim()) {
-            await sb.from('comu_ai_knowledge').insert({ question: d.member_question, answer: d.draft_body, source: 'approved_draft', source_draft_id: d.id, enabled: true, created_by: me.id });
-          }
-          clearAiDraft(); addMsg(ins.data); scrollConvo(); G.toast('Resposta enviada e adicionada à base de conhecimento.');
+          var r2 = await sb.rpc('comu_ai_draft_approve', { p_draft_id: d.id });
+          if (r2.error) { G.toast('Erro ao enviar: ' + r2.error.message); if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-symbols-outlined text-[20px]">check_circle</span>Aprovar e enviar'; } return; }
+          clearAiDraft(); scrollConvo(); G.toast('Resposta enviada ao aluno e aprendida ✓');
         }
         async function rejectDraft(d) {
           var reason = await G.promptDialog({ title: 'Por que reprovar?', text: 'Explique o que estava errado. A IA registra isso e evita repetir.', placeholder: 'Ex.: o prazo certo é 48h, não 24h', ok: 'Registrar reprovação' });
           if (reason === null || reason === undefined) return;
           reason = String(reason).trim(); if (!reason) { G.toast('Escreva o motivo para a IA aprender.'); return; }
           var btn = document.getElementById('ai-draft-reject'); if (btn) btn.disabled = true;
-          await sb.from('comu_ai_corrections').insert({ draft_id: d.id, ticket_id: d.ticket_id, member_question: d.member_question, rejected_answer: d.draft_body, reason: reason, inject_enabled: true, created_by: me.id });
-          await sb.from('comu_ai_drafts').update({ status: 'rejected', decided_at: new Date().toISOString(), decided_by: me.id }).eq('id', d.id);
+          var r3 = await sb.rpc('comu_ai_draft_reject', { p_draft_id: d.id, p_reason: reason });
+          if (r3.error) { if (btn) btn.disabled = false; G.toast('Erro: ' + r3.error.message); return; }
           clearAiDraft(); G.toast('Reprovação registrada. A IA vai evitar esse erro.');
         }
         async function openTicket(tk) {
@@ -2227,7 +2224,7 @@
       view.innerHTML =
         '<header class="fixed top-0 left-0 right-0 lg:left-[var(--side-w)] z-50 bg-surface shadow-[0px_4px_20px_rgba(0,0,0,0.05)] h-14 flex items-center justify-between px-container-margin"><button type="button" id="ia-back" class="flex items-center gap-sm text-primary" aria-label="Voltar"><span class="material-symbols-outlined">arrow_back</span><span class="font-headline-sm text-headline-sm font-bold">IA · Rascunhos de suporte</span></button><span id="ia-count" class="text-body-sm text-on-surface-variant"></span></header>' +
         '<div class="pt-14 lg:pl-[var(--side-w)] min-h-screen"><div class="max-w-3xl mx-auto px-container-margin py-lg space-y-md">' +
-          '<p class="text-body-sm text-on-surface-variant px-1">A IA responde cada dúvida do suporte aqui, oculto do aluno. <b>Aprovar</b> envia a resposta como Bruno e ensina a IA. <b>Recusar</b> guarda o motivo (a IA não repete) e um humano assume.</p>' +
+          '<p class="text-body-sm text-on-surface-variant px-1">A IA responde cada dúvida do suporte aqui, oculto do aluno. <b>Aprovar</b> envia a resposta como Saymon e ensina a IA. <b>Recusar</b> guarda o motivo (a IA não repete) e um humano assume.</p>' +
           '<div id="ia-list" class="space-y-md"><p class="p-lg text-center text-on-surface-variant text-body-sm">Carregando…</p></div>' +
         '</div></div>';
       document.getElementById('ia-back').addEventListener('click', function () { G.navigate('/perfil'); });

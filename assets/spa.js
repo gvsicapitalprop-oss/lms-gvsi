@@ -366,22 +366,40 @@ GVSI.views = GVSI.views || {};
     var cb = document.getElementById('mc-close'); if (cb) cb.addEventListener('click', close);
   };
   // Upload com barra de progresso (o .upload() do SDK não expõe progresso; XHR sim).
-  G.uploadWithProgress = function (path, file, contentType, onProgress) {
-    return new Promise(function (resolve) {
-      G.sb.auth.getSession().then(function (s) {
-        var tok = (s && s.data && s.data.session && s.data.session.access_token) || window.SUPABASE_ANON_KEY;
-        var xhr = new XMLHttpRequest();
-        xhr.open('POST', window.SUPABASE_URL + '/storage/v1/object/comu-media/' + path, true);
-        xhr.setRequestHeader('Authorization', 'Bearer ' + tok);
-        xhr.setRequestHeader('apikey', window.SUPABASE_ANON_KEY);
-        xhr.setRequestHeader('x-upsert', 'true');
-        if (contentType) xhr.setRequestHeader('Content-Type', contentType);
-        xhr.upload.onprogress = function (e) { if (e.lengthComputable && onProgress) onProgress(e.loaded / e.total); };
-        xhr.onload = function () { if (xhr.status >= 200 && xhr.status < 300) resolve({ ok: true }); else resolve({ ok: false, error: String(xhr.responseText || ('HTTP ' + xhr.status)).slice(0, 200) }); };
-        xhr.onerror = function () { resolve({ ok: false, error: 'Falha de rede no envio' }); };
-        xhr.send(file);
-      }, function () { resolve({ ok: false, error: 'Sessão inválida' }); });
-    });
+  // Re-tenta sozinho em redes fracas (queda no meio do envio / timeout). Path fixo + upsert = idempotente.
+  G.uploadWithProgress = function (path, file, contentType, onProgress, tries) {
+    tries = tries || 4;
+    function once() {
+      return new Promise(function (resolve) {
+        G.sb.auth.getSession().then(function (s) {
+          var tok = (s && s.data && s.data.session && s.data.session.access_token) || window.SUPABASE_ANON_KEY;
+          var xhr = new XMLHttpRequest();
+          xhr.open('POST', window.SUPABASE_URL + '/storage/v1/object/comu-media/' + path, true);
+          xhr.setRequestHeader('Authorization', 'Bearer ' + tok);
+          xhr.setRequestHeader('apikey', window.SUPABASE_ANON_KEY);
+          xhr.setRequestHeader('x-upsert', 'true');
+          if (contentType) xhr.setRequestHeader('Content-Type', contentType);
+          xhr.timeout = 60000; // rede travada não fica "Enviando…" pra sempre
+          xhr.upload.onprogress = function (e) { if (e.lengthComputable && onProgress) onProgress(e.loaded / e.total); };
+          xhr.onload = function () { if (xhr.status >= 200 && xhr.status < 300) resolve({ ok: true }); else resolve({ ok: false, error: String(xhr.responseText || ('HTTP ' + xhr.status)).slice(0, 200), retryable: (xhr.status === 0 || xhr.status === 429 || xhr.status >= 500) }); };
+          xhr.onerror = function () { resolve({ ok: false, error: 'Falha de rede no envio', retryable: true }); };
+          xhr.ontimeout = function () { resolve({ ok: false, error: 'Tempo esgotado no envio', retryable: true }); };
+          xhr.send(file);
+        }, function () { resolve({ ok: false, error: 'Sessão inválida', retryable: false }); });
+      });
+    }
+    return (async function () {
+      var last = null;
+      for (var i = 0; i < tries; i++) {
+        if (onProgress) onProgress(0);
+        var r = await once();
+        if (r.ok) return r;
+        last = r;
+        if (!r.retryable) break;
+        if (i < tries - 1) await new Promise(function (res) { setTimeout(res, 900 * (i + 1)); });
+      }
+      return last || { ok: false, error: 'falha no envio' };
+    })();
   };
   // Upload para o storage com re-tentativas (redes fracas caem no meio do envio). Path fixo + upsert = idempotente.
   G.storageUpload = async function (path, file, contentType, tries) {
