@@ -605,7 +605,8 @@
             choice = ok ? 'one' : null;
           }
           if (!choice) return;
-          var q = sb.from('comu_messages').delete();
+          // soft-hide: some pros OUTROS e continua visível pro AUTOR (evita reclamação de msg apagada)
+          var q = sb.from('comu_messages').update({ moderation: 'hidden' });
           if (choice === 'one') q = q.eq('id', m.id);
           else if (choice === 'topic') q = q.eq('author_id', m.author_id).eq('topic_id', topic.id).is('ticket_id', null);
           else q = q.eq('author_id', m.author_id).is('ticket_id', null);
@@ -885,6 +886,7 @@
               .on('broadcast', { event: 'UPDATE' }, function (m) { if (m && m.payload && m.payload.record) updateMessage(m.payload.record); })
               .on('broadcast', { event: 'DELETE' }, function (m) { var r = m && m.payload && (m.payload.old_record || m.payload.record); if (r && r.id) removeMessage(r.id); })
               .on('broadcast', { event: 'reaction' }, function (m) { var p = m && m.payload; if (p && p.message_id) applyReactionEvent(p.op === 'DELETE' ? 'DELETE' : 'INSERT', { message_id: p.message_id, user_id: p.user_id, reaction: p.reaction, user_name: p.user_name }); })
+              .on('broadcast', { event: 'HIDE' }, function (m) { var p = m && m.payload; if (p && p.id && (!me.id || p.author_id !== me.id)) removeMessage(p.id); }) // apagada: some pros outros, fica pro autor
               .subscribe(function (status) { if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') enablePgFallback(); }));
           }
           refreshTicketInfo();
