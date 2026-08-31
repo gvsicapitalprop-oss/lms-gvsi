@@ -1380,6 +1380,7 @@
             '<section id="convo-panel" class="hidden lg:flex flex-1 flex-col min-w-0"><div id="convo-empty" class="flex-1 flex flex-col items-center justify-center text-center gap-md p-xl text-on-surface-variant"><span class="material-symbols-outlined text-[48px]">forum</span><p class="text-body-md max-w-xs">Selecione uma conversa para ver o histórico e responder.</p></div>' +
               '<div id="convo-main" class="hidden flex-1 flex-col min-h-0"><div class="min-h-16 shrink-0 border-b border-outline-variant px-md py-2 flex items-center"><div class="max-w-3xl mx-auto w-full flex items-center gap-md"><button id="convo-back" class="lg:hidden text-primary flex items-center" aria-label="Voltar"><span class="material-symbols-outlined">arrow_back</span></button><span id="convo-avatar" class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center text-outline shrink-0 overflow-hidden"><span class="material-symbols-outlined">person</span></span><div class="flex-1 min-w-0"><h2 id="convo-name" class="font-bold text-on-surface truncate"></h2><p id="convo-protocol" class="text-body-sm text-outline truncate"></p><div id="convo-rating" class="hidden flex-wrap items-center gap-1 mt-0.5"></div><button type="button" id="convo-history" class="hidden items-center gap-1 mt-0.5 text-[12px] text-primary hover:underline"><span class="material-symbols-outlined text-[14px]">history</span><span id="convo-history-lbl"></span></button><div id="convo-tags" class="flex flex-wrap items-center gap-1 mt-1"></div></div><button type="button" id="btn-history" class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors shrink-0" aria-label="Conversas anteriores" title="Conversas anteriores"><span class="material-symbols-outlined">history</span></button><button type="button" id="btn-profile" class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors shrink-0" aria-label="Editar perfil do membro" title="Editar perfil"><span class="material-symbols-outlined">manage_accounts</span></button><button type="button" id="btn-access" class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors shrink-0" aria-label="Acesso ao Diário" title="Acesso ao Diário de Trade"><span class="material-symbols-outlined">key</span></button><button type="button" id="btn-challenge" class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors shrink-0" aria-label="Desafio" title="Desafio"><span class="material-symbols-outlined">emoji_events</span></button><button type="button" id="btn-tags" class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors shrink-0" aria-label="Tags do contato"><span class="material-symbols-outlined">sell</span></button><button id="btn-resolve" class="bg-primary text-on-primary rounded-full px-4 py-2 text-label-md font-label-md active:scale-95 transition disabled:opacity-60 flex items-center gap-xs"><span class="material-symbols-outlined text-[18px]">check_circle</span><span id="btn-resolve-label">Marcar como resolvido</span></button></div></div>' +
                 '<div id="convo-scroll" class="flex-1 overflow-y-auto custom-scrollbar p-md"><div id="convo-messages" class="flex flex-col gap-md max-w-3xl mx-auto w-full"></div></div>' +
+                '<div id="ai-draft-bar" class="hidden shrink-0 border-t border-primary/40 bg-primary/5 px-md py-sm"><div class="max-w-3xl mx-auto w-full"></div></div>' +
                 '<form id="convo-form" class="shrink-0 border-t border-outline-variant p-sm"><div class="max-w-3xl mx-auto w-full flex flex-col gap-sm"><textarea id="convo-input" rows="1" autocomplete="off" placeholder="Responder…" class="w-full bg-surface-container-low border border-outline-variant rounded-xl px-md py-3 text-body-md focus:ring-2 focus:ring-primary/20 text-on-surface placeholder:text-on-surface-variant resize-none max-h-52 overflow-y-auto whitespace-pre-wrap"></textarea><div id="sup-rec-bar" class="hidden flex items-center gap-sm flex-wrap"><span id="sup-rec-dot" class="w-3 h-3 rounded-full bg-error animate-pulse shrink-0"></span><span id="sup-rec-time" class="text-body-lg text-on-surface tabular-nums">0:00</span><audio id="sup-rec-preview" class="hidden"></audio><span class="flex-grow"></span><button type="button" id="sup-rec-pause" class="h-11 px-3 rounded-xl border border-outline-variant text-on-surface flex items-center gap-xs shrink-0"><span class="material-symbols-outlined text-[22px]" id="sup-rec-pause-ic">pause</span><span class="text-body-sm" id="sup-rec-pause-lbl">Pausar</span></button><button type="button" id="sup-rec-listen" class="hidden h-11 px-3 rounded-xl border border-outline-variant text-primary items-center gap-xs shrink-0"><span class="material-symbols-outlined text-[22px]" id="sup-rec-listen-ic">play_arrow</span><span class="text-body-sm" id="sup-rec-listen-lbl">Ouvir</span></button><button type="button" id="sup-rec-cancel" class="h-11 px-3 rounded-xl border border-outline-variant text-error flex items-center gap-xs shrink-0"><span class="material-symbols-outlined text-[22px]">delete</span><span class="text-body-sm">Excluir</span></button><button type="button" id="sup-rec-send" class="h-11 px-4 bg-primary text-on-primary rounded-xl flex items-center gap-xs shadow shrink-0"><span class="material-symbols-outlined fill text-[22px]">send</span><span class="text-body-sm font-bold">Enviar</span></button></div><div id="sup-composer-row" class="flex flex-wrap items-center gap-sm"><button type="button" id="convo-emoji" class="h-11 w-11 rounded-xl border border-outline-variant text-on-surface hover:bg-surface-container-high transition-colors flex items-center justify-center shrink-0" aria-label="Emojis"><span class="material-symbols-outlined text-[24px]">mood</span></button><button type="button" id="convo-attach" class="h-11 px-3 rounded-xl border border-outline-variant text-on-surface hover:bg-surface-container-high transition-colors flex items-center gap-xs shrink-0" aria-label="Anexar foto ou vídeo"><span class="material-symbols-outlined text-[24px]">attach_file</span><span class="text-body-sm font-label-md">Anexar</span></button><button type="button" id="convo-audio-btn" class="h-11 px-3 rounded-xl border border-outline-variant text-on-surface hover:bg-surface-container-high transition-colors flex items-center gap-xs shrink-0" aria-label="Enviar áudio"><span class="material-symbols-outlined text-[24px]">mic</span><span class="text-body-sm font-label-md">Áudio</span></button><button type="submit" class="h-11 px-5 ml-auto bg-primary text-on-primary rounded-xl flex items-center gap-xs shadow-lg active:scale-95 transition-all shrink-0" aria-label="Enviar"><span class="material-symbols-outlined fill text-[24px]">send</span><span class="text-body-md font-bold">Enviar</span></button></div></div><input id="convo-file-media" type="file" class="hidden"><input id="convo-file-audio" type="file" accept="audio/*" class="hidden"></form></div>' +
             '</section>' +
           '</div>';
@@ -1664,6 +1665,8 @@
           var q = sb.from('comu_support_tickets').select('*, member:lms_students!user_id(full_name,avatar_url,email,phone,premium)').order('last_message_at', { ascending: false });
           if (self.filter === 'pendentes') q = q.in('status', ['aberto', 'aguardando']); if (self.filter === 'resolvidos') q = q.in('status', ['resolvido', 'fechado']);
           var r = await q; if (self.destroyed) return;
+          var pd = await sb.from('comu_ai_drafts').select('ticket_id').eq('status', 'pending'); if (self.destroyed) return;
+          var pendSet = Object.create(null); (pd.data || []).forEach(function (x) { pendSet[x.ticket_id] = true; });
           var list = document.getElementById('ticket-list'); list.innerHTML = '';
           if (r.error) { list.innerHTML = '<p class="p-md text-error text-body-sm">' + esc(r.error.message) + '</p>'; return; }
           // se a conversa aberta recebeu avaliação/mudou status, reflete no cabeçalho
@@ -1681,7 +1684,8 @@
             var _waiting = (tk.status === 'aberto' || tk.status === 'aguardando') && !tk.last_agent_at; // membro mandou e ainda não foi respondido
             var _wtag = _waiting ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-error/20 text-error font-bold inline-flex items-center gap-[2px]"><span class="material-symbols-outlined text-[12px]">schedule</span>Aguardando você</span>' : '';
             var premChip = premium ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-400/25 text-amber-700 dark:text-amber-300 font-bold inline-flex items-center gap-[2px]"><span class="material-symbols-outlined text-[12px]">workspace_premium</span>Premium</span>' : '';
-            var extra = premChip + _wtag + chips;
+            var aiChip = pendSet[tk.id] ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-primary/20 text-primary font-bold inline-flex items-center gap-[2px]"><span class="material-symbols-outlined text-[12px]">smart_toy</span>IA aguardando</span>' : '';
+            var extra = premChip + aiChip + _wtag + chips;
             el.className = 'w-full text-left flex items-center gap-md p-md transition-colors border-b border-outline-variant/30 ' + (premium ? 'border-l-4 border-l-amber-400 bg-amber-400/5 hover:bg-amber-400/10 ' : 'hover:bg-surface-container-low ') + (self.currentTicket && self.currentTicket.id === tk.id ? 'bg-surface-container-high' : '');
             el.innerHTML = '<span class="w-11 h-11 rounded-full ' + (premium ? 'ring-2 ring-amber-400 ' : '') + 'bg-surface-container-high flex items-center justify-center text-outline overflow-hidden shrink-0">' + (m.avatar_url ? '<img src="' + esc(m.avatar_url) + '" class="w-full h-full object-cover">' : '<span class="material-symbols-outlined">person</span>') + '</span><span class="flex-1 min-w-0"><span class="flex items-center justify-between gap-xs"><span class="font-bold text-on-surface truncate">' + esc(m.full_name || 'Membro') + (premium ? ' <span class="material-symbols-outlined text-[15px] text-amber-500 align-middle">workspace_premium</span>' : '') + '</span><span class="text-[13px] text-on-surface-variant shrink-0">' + timeShort(tk.last_message_at) + '</span></span><span class="flex items-center justify-between gap-xs mt-0.5"><span class="text-body-sm text-outline truncate">' + esc(tk.protocol) + '</span><span class="text-[10px] px-2 py-0.5 rounded-full ' + statusClass(tk.status) + '">' + statusLabel(tk.status) + '</span></span>' + (extra ? '<span class="flex flex-wrap gap-1 mt-1">' + extra + '</span>' : '') + '</span>';
             el.addEventListener('click', function () { openTicket(tk); }); list.appendChild(el);
@@ -1779,6 +1783,7 @@
             .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'comu_messages' }, function (p) { if (p.old && p.old.id) { var w = document.querySelector('#convo-messages [data-msg-id="' + p.old.id + '"]'); if (w) w.remove(); } })
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comu_message_reactions' }, function (p) { applyReactSup('INSERT', p.new); })
             .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'comu_message_reactions' }, function (p) { applyReactSup('DELETE', p.old); })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'comu_ai_drafts', filter: 'ticket_id=eq.' + ticketId }, function () { loadAiDraft(ticketId); loadTickets(); })
             .subscribe();
           self.channels.push(self.convoChannel);
         }
@@ -1795,6 +1800,53 @@
           if (form) form.style.display = open ? '' : 'none';
           if (note) note.classList.toggle('hidden', open);
         }
+        // ---- IA de suporte: rascunho oculto aguardando aprovação ----
+        function clearAiDraft() { var bar = document.getElementById('ai-draft-bar'); if (bar) { bar.classList.add('hidden'); var inner = bar.querySelector('div'); if (inner) inner.innerHTML = ''; } }
+        function renderAiDraft(d) {
+          var bar = document.getElementById('ai-draft-bar'); if (!bar) return;
+          var inner = bar.querySelector('div'); if (!inner) return;
+          var hand = d.suggest_handoff ? '<div class="flex items-start gap-xs mt-xs text-[13px] text-tertiary"><span class="material-symbols-outlined text-[16px]">support_agent</span><span>A IA sugere que um humano assuma' + (d.handoff_reason ? ': ' + esc(d.handoff_reason) : '.') + '</span></div>' : '';
+          inner.innerHTML =
+            '<div class="flex items-center gap-xs mb-xs"><span class="material-symbols-outlined text-[18px] text-primary">smart_toy</span>' +
+            '<span class="text-label-md font-bold text-primary">Sugestão da IA</span>' +
+            '<span class="text-[11px] px-2 py-0.5 rounded-full bg-primary/15 text-primary font-bold">não enviada</span>' +
+            '<span class="flex-grow"></span><button type="button" id="ai-draft-refresh" class="text-on-surface-variant hover:text-primary" title="Recarregar"><span class="material-symbols-outlined text-[18px]">refresh</span></button></div>' +
+            '<div class="bg-surface-container-lowest border border-outline-variant/40 rounded-xl p-md text-body-md text-on-surface whitespace-pre-wrap break-words">' + G.fmt(d.draft_body || '', true) + '</div>' + hand +
+            '<div class="flex flex-wrap gap-sm mt-sm"><button type="button" id="ai-draft-approve" class="h-11 px-4 bg-primary text-on-primary rounded-xl flex items-center gap-xs font-bold active:scale-95 transition"><span class="material-symbols-outlined text-[20px]">check_circle</span>Aprovar e enviar</button>' +
+            '<button type="button" id="ai-draft-edit" class="h-11 px-4 rounded-xl border border-outline-variant text-on-surface flex items-center gap-xs"><span class="material-symbols-outlined text-[20px]">edit</span>Editar antes</button>' +
+            '<button type="button" id="ai-draft-reject" class="h-11 px-4 rounded-xl border border-error/50 text-error flex items-center gap-xs"><span class="material-symbols-outlined text-[20px]">cancel</span>Reprovar</button></div>';
+          bar.classList.remove('hidden');
+          var rf = document.getElementById('ai-draft-refresh'); if (rf) rf.onclick = function () { loadAiDraft(d.ticket_id); };
+          document.getElementById('ai-draft-approve').onclick = function () { approveDraft(d); };
+          document.getElementById('ai-draft-edit').onclick = function () { var ci = document.getElementById('convo-input'); if (ci) { ci.value = d.draft_body || ''; convoGrow(); ci.focus(); } G.toast('Rascunho copiado pro campo de resposta. Edite e envie.'); };
+          document.getElementById('ai-draft-reject').onclick = function () { rejectDraft(d); };
+        }
+        async function loadAiDraft(ticketId) {
+          if (!ticketId) { clearAiDraft(); return; }
+          var r = await sb.from('comu_ai_drafts').select('*').eq('ticket_id', ticketId).eq('status', 'pending').order('created_at', { ascending: false }).limit(1);
+          if (self.destroyed || !self.currentTicket || self.currentTicket.id !== ticketId) return;
+          var d = r.data && r.data[0];
+          if (d) renderAiDraft(d); else clearAiDraft();
+        }
+        async function approveDraft(d) {
+          var btn = document.getElementById('ai-draft-approve'); if (btn) { btn.disabled = true; btn.innerHTML = '<span class="material-symbols-outlined text-[20px] animate-spin">progress_activity</span>Enviando…'; }
+          var ins = await sb.from('comu_messages').insert({ topic_id: supportTopicId, author_id: me.id, ticket_id: d.ticket_id, kind: 'text', body: d.draft_body, author_name: me.full_name || 'Suporte', author_avatar: me.avatar_url || null }).select().single();
+          if (ins.error) { G.toast('Erro ao enviar: ' + ins.error.message); if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-symbols-outlined text-[20px]">check_circle</span>Aprovar e enviar'; } return; }
+          await sb.from('comu_ai_drafts').update({ status: 'approved', decided_at: new Date().toISOString(), decided_by: me.id, sent_message_id: ins.data.id }).eq('id', d.id);
+          if (d.member_question && (d.draft_body || '').trim()) {
+            await sb.from('comu_ai_knowledge').insert({ question: d.member_question, answer: d.draft_body, source: 'approved_draft', source_draft_id: d.id, enabled: true, created_by: me.id });
+          }
+          clearAiDraft(); addMsg(ins.data); scrollConvo(); G.toast('Resposta enviada e adicionada à base de conhecimento.');
+        }
+        async function rejectDraft(d) {
+          var reason = await G.promptDialog({ title: 'Por que reprovar?', text: 'Explique o que estava errado. A IA registra isso e evita repetir.', placeholder: 'Ex.: o prazo certo é 48h, não 24h', ok: 'Registrar reprovação' });
+          if (reason === null || reason === undefined) return;
+          reason = String(reason).trim(); if (!reason) { G.toast('Escreva o motivo para a IA aprender.'); return; }
+          var btn = document.getElementById('ai-draft-reject'); if (btn) btn.disabled = true;
+          await sb.from('comu_ai_corrections').insert({ draft_id: d.id, ticket_id: d.ticket_id, member_question: d.member_question, rejected_answer: d.draft_body, reason: reason, inject_enabled: true, created_by: me.id });
+          await sb.from('comu_ai_drafts').update({ status: 'rejected', decided_at: new Date().toISOString(), decided_by: me.id }).eq('id', d.id);
+          clearAiDraft(); G.toast('Reprovação registrada. A IA vai evitar esse erro.');
+        }
         async function openTicket(tk) {
           self.currentTicket = tk; self.seen = Object.create(null);
           document.getElementById('convo-empty').classList.add('hidden'); var cm = document.getElementById('convo-main'); cm.classList.remove('hidden'); cm.classList.add('flex');
@@ -1802,9 +1854,10 @@
           var m = tk.member || {}; document.getElementById('convo-name').textContent = m.full_name || 'Membro'; document.getElementById('convo-protocol').textContent = tk.protocol + ' · ' + statusLabel(tk.status); updateResolveBtn(); refreshConvoTags(); renderConvoRating(); renderHistory(tk); var _av = document.getElementById('convo-avatar'); if (_av) _av.innerHTML = m.avatar_url ? '<img src="' + esc(m.avatar_url) + '" class="w-full h-full object-cover">' : '<span class="material-symbols-outlined">person</span>';
           document.getElementById('convo-messages').innerHTML = '';
           var r = await sb.from('comu_messages').select('*').eq('ticket_id', tk.id).order('created_at', { ascending: true }); if (self.destroyed) return;
-          (r.data || []).forEach(addMsg); loadReactSup((r.data || []).map(function (m) { return m.id; })); scrollConvo(); subscribeConvo(tk.id); updateConvoComposer(); loadTickets();
+          (r.data || []).forEach(addMsg); loadReactSup((r.data || []).map(function (m) { return m.id; })); scrollConvo(); subscribeConvo(tk.id); updateConvoComposer(); loadAiDraft(tk.id); loadTickets();
         }
         function closeConvo() {
+          clearAiDraft();
           if (self.convoChannel) { try { sb.removeChannel(self.convoChannel); } catch (e) {} self.convoChannel = null; }
           self.currentTicket = null;
           var cm = document.getElementById('convo-main'); cm.classList.add('hidden'); cm.classList.remove('flex');
