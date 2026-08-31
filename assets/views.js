@@ -411,8 +411,8 @@
               var caption = (ov.querySelector('#ic-caption').value || '').trim() || null;
               try {
                 var path = (slug || 'geral') + '/' + me.id + '/' + Date.now() + '.jpg';
-                var up = await sb.storage.from('comu-media').upload(path, blob, { contentType: 'image/jpeg', upsert: true });
-                if (up.error) { G.toast('Erro no upload: ' + up.error.message); btn.disabled = false; return; }
+                var up = await G.storageUpload(path, blob, 'image/jpeg');
+                if (!up.ok) { G.toast('Não consegui enviar a imagem. Verifique sua conexão e tente de novo.'); btn.disabled = false; return; }
                 var url = sb.storage.from('comu-media').getPublicUrl(path).data.publicUrl;
                 var res;
                 if (isSupport) res = await sb.rpc('comu_send_support_message', { p_body: caption, p_kind: 'image', p_media_url: url, p_author_name: me.full_name || 'Membro' });
@@ -438,8 +438,8 @@
           try {
             var ext = ((file.name && file.name.indexOf('.') >= 0) ? file.name.split('.').pop() : (kind === 'image' ? 'jpg' : kind === 'video' ? 'mp4' : kind === 'audio' ? 'webm' : 'bin')).toLowerCase();
             var path = (slug || 'geral') + '/' + me.id + '/' + Date.now() + '.' + ext;
-            var up = await sb.storage.from('comu-media').upload(path, file, { upsert: true, contentType: ty || undefined });
-            if (up.error) { G.toast('Erro no upload: ' + up.error.message); return; }
+            var up = await G.storageUpload(path, file, ty || undefined);
+            if (!up.ok) { G.toast('Não consegui enviar. Verifique sua conexão e tente de novo.'); return; }
             var url = sb.storage.from('comu-media').getPublicUrl(path).data.publicUrl;
             var res;
             if (isSupport) res = await sb.rpc('comu_send_support_message', { p_body: null, p_kind: kind, p_media_url: url, p_author_name: me.full_name || 'Membro' });

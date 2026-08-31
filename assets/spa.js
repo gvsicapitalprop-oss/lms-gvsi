@@ -383,6 +383,19 @@ GVSI.views = GVSI.views || {};
       }, function () { resolve({ ok: false, error: 'Sessão inválida' }); });
     });
   };
+  // Upload para o storage com re-tentativas (redes fracas caem no meio do envio). Path fixo + upsert = idempotente.
+  G.storageUpload = async function (path, file, contentType, tries) {
+    tries = tries || 3; var lastErr = null;
+    for (var i = 0; i < tries; i++) {
+      try {
+        var up = await G.sb.storage.from('comu-media').upload(path, file, { upsert: true, contentType: contentType || undefined });
+        if (!up.error) return { ok: true };
+        lastErr = (up.error && (up.error.message || up.error)) || 'falha';
+      } catch (e) { lastErr = (e && e.message) || String(e); }
+      if (i < tries - 1) await new Promise(function (r) { setTimeout(r, 800 * (i + 1)); });
+    }
+    return { ok: false, error: String(lastErr || 'falha no envio') };
+  };
   // Editor de imagem reutilizável (pré-envio): abre o cropper e chama onConfirm(blob, caption, dims).
   G.imageComposer = function (file, onConfirm) {
     if (!file || !onConfirm) return;
