@@ -92,17 +92,20 @@ GVSI.views = GVSI.views || {};
       var cur = el.querySelector('.ga-cur'), dur = el.querySelector('.ga-dur'), seek = el.querySelector('.ga-seek'), speed = el.querySelector('.ga-speed');
       var SPEEDS = [1, 1.5, 2, 2.5], si = 0, fixed = false, seeking = false;
       function fmt(t) { if (!isFinite(t) || t < 0) t = 0; var m = Math.floor(t / 60), s = Math.floor(t % 60); return m + ':' + (s < 10 ? '0' + s : s); }
-      audio.addEventListener('loadedmetadata', function () { if (isFinite(audio.duration) && audio.duration > 0) { fixed = true; dur.textContent = fmt(audio.duration); } });
+      function sane(d) { return isFinite(d) && d > 0 && d < 86400; } // WebM às vezes reporta Infinity ou um número absurdo
+      // Ao montar, se a duração não vier coerente (típico de WebM/opus do MediaRecorder), força o cálculo já,
+      // pra mostrar o tempo total e deixar a barra funcionar antes mesmo de tocar.
+      audio.addEventListener('loadedmetadata', function () { if (sane(audio.duration)) { fixed = true; dur.textContent = fmt(audio.duration); } else { fixDuration(); } });
       function fixDuration() {
         return new Promise(function (res) {
-          if (fixed || (isFinite(audio.duration) && audio.duration > 0)) { fixed = true; dur.textContent = fmt(audio.duration); return res(); }
-          var done = function () { if (audio.duration === Infinity || isNaN(audio.duration)) return; audio.removeEventListener('durationchange', done); fixed = true; dur.textContent = fmt(audio.duration); try { audio.currentTime = 0; } catch (e) {} res(); };
+          if (fixed || sane(audio.duration)) { fixed = true; if (sane(audio.duration)) dur.textContent = fmt(audio.duration); return res(); }
+          var done = function () { if (!sane(audio.duration)) return; audio.removeEventListener('durationchange', done); fixed = true; dur.textContent = fmt(audio.duration); try { audio.currentTime = 0; } catch (e) {} res(); };
           audio.addEventListener('durationchange', done);
           try { audio.currentTime = 1e101; } catch (e) { res(); }
-          setTimeout(function () { if (!fixed) { fixed = true; res(); } }, 900);
+          setTimeout(function () { if (!fixed) { audio.removeEventListener('durationchange', done); fixed = true; try { audio.currentTime = 0; } catch (e) {} res(); } }, 1500);
         });
       }
-      function onTime() { if (seeking) return; var d = audio.duration; if (isFinite(d) && d > 0) seek.value = String(Math.round(audio.currentTime / d * 1000)); cur.textContent = fmt(audio.currentTime); }
+      function onTime() { if (seeking) return; var d = audio.duration; if (sane(d)) seek.value = String(Math.round(audio.currentTime / d * 1000)); cur.textContent = fmt(audio.currentTime); }
       audio.addEventListener('timeupdate', onTime);
       audio.addEventListener('play', function () { icon.textContent = 'pause'; });
       audio.addEventListener('pause', function () { icon.textContent = 'play_arrow'; });
@@ -114,8 +117,8 @@ GVSI.views = GVSI.views || {};
         audio.playbackRate = SPEEDS[si];
         audio.play();
       });
-      seek.addEventListener('input', function () { seeking = true; var d = audio.duration; if (isFinite(d) && d > 0) cur.textContent = fmt(d * seek.value / 1000); });
-      seek.addEventListener('change', function () { var d = audio.duration; if (isFinite(d) && d > 0) audio.currentTime = d * seek.value / 1000; seeking = false; });
+      seek.addEventListener('input', function () { seeking = true; var d = audio.duration; if (sane(d)) cur.textContent = fmt(d * seek.value / 1000); });
+      seek.addEventListener('change', function () { var d = audio.duration; if (sane(d)) audio.currentTime = d * seek.value / 1000; seeking = false; });
       speed.addEventListener('click', function () { si = (si + 1) % SPEEDS.length; audio.playbackRate = SPEEDS[si]; speed.textContent = SPEEDS[si] + 'x'; });
     });
   };

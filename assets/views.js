@@ -1709,12 +1709,23 @@
         function openSupPicker(anchor, id) { supPicker._t = id; supPicker.classList.remove('hidden'); var r = anchor.getBoundingClientRect(), pr = supPicker.getBoundingClientRect(); var top = r.top - pr.height - 6; if (top < 8) top = r.bottom + 6; var left = r.left; if (left + pr.width > window.innerWidth - 8) left = window.innerWidth - 8 - pr.width; supPicker.style.top = top + 'px'; supPicker.style.left = Math.max(8, left) + 'px'; }
         self.onSupDoc = function (e) { if (!supMenu.classList.contains('hidden') && !supMenu.contains(e.target)) hideSupMenu(); if (!supPicker.classList.contains('hidden') && !supPicker.contains(e.target)) hideSupPicker(); };
         document.addEventListener('click', self.onSupDoc);
+        function supTranscript(msg) {
+          var mine = msg.author_id === me.id;
+          var box = mine ? 'border-white/25 text-white/90' : 'border-outline-variant/40 text-on-surface-variant';
+          var t = msg.transcript;
+          if (t && String(t).trim()) {
+            return '<div class="mt-2 pt-2 border-t ' + box + ' text-[13px] leading-snug whitespace-pre-wrap break-words max-h-40 overflow-y-auto custom-scrollbar"><span class="flex items-center gap-1 text-[11px] font-bold opacity-70 mb-0.5"><span class="material-symbols-outlined text-[14px]">description</span>Transcrição</span>' + esc(String(t).trim()) + '</div>';
+          }
+          var recent = msg.created_at && (Date.now() - new Date(msg.created_at).getTime() < 300000);
+          if (recent) return '<div class="mt-2 pt-2 border-t ' + box + ' text-[12px] italic opacity-60 flex items-center gap-1"><span class="material-symbols-outlined text-[14px] animate-pulse">graphic_eq</span>Transcrevendo áudio…</div>';
+          return '';
+        }
         function contentHtml(msg) {
           var isAgent = !(self.currentTicket && msg.author_id === self.currentTicket.user_id); // links clicáveis nas mensagens do suporte
           var quote = (msg.reply_to && (msg.reply_snippet || msg.reply_author)) ? '<div class="reply-quote mb-xs border-l-4 border-primary/60 bg-black/5 dark:bg-white/10 rounded px-2 py-1 cursor-pointer" data-goto="' + esc(msg.reply_to) + '"><p class="text-[12px] font-bold text-primary truncate">' + esc(G.shortName(msg.reply_author) || 'Membro') + '</p><p class="text-[13px] text-on-surface-variant truncate">' + esc(msg.reply_snippet || '') + '</p></div>' : '';
           if (msg.kind === 'image' && msg.media_url) return quote + '<img src="' + esc(msg.media_url) + '" data-full="' + esc(msg.media_url) + '" class="sup-img rounded-lg max-w-full cursor-zoom-in">';
           if (msg.kind === 'video' && msg.media_url) return quote + G.videoHtml(msg.media_url);
-          if (msg.kind === 'audio' && msg.media_url) return quote + G.audioHtml(msg.media_url, msg.author_id === me.id);
+          if (msg.kind === 'audio' && msg.media_url) return quote + G.audioHtml(msg.media_url, msg.author_id === me.id) + supTranscript(msg);
           if (msg.kind === 'file' && msg.media_url) return quote + G.fileCard(msg, msg.author_id === me.id) + (msg.body ? '<p class="font-body-md mt-xs">' + G.fmt(msg.body, isAgent) + '</p>' : '');
           var mine = msg.author_id === me.id; var edited = msg.status === 'edited' ? ' <span class="text-[12px] opacity-80">(editado)</span>' : '';
           return quote + '<p class="font-body-md whitespace-pre-wrap break-words ' + (mine ? '' : 'text-on-surface') + '">' + G.fmt(msg.body || '', isAgent) + edited + '</p>';
