@@ -1869,7 +1869,7 @@
         async function openTicket(tk) {
           self.currentTicket = tk; self.seen = Object.create(null);
           document.getElementById('convo-empty').classList.add('hidden'); var cm = document.getElementById('convo-main'); cm.classList.remove('hidden'); cm.classList.add('flex');
-          document.getElementById('list-panel').classList.add('hidden'); document.getElementById('convo-panel').classList.remove('hidden');
+          document.getElementById('list-panel').classList.add('hidden'); document.getElementById('convo-panel').classList.remove('hidden'); document.getElementById('convo-panel').classList.add('flex');
           var m = tk.member || {}; document.getElementById('convo-name').textContent = m.full_name || 'Membro'; document.getElementById('convo-protocol').textContent = tk.protocol + ' · ' + statusLabel(tk.status); updateResolveBtn(); refreshConvoTags(); renderConvoRating(); renderHistory(tk); var _av = document.getElementById('convo-avatar'); if (_av) _av.innerHTML = m.avatar_url ? '<img src="' + esc(m.avatar_url) + '" class="w-full h-full object-cover">' : '<span class="material-symbols-outlined">person</span>';
           document.getElementById('convo-messages').innerHTML = '';
           var r = await sb.from('comu_messages').select('*').eq('ticket_id', tk.id).order('created_at', { ascending: true }); if (self.destroyed) return;
@@ -1881,7 +1881,7 @@
           self.currentTicket = null;
           var cm = document.getElementById('convo-main'); cm.classList.add('hidden'); cm.classList.remove('flex');
           document.getElementById('convo-empty').classList.remove('hidden');
-          document.getElementById('convo-panel').classList.add('hidden');   // mobile: volta pra lista (no desktop lg:flex mantém visível)
+          document.getElementById('convo-panel').classList.add('hidden'); document.getElementById('convo-panel').classList.remove('flex');   // mobile: volta pra lista (no desktop lg:flex mantém visível)
           document.getElementById('list-panel').classList.remove('hidden');
           loadTickets();
         }
