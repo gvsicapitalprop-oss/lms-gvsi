@@ -1849,13 +1849,44 @@
             '<div class="bg-surface-container-low border border-outline-variant/40 rounded-xl p-md text-body-md text-on-surface whitespace-pre-wrap break-words">' + G.fmt((d.draft_body || '').replace(/\s*\[MSG\]\s*/g, '\n'), true) + '</div>' + hand +
             '<div class="flex flex-wrap gap-sm mt-sm"><button type="button" id="ai-draft-approve" class="h-11 px-4 bg-primary text-on-primary rounded-xl flex items-center gap-xs font-bold active:scale-95 transition"><span class="material-symbols-outlined text-[20px]">check_circle</span>Aprovar e enviar</button>' +
             '<button type="button" id="ai-draft-edit" class="h-11 px-4 rounded-xl border border-outline-variant text-on-surface flex items-center gap-xs"><span class="material-symbols-outlined text-[20px]">edit</span>Editar antes</button>' +
-            '<button type="button" id="ai-draft-reject" class="h-11 px-4 rounded-xl border border-error/50 text-error flex items-center gap-xs"><span class="material-symbols-outlined text-[20px]">cancel</span>Reprovar</button></div>';
+            '<button type="button" id="ai-draft-reject" class="h-11 px-4 rounded-xl border border-error/50 text-error flex items-center gap-xs"><span class="material-symbols-outlined text-[20px]">cancel</span>Reprovar</button>' +
+            '<button type="button" id="ai-draft-tts" class="h-11 px-4 rounded-xl border border-primary/50 text-primary flex items-center gap-xs" title="Gerar áudio com a voz da Rayssa"><span class="material-symbols-outlined text-[20px]">graphic_eq</span>Gerar áudio</button></div>' +
+            '<div id="ai-draft-audio" class="hidden mt-sm"></div>';
           bar.classList.remove('hidden');
           var rf = document.getElementById('ai-draft-refresh'); if (rf) rf.onclick = function () { loadAiDraft(d.ticket_id); };
           document.getElementById('ai-draft-min').onclick = function () { self.aiMinimized = true; bar.classList.add('hidden'); showReopenChip(d); };
           document.getElementById('ai-draft-approve').onclick = function () { approveDraft(d); };
           document.getElementById('ai-draft-edit').onclick = function () { var ci = document.getElementById('convo-input'); if (ci) { ci.value = d.draft_body || ''; convoGrow(); ci.focus(); } self.aiMinimized = true; bar.classList.add('hidden'); showReopenChip(d); G.toast('Rascunho copiado pro campo de resposta. Edite e envie.'); };
           document.getElementById('ai-draft-reject').onclick = function () { rejectDraft(d); };
+          document.getElementById('ai-draft-tts').onclick = function () { generateTts(d); };
+        }
+        async function generateTts(d) {
+          var btn = document.getElementById('ai-draft-tts'), box = document.getElementById('ai-draft-audio');
+          if (btn) { btn.disabled = true; btn.innerHTML = '<span class="material-symbols-outlined text-[20px] animate-spin">progress_activity</span>Gerando…'; }
+          var res = await sb.functions.invoke('support-tts', { body: { text: d.draft_body || '' } });
+          if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-symbols-outlined text-[20px]">graphic_eq</span>Gerar áudio'; }
+          var data = res && res.data;
+          if ((res && res.error) || !data || !data.ok || !data.url) {
+            var em = (data && data.error) || (res && res.error && res.error.message) || 'falha';
+            if (/sem_chave/.test(em)) G.toast('A voz da Rayssa ainda não foi configurada (falta a chave da ElevenLabs).');
+            else if (/sem_voice/.test(em)) G.toast('Falta configurar o ID da voz da Rayssa.');
+            else G.toast('Não consegui gerar o áudio: ' + em);
+            return;
+          }
+          if (box) {
+            box.classList.remove('hidden');
+            box.innerHTML = '<div class="bg-surface-container-low border border-primary/30 rounded-xl p-sm"><p class="text-[12px] text-on-surface-variant mb-xs flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">graphic_eq</span>Prévia (voz da Rayssa) — ouça antes de enviar</p>' + G.audioHtml(data.url, false) + '<button type="button" id="ai-draft-audio-send" class="mt-sm h-11 px-4 bg-primary text-on-primary rounded-xl flex items-center justify-center gap-xs font-bold w-full"><span class="material-symbols-outlined text-[20px]">send</span>Enviar áudio ao aluno</button></div>';
+            G.mountAudios(box);
+            document.getElementById('ai-draft-audio-send').onclick = function () { sendDraftAudio(d, data.url); };
+          }
+        }
+        async function sendDraftAudio(d, url) {
+          var sbtn = document.getElementById('ai-draft-audio-send'); if (sbtn) { sbtn.disabled = true; sbtn.innerHTML = '<span class="material-symbols-outlined text-[20px] animate-spin">progress_activity</span>Enviando…'; }
+          var ins = await sb.from('comu_messages').insert({ topic_id: supportTopicId, author_id: me.id, ticket_id: d.ticket_id, kind: 'audio', media_url: url, media_meta: { tts: true, mime: 'audio/mpeg' }, transcript: d.draft_body || null, author_name: me.full_name || 'Suporte', author_avatar: me.avatar_url || null }).select().single();
+          if (ins.error) { G.toast('Erro ao enviar áudio: ' + ins.error.message); if (sbtn) { sbtn.disabled = false; sbtn.innerHTML = '<span class="material-symbols-outlined text-[20px]">send</span>Enviar áudio ao aluno'; } return; }
+          await sb.from('comu_ai_drafts').update({ status: 'approved', decided_at: new Date().toISOString(), decided_by: me.id, sent_message_id: ins.data.id }).eq('id', d.id);
+          if (d.member_question && (d.draft_body || '').trim()) await sb.from('comu_ai_knowledge').insert({ question: d.member_question, answer: d.draft_body, source: 'approved_audio', source_draft_id: d.id, enabled: true, created_by: me.id });
+          clearAiDraft(); scrollConvo(); G.toast('Áudio enviado ao aluno ✓');
         }
         async function loadAiDraft(ticketId) {
           if (!canReviewAi || !ticketId) { clearAiDraft(); return; }
