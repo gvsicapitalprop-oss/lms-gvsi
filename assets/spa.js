@@ -39,7 +39,7 @@ GVSI.views = GVSI.views || {};
     return out;
   };
   // Exibição: só os 2 primeiros nomes (o nome completo continua no banco).
-  G.shortName = function (name) { var p = String(name || '').trim().split(/\s+/).filter(Boolean); return p.slice(0, 2).join(' '); };
+  G.shortName = function (name) { var s = String(name || '').trim(); if (/^Suporte\b/i.test(s)) return s; var p = s.split(/\s+/).filter(Boolean); return p.slice(0, 2).join(' '); };
   G.humanSize = function (n) { n = +n || 0; return n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : (n >= 1024 ? Math.round(n / 1024) + ' KB' : n + ' B'); };
   // Rótulo de dia para os divisores de conversa (Hoje / Ontem / DD/MM/AAAA)
   G.dayLabel = function (iso) { try { var d = new Date(iso), now = new Date(); var a = new Date(d.getFullYear(), d.getMonth(), d.getDate()), b = new Date(now.getFullYear(), now.getMonth(), now.getDate()); var diff = Math.round((b - a) / 86400000); if (diff === 0) return 'Hoje'; if (diff === 1) return 'Ontem'; return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }); } catch (e) { return ''; } };
@@ -363,6 +363,17 @@ GVSI.views = GVSI.views || {};
     var ov = document.createElement('div'); ov.id = 'member-card'; ov.className = 'fixed inset-0 z-[96] flex items-center justify-center p-container-margin bg-black/40';
     var av = d.avatar_url ? '<img src="' + G.esc(d.avatar_url) + '" class="w-24 h-24 rounded-full object-cover mx-auto" alt="">' : '<span class="w-24 h-24 rounded-full bg-surface-container-high flex items-center justify-center text-outline mx-auto"><span class="material-symbols-outlined text-[40px]">person</span></span>';
     ov.innerHTML = '<div class="w-full max-w-xs bg-surface-container-lowest rounded-2xl shadow-xl border border-outline-variant/40 p-lg text-center space-y-sm">' + av + '<h3 class="font-headline-sm text-headline-sm text-on-surface break-words">' + G.esc(G.shortName(d.full_name) || 'Membro') + '</h3>' + (d.bio ? '<p class="text-body-sm text-on-surface-variant text-balance break-words">' + G.esc(d.bio) + '</p>' : '<p class="text-body-sm text-on-surface-variant/60 italic">Sem bio ainda.</p>') + '<button type="button" id="mc-close" class="mt-sm h-10 px-6 rounded-full bg-primary text-on-primary font-label-md active:scale-95 transition">Fechar</button></div>';
+    document.body.appendChild(ov);
+    function close() { ov.remove(); }
+    ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
+    var cb = document.getElementById('mc-close'); if (cb) cb.addEventListener('click', close);
+  };
+  // Cartão do suporte: identidade unica, nunca revela o atendente real.
+  G.showSupportCard = function () {
+    if (document.getElementById('member-card')) return;
+    var icon = 'https://mwnyuursbrlfxfssvkyu.supabase.co/storage/v1/object/public/comu-media/system/support-avatar.jpg';
+    var ov = document.createElement('div'); ov.id = 'member-card'; ov.className = 'fixed inset-0 z-[96] flex items-center justify-center p-container-margin bg-black/40';
+    ov.innerHTML = '<div class="w-full max-w-xs bg-surface-container-lowest rounded-2xl shadow-xl border border-outline-variant/40 p-lg text-center space-y-sm"><img src="' + icon + '" class="w-24 h-24 rounded-full object-cover mx-auto" alt=""><h3 class="font-headline-sm text-headline-sm text-on-surface">Suporte do Giovanni</h3><p class="text-body-sm text-on-surface-variant">Equipe de suporte do Giovanni Paganini.</p><button type="button" id="mc-close" class="mt-sm h-10 px-6 rounded-full bg-primary text-on-primary font-label-md active:scale-95 transition">Fechar</button></div>';
     document.body.appendChild(ov);
     function close() { ov.remove(); }
     ov.addEventListener('click', function (e) { if (e.target === ov) close(); });

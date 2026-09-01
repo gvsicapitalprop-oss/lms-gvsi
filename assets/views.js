@@ -172,7 +172,7 @@
 
         var titleEl = document.getElementById('chat-title');
         var msgsEl = document.getElementById('chat-messages');
-        msgsEl.addEventListener('click', function (e) { var a = e.target.closest && e.target.closest('.msg-av'); if (!a) return; var w = a.closest('[data-author-id]'); var aid = w && w.getAttribute('data-author-id'); if (aid && G.showMemberCard) G.showMemberCard(aid); });
+        msgsEl.addEventListener('click', function (e) { var a = e.target.closest && e.target.closest('.msg-av'); if (!a) return; var w = a.closest('[data-author-id]'); if (w && w.getAttribute('data-support')) { if (G.showSupportCard) G.showSupportCard(); return; } var aid = w && w.getAttribute('data-author-id'); if (aid && G.showMemberCard) G.showMemberCard(aid); });
         var emptyEl = document.getElementById('chat-empty');
         var loadingEl = document.getElementById('chat-loading');
         var scrollEl = document.getElementById('chat-scroll');
@@ -543,7 +543,7 @@
             return sw;
           }
           var mine = me.id && m.author_id === me.id;
-          var wrap = document.createElement('div'); wrap.setAttribute('data-msg-id', m.id); wrap.setAttribute('data-author-id', m.author_id || ''); wrap.setAttribute('data-created', m.created_at || '');
+          var wrap = document.createElement('div'); wrap.setAttribute('data-msg-id', m.id); wrap.setAttribute('data-author-id', m.author_id || ''); wrap.setAttribute('data-created', m.created_at || ''); if (m.author_name === 'Suporte do Giovanni') wrap.setAttribute('data-support', '1');
           wrap.className = 'flex flex-col gap-xs max-w-[85%] ' + (mine ? 'items-end self-end' : 'items-start');
           var body = document.createElement('div'); body.className = 'msg-body w-full flex flex-col ' + (mine ? 'items-end' : 'items-start');
           renderMsgBody(body, m, mine); wrap.appendChild(body);
