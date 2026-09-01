@@ -477,7 +477,7 @@
           var content;
           if (m.kind === 'image' && m.media_url) content = '<img src="' + esc(m.media_url) + '" data-full="' + esc(m.media_url) + '" class="msg-img rounded-lg max-w-full mb-xs cursor-zoom-in" alt="">' + (m.body ? '<p class="' + (mine ? '' : 'text-on-surface ') + 'font-body-md">' + G.fmt(m.body, authorIsAdmin) + edited + '</p>' : '');
           else if (m.kind === 'video' && m.media_url) content = G.videoHtml(m.media_url) + (m.body ? '<p class="' + (mine ? '' : 'text-on-surface ') + 'font-body-md">' + G.fmt(m.body, authorIsAdmin) + edited + '</p>' : '');
-          else if (m.kind === 'audio' && m.media_url) content = G.audioHtml(m.media_url, mine);
+          else if (m.kind === 'audio' && m.media_url) content = G.audioHtml(m.media_url, mine, m.media_meta && m.media_meta.duration);
           else if (m.kind === 'file' && m.media_url) content = G.fileCard(m, mine) + (m.body ? '<p class="' + (mine ? '' : 'text-on-surface ') + 'font-body-md mt-xs">' + G.fmt(m.body, authorIsAdmin) + edited + '</p>' : '');
           else content = '<p class="' + (mine ? '' : 'text-on-surface ') + 'font-body-md whitespace-pre-wrap break-words">' + G.fmt(m.body, authorIsAdmin) + edited + '</p>';
           if (m.reply_to && (m.reply_snippet || m.reply_author)) {
@@ -988,7 +988,7 @@
             if (up.error) { G.toast('Erro no upload do áudio: ' + up.error.message); return; }
             var url = sb.storage.from('comu-media').getPublicUrl(path).data.publicUrl;
             var res;
-            if (isSupport) res = await sb.rpc('comu_send_support_message', { p_body: null, p_kind: 'audio', p_media_url: url, p_author_name: me.full_name || 'Membro' });
+            if (isSupport) res = await sb.rpc('comu_send_support_message', { p_body: null, p_kind: 'audio', p_media_url: url, p_author_name: me.full_name || 'Membro', p_media_meta: { duration: secs, mime: self.recMime } });
             else res = await sb.from('comu_messages').insert({ topic_id: topic.id, author_id: me.id, kind: 'audio', media_url: url, media_meta: { duration: secs, mime: self.recMime }, author_name: me.full_name || 'Membro', author_avatar: me.avatar_url || null }).select().single();
             if (res.error) { G.toast('Erro ao enviar o áudio: ' + res.error.message); return; }
             if (!self.destroyed) addMessage(res.data, true); if (isSupport) refreshTicketInfo();
@@ -1726,7 +1726,7 @@
           var quote = (msg.reply_to && (msg.reply_snippet || msg.reply_author)) ? '<div class="reply-quote mb-xs border-l-4 border-primary/60 bg-black/5 dark:bg-white/10 rounded px-2 py-1 cursor-pointer" data-goto="' + esc(msg.reply_to) + '"><p class="text-[12px] font-bold text-primary truncate">' + esc(G.shortName(msg.reply_author) || 'Membro') + '</p><p class="text-[13px] text-on-surface-variant truncate">' + esc(msg.reply_snippet || '') + '</p></div>' : '';
           if (msg.kind === 'image' && msg.media_url) return quote + '<img src="' + esc(msg.media_url) + '" data-full="' + esc(msg.media_url) + '" class="sup-img rounded-lg max-w-full cursor-zoom-in">';
           if (msg.kind === 'video' && msg.media_url) return quote + G.videoHtml(msg.media_url);
-          if (msg.kind === 'audio' && msg.media_url) return quote + G.audioHtml(msg.media_url, msg.author_id === me.id) + supTranscript(msg);
+          if (msg.kind === 'audio' && msg.media_url) return quote + G.audioHtml(msg.media_url, msg.author_id === me.id, msg.media_meta && msg.media_meta.duration) + supTranscript(msg);
           if (msg.kind === 'file' && msg.media_url) return quote + G.fileCard(msg, msg.author_id === me.id) + (msg.body ? '<p class="font-body-md mt-xs">' + G.fmt(msg.body, isAgent) + '</p>' : '');
           var mine = msg.author_id === me.id; var edited = msg.status === 'edited' ? ' <span class="text-[12px] opacity-80">(editado)</span>' : '';
           return quote + '<p class="font-body-md whitespace-pre-wrap break-words ' + (mine ? '' : 'text-on-surface') + '">' + G.fmt(msg.body || '', isAgent) + edited + '</p>';
