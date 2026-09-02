@@ -1819,9 +1819,10 @@
         // ---- IA de suporte: rascunho oculto aguardando aprovação ----
         // Só um usuário (revisor) enxerga/aprova. Os demais atendentes respondem normalmente,
         // sem nunca ver a IA, então o atendimento nunca trava. É um popup flutuante (não empurra o campo de resposta).
-        var AI_REVIEWER_EMAIL = 'henrique@niinja.com.br';
-        var canReviewAi = !!(me && me.email && String(me.email).trim().toLowerCase() === AI_REVIEWER_EMAIL);
+        // Todos os administradores revisam a IA (a própria tela de suporte já é restrita a admin).
+        var canReviewAi = !!(me && me.role === 'admin');
         self.aiMinimized = false;
+        self.editingDraft = null;
         function clearAiDraft() {
           var bar = document.getElementById('ai-draft-bar'); if (bar) { bar.classList.add('hidden'); var inner = bar.querySelector('div'); if (inner) inner.innerHTML = ''; }
           var rp = document.getElementById('ai-draft-reopen'); if (rp) rp.classList.add('hidden');
@@ -1857,7 +1858,7 @@
           var rf = document.getElementById('ai-draft-refresh'); if (rf) rf.onclick = function () { loadAiDraft(d.ticket_id); };
           document.getElementById('ai-draft-min').onclick = function () { self.aiMinimized = true; bar.classList.add('hidden'); showReopenChip(d); };
           document.getElementById('ai-draft-approve').onclick = function () { approveDraft(d); };
-          document.getElementById('ai-draft-edit').onclick = function () { var ci = document.getElementById('convo-input'); if (ci) { ci.value = d.draft_body || ''; convoGrow(); ci.focus(); } self.aiMinimized = true; bar.classList.add('hidden'); showReopenChip(d); G.toast('Rascunho copiado pro campo de resposta. Edite e envie.'); };
+          document.getElementById('ai-draft-edit').onclick = function () { self.editingDraft = d; var ci = document.getElementById('convo-input'); if (ci) { ci.value = d.draft_body || ''; convoGrow(); ci.focus(); } self.aiMinimized = true; bar.classList.add('hidden'); showReopenChip(d); G.toast('Rascunho copiado pro campo de resposta. Edite e envie.'); };
           document.getElementById('ai-draft-reject').onclick = function () { rejectDraft(d); };
           document.getElementById('ai-draft-tts').onclick = function () { generateTts(d); };
         }
@@ -1912,7 +1913,17 @@
           if (r3.error) { if (btn) btn.disabled = false; G.toast('Erro: ' + r3.error.message); return; }
           clearAiDraft(); G.toast('Reprovação registrada. A IA vai evitar esse erro.');
         }
+        // "Editar antes": o humano ajustou o rascunho e enviou. A IA aprende a versão BOA (a do humano) no RAG,
+        // igual ao aprovar, mas com o texto corrigido. O cron support-embed-tick gera o embedding em ~2 min.
+        async function recordEditedLearning(d, editedBody) {
+          try {
+            editedBody = (editedBody || '').trim();
+            if (!d || !d.member_question || editedBody.length < 15) return; // ignora ajuste trivial (ex.: "bom dia")
+            await sb.from('comu_ai_knowledge').insert({ question: d.member_question, answer: editedBody, source: 'edited', source_draft_id: d.id, enabled: true, created_by: me.id });
+          } catch (e) {}
+        }
         async function openTicket(tk) {
+          self.editingDraft = null;
           self.currentTicket = tk; self.seen = Object.create(null);
           document.getElementById('convo-empty').classList.add('hidden'); var cm = document.getElementById('convo-main'); cm.classList.remove('hidden'); cm.classList.add('flex');
           document.getElementById('list-panel').classList.add('hidden'); document.getElementById('convo-panel').classList.remove('hidden'); document.getElementById('convo-panel').classList.add('flex');
@@ -1923,7 +1934,7 @@
           self.imTyping = false; if (self.updateMyPresence) self.updateMyPresence();
         }
         function closeConvo() {
-          clearAiDraft();
+          clearAiDraft(); self.editingDraft = null;
           if (self.convoChannel) { try { sb.removeChannel(self.convoChannel); } catch (e) {} self.convoChannel = null; }
           self.currentTicket = null; self.imTyping = false; if (self.updateMyPresence) self.updateMyPresence();
           var cm = document.getElementById('convo-main'); cm.classList.add('hidden'); cm.classList.remove('flex');
@@ -1940,6 +1951,7 @@
           var _rs = self.supReply;
           var ins = await sb.from('comu_messages').insert(Object.assign({ topic_id: supportTopicId, author_id: me.id, ticket_id: self.currentTicket.id, kind: 'text', body: body, author_name: me.full_name || 'Suporte', author_avatar: me.avatar_url || null }, _rs ? { reply_to: _rs.id, reply_author: _rs.author, reply_snippet: _rs.snippet } : {})).select().single();
           if (ins.error) { console.error(ins.error); document.getElementById('convo-input').value = body; return; } clearSupReply(); addMsg(ins.data); scrollConvo();
+          if (self.editingDraft && self.currentTicket && self.editingDraft.ticket_id === self.currentTicket.id) { recordEditedLearning(self.editingDraft, body); self.editingDraft = null; }
         });
         function convoGrow() { var ci = document.getElementById('convo-input'); if (!ci) return; ci.style.height = 'auto'; ci.style.height = Math.min(ci.scrollHeight, 200) + 'px'; }
         (function () { var ci = document.getElementById('convo-input'); if (ci) { ci.addEventListener('input', convoGrow); ci.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); var f = document.getElementById('convo-form'); if (f && f.requestSubmit) f.requestSubmit(); else if (f) f.dispatchEvent(new Event('submit', { cancelable: true })); } }); } })();
