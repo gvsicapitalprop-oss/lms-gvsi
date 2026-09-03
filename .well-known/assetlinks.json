@@ -3,6 +3,9 @@
       "target": {
         "namespace": "android_app",
         "package_name": "com.giovannipaganini.comunidade",
-        "sha256_cert_fingerprints": ["FC:B9:E0:81:14:0B:6A:A3:55:35:57:54:CA:B5:20:32:FB:EF:C5:27:E7:75:BC:C3:F6:DA:B3:34:BE:4B:E7:DD"]
+        "sha256_cert_fingerprints": [
+          "A1:C3:15:A9:BF:F9:92:6E:90:1F:5E:58:8C:7E:41:31:6B:1F:A8:1F:4B:3C:B5:E6:19:99:BF:D8:3E:83:49:83",
+          "FC:B9:E0:81:14:0B:6A:A3:55:35:57:54:CA:B5:20:32:FB:EF:C5:27:E7:75:BC:C3:F6:DA:B3:34:BE:4B:E7:DD"
+        ]
       }
     }]
