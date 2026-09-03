@@ -1847,11 +1847,14 @@
         function contentHtml(msg) {
           var isAgent = !(self.currentTicket && msg.author_id === self.currentTicket.user_id); // links clicáveis nas mensagens do suporte
           var quote = (msg.reply_to && (msg.reply_snippet || msg.reply_author)) ? '<div class="reply-quote mb-xs border-l-4 border-primary/60 bg-black/5 dark:bg-white/10 rounded px-2 py-1 cursor-pointer" data-goto="' + esc(msg.reply_to) + '"><p class="text-[12px] font-bold text-primary truncate">' + esc(G.shortName(msg.reply_author) || 'Membro') + '</p><p class="text-[13px] text-on-surface-variant truncate">' + esc(msg.reply_snippet || '') + '</p></div>' : '';
-          if (msg.kind === 'image' && msg.media_url) return quote + '<img src="' + esc(msg.media_url) + '" data-full="' + esc(msg.media_url) + '" class="sup-img rounded-lg max-w-full cursor-zoom-in">';
-          if (msg.kind === 'video' && msg.media_url) return quote + G.videoHtml(msg.media_url);
-          if (msg.kind === 'audio' && msg.media_url) return quote + G.audioHtml(msg.media_url, msg.author_id === me.id, msg.media_meta && msg.media_meta.duration) + supTranscript(msg);
-          if (msg.kind === 'file' && msg.media_url) return quote + G.fileCard(msg, msg.author_id === me.id) + (msg.body ? '<p class="font-body-md mt-xs">' + G.fmt(msg.body, isAgent) + '</p>' : '');
           var mine = msg.author_id === me.id; var edited = msg.status === 'edited' ? ' <span class="text-[12px] opacity-80">(editado)</span>' : '';
+          // A legenda de foto, vídeo e arquivo vem no próprio body, igual ao chat. Antes o
+          // suporte devolvia só a mídia e descartava o texto, então a legenda sumia.
+          var legenda = msg.body ? '<p class="font-body-md mt-xs whitespace-pre-wrap break-words ' + (mine ? '' : 'text-on-surface') + '">' + G.fmt(msg.body, isAgent) + edited + '</p>' : '';
+          if (msg.kind === 'image' && msg.media_url) return quote + '<img src="' + esc(msg.media_url) + '" data-full="' + esc(msg.media_url) + '" class="sup-img rounded-lg max-w-full cursor-zoom-in">' + legenda;
+          if (msg.kind === 'video' && msg.media_url) return quote + G.videoHtml(msg.media_url) + legenda;
+          if (msg.kind === 'audio' && msg.media_url) return quote + G.audioHtml(msg.media_url, mine, msg.media_meta && msg.media_meta.duration) + supTranscript(msg);
+          if (msg.kind === 'file' && msg.media_url) return quote + G.fileCard(msg, mine) + legenda;
           return quote + '<p class="font-body-md whitespace-pre-wrap break-words ' + (mine ? '' : 'text-on-surface') + '">' + G.fmt(msg.body || '', isAgent) + edited + '</p>';
         }
         function renderReactSup(id) { var row = document.querySelector('[data-react-sup="' + id + '"]'); if (!row) return; var data = self.reactMap[id] || {}; row.innerHTML = ''; Object.keys(data).forEach(function (em) { var users = data[em]; if (!users || !users.length) return; var mineR = users.indexOf(me.id) !== -1; var chip = document.createElement('button'); chip.type = 'button'; chip.className = 'px-3 py-1 rounded-full text-body-sm flex items-center gap-1 border transition-colors ' + (mineR ? 'bg-primary/15 border-primary/40 text-primary' : 'bg-surface-container-high border-outline-variant/50 text-on-surface-variant'); chip.innerHTML = '<span>' + em + '</span><span class="font-bold">' + users.length + '</span>'; chip.addEventListener('click', function () { toggleReactSup(id, em); }); row.appendChild(chip); }); }
@@ -2086,8 +2089,13 @@
           var up = await sb.storage.from('comu-media').upload(path, file, { upsert: true, contentType: file.type || undefined });
           if (up.error) { G.toast('Erro no upload: ' + up.error.message); return; }
           var url = sb.storage.from('comu-media').getPublicUrl(path).data.publicUrl;
-          var ins = await sb.from('comu_messages').insert({ topic_id: supportTopicId, author_id: me.id, ticket_id: self.currentTicket.id, kind: kind, media_url: url, media_meta: { name: file.name, size: file.size, mime: file.type }, author_name: me.full_name || 'Suporte', author_avatar: me.avatar_url || null }).select().single();
+          // O que estiver escrito na caixa vira legenda da mídia, como no WhatsApp. Antes o
+          // texto ficava preso na caixa e a foto ia sozinha, sem legenda nenhuma.
+          var ci = document.getElementById('convo-input');
+          var legenda = ci && ci.value ? ci.value.trim() : '';
+          var ins = await sb.from('comu_messages').insert({ topic_id: supportTopicId, author_id: me.id, ticket_id: self.currentTicket.id, kind: kind, body: legenda || null, media_url: url, media_meta: { name: file.name, size: file.size, mime: file.type }, author_name: me.full_name || 'Suporte', author_avatar: me.avatar_url || null }).select().single();
           if (ins.error) { G.toast('Erro ao enviar: ' + ins.error.message); return; }
+          if (legenda && ci) { ci.value = ''; convoGrow(); }
           addMsg(ins.data); scrollConvo();
         }
         document.getElementById('convo-attach').addEventListener('click', function () { document.getElementById('convo-file-media').click(); });
