@@ -434,6 +434,10 @@ GVSI.views = GVSI.views || {};
   // Editor de imagem reutilizável (pré-envio): abre o cropper e chama onConfirm(blob, caption, dims).
   G.imageComposer = function (file, onConfirm) {
     if (!file || !onConfirm) return;
+    // Quem estava com o foco antes de abrir. Sem devolver isto, o Ctrl+V so
+    // funcionava na PRIMEIRA imagem: ao fechar o compositor o foco ficava
+    // perdido e o evento de colar nao chegava mais no campo de digitacao.
+    var focoAnterior = document.activeElement;
     function ensure() { if (window.Cropper) return Promise.resolve(); if (G._cropperP) return G._cropperP; G._cropperP = new Promise(function (res, rej) { try { var css = document.createElement('link'); css.rel = 'stylesheet'; css.href = 'https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css'; document.head.appendChild(css); var s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js'; s.onload = function () { res(); }; s.onerror = function () { G._cropperP = null; rej(new Error('cropper')); }; document.head.appendChild(s); } catch (e) { rej(e); } }); return G._cropperP; }
     ensure().then(function () {
       var src = URL.createObjectURL(file);
@@ -455,7 +459,7 @@ GVSI.views = GVSI.views || {};
           '</div></div>';
       document.body.appendChild(ov);
       var imgEl = ov.querySelector('#ic-img'), cropper = null, baseRatio = 1, zoomEl = ov.querySelector('#ic-zoom');
-      function closeC() { try { if (cropper) cropper.destroy(); } catch (e) {} try { URL.revokeObjectURL(src); } catch (e) {} ov.remove(); }
+      function closeC() { try { if (cropper) cropper.destroy(); } catch (e) {} try { URL.revokeObjectURL(src); } catch (e) {} ov.remove(); try { if (focoAnterior && focoAnterior.focus) focoAnterior.focus(); } catch (e) {} }
       function applyZoom() { if (cropper) { try { cropper.zoomTo(baseRatio * (parseInt(zoomEl.value, 10) || 100) / 100); } catch (e) {} } }
       imgEl.onload = function () { try { cropper = new Cropper(imgEl, { viewMode: 1, autoCropArea: 0.95, background: false, dragMode: 'crop', zoomOnWheel: false, ready: function () { var cd = cropper.getCanvasData(); baseRatio = (cd && cd.naturalWidth) ? (cd.width / cd.naturalWidth) : 1; if (zoomEl) zoomEl.value = 100; } }); } catch (e) {} };
       imgEl.onerror = function () { if (G.toast) G.toast('Não foi possível abrir a imagem.'); closeC(); };
