@@ -1480,7 +1480,7 @@
             '<div class="flex items-center justify-between"><h3 class="font-headline-sm text-headline-sm text-on-surface flex items-center gap-2"><span class="material-symbols-outlined text-primary">key</span>Acessos do aluno</h3><button type="button" id="ac-close" class="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high"><span class="material-symbols-outlined">close</span></button></div>' +
             '<p class="text-body-sm text-on-surface-variant">' + esc(name) + '<br><span class="text-outline">' + esc(email) + '</span></p>' +
             '<div id="ac-hub"><div class="py-4 text-center text-on-surface-variant text-body-sm">Carregando acessos…</div></div>' +
-            '<div class="pt-md border-t border-outline-variant/40"><p class="text-label-md font-bold text-on-surface-variant mb-sm flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">edit_note</span>Diário de Trade — liberar / bloquear</p><div id="ac-body"><div class="py-6 text-center text-on-surface-variant text-body-sm">Consultando…</div></div></div></div>';
+            '<div class="pt-md border-t border-outline-variant/40"><p class="text-label-md font-bold text-on-surface-variant mb-sm flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">edit_note</span>Diário de Trade (liberar / bloquear)</p><div id="ac-body"><div class="py-6 text-center text-on-surface-variant text-body-sm">Consultando…</div></div></div></div>';
           document.body.appendChild(ov);
           function close() { ov.remove(); }
           ov.querySelector('#ac-close').onclick = close;
@@ -1527,8 +1527,8 @@
             if (!items) items = '<p class="text-body-sm text-on-surface-variant py-2">Nenhum produto no hub' + (d.achou_no_hub ? '' : ' (contato não encontrado no hub)') + '.</p>';
             var liberar = d.achou_no_hub
               ? '<div class="mt-md pt-sm border-t border-outline-variant/30"><p class="text-label-md font-bold text-on-surface-variant mb-1">Liberar acesso a um produto</p>' +
-                '<div class="flex gap-sm items-end"><label class="flex-1 text-[11px] text-outline">Produto<select id="ac-prod" class="mt-1 w-full bg-surface-container-low border border-outline-variant rounded-xl py-2 px-2 text-body-sm text-on-surface"><option value="">Carregando…</option></select></label>' +
-                '<label class="text-[11px] text-outline">Até<input type="date" id="ac-until2" value="' + defUntil() + '" class="mt-1 bg-surface-container-low border border-outline-variant rounded-xl py-2 px-2 text-body-sm text-on-surface"></label>' +
+                '<div class="flex gap-sm items-end"><label class="flex-1 flex flex-col text-[11px] text-outline">Produto<select id="ac-prod" class="mt-1 w-full bg-surface-container-low border border-outline-variant rounded-xl py-2 px-2 text-body-sm text-on-surface"><option value="">Carregando…</option></select></label>' +
+                '<label class="flex flex-col text-[11px] text-outline">Até<input type="date" id="ac-until2" value="' + defUntil() + '" class="mt-1 bg-surface-container-low border border-outline-variant rounded-xl py-2 px-2 text-body-sm text-on-surface"></label>' +
                 '<button type="button" id="ac-grant2" class="h-9 px-3 rounded-xl bg-primary text-on-primary text-[12px] font-label-md active:scale-95">Liberar</button></div></div>'
               : '<p class="text-[12px] text-outline mt-sm">Sem contato no Hub, não dá pra liberar produto por aqui.</p>';
             box.innerHTML = '<div class="mb-sm">' + mChip + '</div>' +
