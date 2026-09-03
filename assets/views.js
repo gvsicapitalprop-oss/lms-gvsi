@@ -99,6 +99,7 @@
       if (S.onPickerDoc) document.removeEventListener('click', S.onPickerDoc);
       if (S.onReactPopDoc) document.removeEventListener('click', S.onReactPopDoc);
       if (S.onMentionDoc) document.removeEventListener('click', S.onMentionDoc);
+      if (S.onPasteDoc) document.removeEventListener('paste', S.onPasteDoc);
       if (S.onMsgMenuDoc) document.removeEventListener('click', S.onMsgMenuDoc);
       if (S.onMsgMenuScroll) window.removeEventListener('scroll', S.onMsgMenuScroll, true);
       S = null;
@@ -390,7 +391,10 @@
               '</div></div>';
           document.body.appendChild(ov);
           var imgEl = ov.querySelector('#ic-img'), cropper = null, baseRatio = 1, zoomEl = ov.querySelector('#ic-zoom');
-          function closeC() { try { if (cropper) cropper.destroy(); } catch (e) {} cropper = null; try { URL.revokeObjectURL(src); } catch (e) {} ov.remove(); }
+          // devolve o foco ao campo: sem isto, o Ctrl+V so funcionava na PRIMEIRA vez,
+          // porque depois de enviar a imagem o foco ficava perdido e o evento de colar
+          // nao chegava mais no campo de digitacao.
+          function closeC() { try { if (cropper) cropper.destroy(); } catch (e) {} cropper = null; try { URL.revokeObjectURL(src); } catch (e) {} ov.remove(); try { if (input) input.focus(); } catch (e) {} }
           function applyZoom() { if (cropper) { try { cropper.zoomTo(baseRatio * (parseInt(zoomEl.value, 10) || 100) / 100); } catch (e) {} } }
           imgEl.onload = function () { try { cropper = new Cropper(imgEl, { viewMode: 1, autoCropArea: 0.95, background: false, dragMode: 'crop', zoomOnWheel: false, ready: function () { var cd = cropper.getCanvasData(); baseRatio = (cd && cd.naturalWidth) ? (cd.width / cd.naturalWidth) : 1; if (zoomEl) zoomEl.value = 100; } }); } catch (e) {} };
           imgEl.onerror = function () { G.toast('Não foi possível abrir a imagem.'); closeC(); };
@@ -458,9 +462,22 @@
         // colar: imagem/mídia envia; texto cola normal (respeitando o teto)
         input.addEventListener('paste', function (e) {
           var dt = e.clipboardData || window.clipboardData;
-          if (dt && dt.files && dt.files.length) { var f = dt.files[0]; if (f && /^(image|video|audio)\//.test(f.type || '')) { e.preventDefault(); sendFile(f); return; } }
+          if (dt && dt.files && dt.files.length) { var f = dt.files[0]; if (f && /^(image|video|audio)\//.test(f.type || '')) { e.preventDefault(); e._gvsiPaste = true; sendFile(f); return; } }
           e.preventDefault(); var t = ''; try { t = dt.getData('text'); } catch (x) {} t = (t || '').slice(0, 65536); try { document.execCommand('insertText', false, t); } catch (x) { }
         });
+        // Rede de seguranca: colar mídia funciona mesmo com o cursor fora da caixa.
+        // O listener acima só recebe o evento quando o campo está com foco, e era
+        // isso que fazia a segunda colagem falhar. Ignora se o foco estiver em outro
+        // campo de texto (busca, modal) ou se o campo já tratou o mesmo evento.
+        self.onPasteDoc = function (e) {
+          if (self.destroyed || e._gvsiPaste) return;
+          var el = document.activeElement;
+          if (el && el !== input && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
+          var dt2 = e.clipboardData; if (!dt2 || !dt2.files || !dt2.files.length) return;
+          var f2 = dt2.files[0]; if (!f2 || !/^(image|video|audio)\//.test(f2.type || '')) return;
+          e.preventDefault(); sendFile(f2);
+        };
+        document.addEventListener('paste', self.onPasteDoc);
         // ao esvaziar, tira <br>/blocos órfãos pra o placeholder (:empty) voltar
         input.addEventListener('input', function () { if (!input.textContent) input.innerHTML = ''; });
         self.onMentionDoc = function (e) { if (mentionMenu.classList.contains('hidden')) return; if (!mentionMenu.contains(e.target) && e.target !== input) hideMention(); };
