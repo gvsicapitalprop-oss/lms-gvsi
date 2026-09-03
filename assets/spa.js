@@ -723,6 +723,7 @@ GVSI.views = GVSI.views || {};
   }
   var TOPIC_GROUPS = [
     { title: 'Ajuda', slugs: ['suporte'] },
+    { title: 'Exclusivos', slugs: ['construindo-riqueza', 'sala-ao-vivo'] },
     { title: 'Conversas', slugs: ['prints', 'geral', 'resultados'] },
     { title: 'Publicações do Giovanni', slugs: ['tutoriais', 'recados', 'desafio', 'arquivos'] }
   ];
@@ -969,6 +970,7 @@ GVSI.views = GVSI.views || {};
     G.updateSidebarProfile();
     G.topics = await loadTopics();
     if (G.me && G.me.premium) { var _sup = G.topics.filter(function (t) { return t.id === 'suporte'; })[0]; if (_sup) { _sup.name = 'Suporte Premium'; _sup.tone = 'gold'; _sup.desc = 'Atendimento prioritário da mentoria.'; _sup.premium = true; } }
+    G.topics.forEach(function (t) { if (t.id === 'construindo-riqueza' || t.id === 'sala-ao-vivo') { t.tone = 'gold'; t.premium = true; } });
     G.renderTopicList(document.getElementById('side-topics'), '');
     G.applyUnread();
     G.loadLastMessages();
