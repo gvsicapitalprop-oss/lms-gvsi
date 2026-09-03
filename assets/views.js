@@ -1477,9 +1477,10 @@
           var ov = document.createElement('div');
           ov.className = 'fixed inset-0 z-[80] flex items-center justify-center p-container-margin bg-black/40';
           ov.innerHTML = '<div class="w-full max-w-md bg-surface-container-lowest rounded-2xl shadow-xl border border-outline-variant/40 p-lg space-y-md max-h-[90vh] overflow-y-auto custom-scrollbar">' +
-            '<div class="flex items-center justify-between"><h3 class="font-headline-sm text-headline-sm text-on-surface flex items-center gap-2"><span class="material-symbols-outlined text-primary">key</span>Acesso ao Diário</h3><button type="button" id="ac-close" class="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high"><span class="material-symbols-outlined">close</span></button></div>' +
+            '<div class="flex items-center justify-between"><h3 class="font-headline-sm text-headline-sm text-on-surface flex items-center gap-2"><span class="material-symbols-outlined text-primary">key</span>Acessos do aluno</h3><button type="button" id="ac-close" class="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high"><span class="material-symbols-outlined">close</span></button></div>' +
             '<p class="text-body-sm text-on-surface-variant">' + esc(name) + '<br><span class="text-outline">' + esc(email) + '</span></p>' +
-            '<div id="ac-body"><div class="py-8 text-center text-on-surface-variant text-body-sm">Consultando…</div></div></div>';
+            '<div id="ac-hub"><div class="py-4 text-center text-on-surface-variant text-body-sm">Carregando acessos…</div></div>' +
+            '<div class="pt-md border-t border-outline-variant/40"><p class="text-label-md font-bold text-on-surface-variant mb-sm flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">edit_note</span>Diário de Trade — liberar / bloquear</p><div id="ac-body"><div class="py-6 text-center text-on-surface-variant text-body-sm">Consultando…</div></div></div></div>';
           document.body.appendChild(ov);
           function close() { ov.remove(); }
           ov.querySelector('#ac-close').onclick = close;
@@ -1487,6 +1488,31 @@
 
           var badge = { liberado: ['Liberado', 'bg-primary/15 text-primary', 'check_circle'], bloqueado: ['Bloqueado', 'bg-error/15 text-error', 'block'], expirado: ['Expirado', 'bg-amber-400/20 text-amber-700 dark:text-amber-300', 'schedule'], agendado: ['Agendado', 'bg-blue-500/15 text-blue-500', 'event_upcoming'], sem_conta: ['Sem conta no Diário', 'bg-surface-container-high text-on-surface-variant', 'person_off'] };
           function dpart(iso) { return iso ? String(iso).slice(0, 10) : ''; }
+          function stBadge(st) {
+            var map = { active: ['Ativo', 'bg-primary/15 text-primary'], expired: ['Expirado', 'bg-amber-400/20 text-amber-700 dark:text-amber-300'], canceled: ['Cancelado', 'bg-error/15 text-error'], scheduled: ['Agendado', 'bg-blue-500/15 text-blue-500'], paused: ['Pausado', 'bg-surface-container-high text-on-surface-variant'] };
+            var m = map[st] || [st || '?', 'bg-surface-container-high text-on-surface-variant'];
+            return '<span class="shrink-0 text-[11px] font-bold px-2 py-0.5 rounded-full ' + m[1] + '">' + m[0] + '</span>';
+          }
+          function renderHub(d) {
+            var box = ov.querySelector('#ac-hub'); if (!box) return;
+            if (!d || d.ok === false) { box.innerHTML = '<p class="text-body-sm text-error py-2">' + esc((d && d.error) || 'Falha ao consultar os acessos.') + '</p>'; return; }
+            var mChip = d.bloqueado
+              ? '<span class="inline-flex items-center gap-1 text-label-md font-bold px-3 py-1 rounded-full bg-error/15 text-error"><span class="material-symbols-outlined text-[16px]">block</span>Bloqueado na comunidade</span>'
+              : d.membro
+                ? '<span class="inline-flex items-center gap-1 text-label-md font-bold px-3 py-1 rounded-full bg-primary/15 text-primary"><span class="material-symbols-outlined text-[16px]">check_circle</span>Membro da comunidade</span>'
+                : '<span class="inline-flex items-center gap-1 text-label-md font-bold px-3 py-1 rounded-full bg-surface-container-high text-on-surface-variant"><span class="material-symbols-outlined text-[16px]">person_off</span>Não é membro</span>';
+            var items = (d.acessos || []).map(function (a) {
+              var prazo = a.ate ? 'até ' + dpart(a.ate) : (a.status === 'active' ? 'sem prazo' : '');
+              return '<div class="flex items-center justify-between gap-2 py-1.5 border-b border-outline-variant/20 last:border-0">' +
+                '<div class="min-w-0"><p class="text-body-sm text-on-surface truncate">' + esc(a.produto) + '</p>' +
+                '<p class="text-[11px] text-outline">' + (a.tipo === 'avulso' ? 'Avulso' : 'Assinatura') + (prazo ? ' · ' + esc(prazo) : '') + '</p></div>' +
+                stBadge(a.status) + '</div>';
+            }).join('');
+            if (!items) items = '<p class="text-body-sm text-on-surface-variant py-2">Nenhum produto no hub' + (d.achou_no_hub ? '' : ' (contato não encontrado no hub)') + '.</p>';
+            box.innerHTML = '<div class="mb-sm">' + mChip + '</div>' +
+              '<p class="text-label-md font-bold text-on-surface-variant mb-1 flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">inventory_2</span>Produtos no Hub</p>' +
+              '<div class="bg-surface-container-low rounded-xl px-3 py-1">' + items + '</div>';
+          }
           function render(s) {
             var body = ov.querySelector('#ac-body'); if (!body) return;
             if (!s || s.ok === false && s.error && s.error !== 'sem_conta') { body.innerHTML = '<p class="text-body-sm text-error py-4">' + esc((s && s.error) || 'Erro ao consultar.') + '</p>'; return; }
@@ -1522,6 +1548,10 @@
             var res = await sb.functions.invoke('hub-access', { body: { action: 'status', email: email } });
             if (res.error) { var body = ov.querySelector('#ac-body'); if (body) body.innerHTML = '<p class="text-body-sm text-error py-4">' + esc(res.error.message || 'Falha ao consultar. Você precisa ser admin.') + '</p>'; return; }
             render(res.data);
+          })();
+          (async function () {
+            var res = await sb.functions.invoke('hub-accesses', { body: { email: email } });
+            renderHub(res.error ? { ok: false, error: res.error.message || 'Falha ao consultar.' } : res.data);
           })();
         }
         function openProfileEditor(tk) {
