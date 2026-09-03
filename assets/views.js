@@ -1493,6 +1493,16 @@
             var m = map[st] || [st || '?', 'bg-surface-container-high text-on-surface-variant'];
             return '<span class="shrink-0 text-[11px] font-bold px-2 py-0.5 rounded-full ' + m[1] + '">' + m[0] + '</span>';
           }
+          var hubProdutos = null;
+          function defUntil() { return new Date(Date.now() + 365 * 864e5).toISOString().slice(0, 10); }
+          async function acHub(payload, btn) {
+            if (btn) { btn.disabled = true; btn.classList.add('opacity-60'); }
+            var res = await sb.functions.invoke('hub-accesses', { body: payload });
+            if (btn) { btn.disabled = false; btn.classList.remove('opacity-60'); }
+            var d = res.data || {};
+            if (res.error || d.ok === false) { G.toast('Erro: ' + (d.error || (res.error && res.error.message) || 'falha')); return null; }
+            return d;
+          }
           function renderHub(d) {
             var box = ov.querySelector('#ac-hub'); if (!box) return;
             if (!d || d.ok === false) { box.innerHTML = '<p class="text-body-sm text-error py-2">' + esc((d && d.error) || 'Falha ao consultar os acessos.') + '</p>'; return; }
@@ -1503,15 +1513,37 @@
                 : '<span class="inline-flex items-center gap-1 text-label-md font-bold px-3 py-1 rounded-full bg-surface-container-high text-on-surface-variant"><span class="material-symbols-outlined text-[16px]">person_off</span>Não é membro</span>';
             var items = (d.acessos || []).map(function (a) {
               var prazo = a.ate ? 'até ' + dpart(a.ate) : (a.status === 'active' ? 'sem prazo' : '');
+              var btn = '';
+              if (a.tipo === 'avulso' && a.produto_id) {
+                btn = a.status === 'active'
+                  ? '<button type="button" data-block="' + esc(a.produto_id) + '" class="shrink-0 text-[12px] font-label-md px-2 py-1 rounded-lg border border-error/40 text-error hover:bg-error/10">Bloquear</button>'
+                  : '<button type="button" data-grant="' + esc(a.produto_id) + '" class="shrink-0 text-[12px] font-label-md px-2 py-1 rounded-lg border border-primary/40 text-primary hover:bg-primary/10">Liberar</button>';
+              }
               return '<div class="flex items-center justify-between gap-2 py-1.5 border-b border-outline-variant/20 last:border-0">' +
                 '<div class="min-w-0"><p class="text-body-sm text-on-surface truncate">' + esc(a.produto) + '</p>' +
                 '<p class="text-[11px] text-outline">' + (a.tipo === 'avulso' ? 'Avulso' : 'Assinatura') + (prazo ? ' · ' + esc(prazo) : '') + '</p></div>' +
-                stBadge(a.status) + '</div>';
+                '<div class="flex items-center gap-2 shrink-0">' + stBadge(a.status) + btn + '</div></div>';
             }).join('');
             if (!items) items = '<p class="text-body-sm text-on-surface-variant py-2">Nenhum produto no hub' + (d.achou_no_hub ? '' : ' (contato não encontrado no hub)') + '.</p>';
+            var liberar = d.achou_no_hub
+              ? '<div class="mt-md pt-sm border-t border-outline-variant/30"><p class="text-label-md font-bold text-on-surface-variant mb-1">Liberar acesso a um produto</p>' +
+                '<div class="flex gap-sm items-end"><label class="flex-1 text-[11px] text-outline">Produto<select id="ac-prod" class="mt-1 w-full bg-surface-container-low border border-outline-variant rounded-xl py-2 px-2 text-body-sm text-on-surface"><option value="">Carregando…</option></select></label>' +
+                '<label class="text-[11px] text-outline">Até<input type="date" id="ac-until2" value="' + defUntil() + '" class="mt-1 bg-surface-container-low border border-outline-variant rounded-xl py-2 px-2 text-body-sm text-on-surface"></label>' +
+                '<button type="button" id="ac-grant2" class="h-9 px-3 rounded-xl bg-primary text-on-primary text-[12px] font-label-md active:scale-95">Liberar</button></div></div>'
+              : '<p class="text-[12px] text-outline mt-sm">Sem contato no Hub, não dá pra liberar produto por aqui.</p>';
             box.innerHTML = '<div class="mb-sm">' + mChip + '</div>' +
               '<p class="text-label-md font-bold text-on-surface-variant mb-1 flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">inventory_2</span>Produtos no Hub</p>' +
-              '<div class="bg-surface-container-low rounded-xl px-3 py-1">' + items + '</div>';
+              '<div class="bg-surface-container-low rounded-xl px-3 py-1">' + items + '</div>' + liberar;
+            box.querySelectorAll('[data-block]').forEach(function (bt) { bt.onclick = async function () { var f = await acHub({ action: 'block', email: email, product_id: bt.getAttribute('data-block') }, bt); if (f) { G.toast('Acesso bloqueado.'); renderHub(f); } }; });
+            box.querySelectorAll('[data-grant]').forEach(function (bt) { bt.onclick = async function () { var u = (box.querySelector('#ac-until2') || {}).value || defUntil(); var f = await acHub({ action: 'grant', email: email, product_id: bt.getAttribute('data-grant'), until: u }, bt); if (f) { G.toast('Acesso liberado.'); renderHub(f); } }; });
+            if (d.achou_no_hub) {
+              var sel = box.querySelector('#ac-prod');
+              function fill(list) { if (!sel) return; sel.innerHTML = '<option value="">Escolha um produto…</option>' + list.map(function (p) { return '<option value="' + esc(p.id) + '">' + esc(p.nome) + '</option>'; }).join(''); }
+              if (hubProdutos) fill(hubProdutos);
+              else acHub({ action: 'produtos' }).then(function (r) { if (r && r.produtos) { hubProdutos = r.produtos; fill(hubProdutos); } });
+              var gb = box.querySelector('#ac-grant2');
+              if (gb) gb.onclick = async function () { var pid = sel.value; var u = box.querySelector('#ac-until2').value; if (!pid) { G.toast('Escolha um produto.'); return; } if (!u) { G.toast('Escolha até quando.'); return; } var f = await acHub({ action: 'grant', email: email, product_id: pid, until: u }, gb); if (f) { G.toast('Acesso liberado.'); renderHub(f); } };
+            }
           }
           function render(s) {
             var body = ov.querySelector('#ac-body'); if (!body) return;
