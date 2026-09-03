@@ -945,6 +945,93 @@ GVSI.views = GVSI.views || {};
     if (href.charAt(0) === '/' && href.charAt(1) !== '/') { e.preventDefault(); G.navigate(href); }  // rota interna
   });
 
+  // ---- Denúncia e bloqueio entre membros ----
+  // Exigido pela política de Conteúdo Gerado pelo Usuário do Google Play: o próprio
+  // membro precisa poder denunciar uma mensagem e bloquear outra pessoa.
+  // Quem está bloqueado já some no servidor (a política de leitura de comu_messages
+  // filtra pela comu_user_blocks), então este mapa serve para dois casos que o RLS
+  // não cobre: o tempo real, que entrega o INSERT por outro caminho, e o rótulo do
+  // menu (bloquear x desbloquear).
+  // Mapa id -> nome de quem foi bloqueado. O nome fica gravado junto do bloqueio porque
+  // o RLS de lms_students só deixa cada um ler a própria linha: sem isso a lista de
+  // bloqueados no perfil não teria como mostrar de quem se trata.
+  G.blocked = {};
+  G.isBlocked = function (id) { return !!id && Object.prototype.hasOwnProperty.call(G.blocked, id); };
+  G.blockedList = function () {
+    return Object.keys(G.blocked)
+      .map(function (id) { return { id: id, name: G.blocked[id] || 'Membro' }; })
+      .sort(function (a, b) { return a.name.localeCompare(b.name, 'pt-BR'); });
+  };
+  G.loadBlocked = async function () {
+    G.blocked = {};
+    try {
+      var r = await G.sb.from('comu_user_blocks').select('blocked_id,blocked_name');
+      (r.data || []).forEach(function (b) { G.blocked[b.blocked_id] = b.blocked_name || ''; });
+    } catch (e) {}
+    return G.blocked;
+  };
+  G.blockUser = async function (id, name) {
+    if (!id || !G.me || id === G.me.id) return false;
+    var r = await G.sb.from('comu_user_blocks').insert({ blocker_id: G.me.id, blocked_id: id, blocked_name: name || null });
+    if (r.error && r.error.code !== '23505') { G.toast('Não foi possível bloquear: ' + r.error.message); return false; }
+    G.blocked[id] = name || '';
+    return true;
+  };
+  G.unblockUser = async function (id) {
+    if (!id || !G.me) return false;
+    var r = await G.sb.from('comu_user_blocks').delete().eq('blocker_id', G.me.id).eq('blocked_id', id);
+    if (r.error) { G.toast('Não foi possível desbloquear: ' + r.error.message); return false; }
+    delete G.blocked[id];
+    return true;
+  };
+  G.REPORT_REASONS = [
+    { value: 'spam', label: 'Spam ou divulgação', desc: 'Propaganda, link suspeito ou venda.', icon: 'link_off' },
+    { value: 'ofensa', label: 'Ofensa ou assédio', desc: 'Xingamento, ameaça ou perseguição.', icon: 'mood_bad' },
+    { value: 'improprio', label: 'Conteúdo impróprio', desc: 'Sexual, violento ou chocante.', icon: 'visibility_off' },
+    { value: 'golpe', label: 'Golpe ou fraude', desc: 'Promessa de lucro, pirâmide ou cobrança suspeita.', icon: 'report' },
+    { value: 'outro', label: 'Outro motivo', desc: 'Escrever o que aconteceu.', icon: 'more_horiz' }
+  ];
+  G.reportReasonLabel = function (v) {
+    var f = G.REPORT_REASONS.filter(function (o) { return o.value === v; })[0];
+    return f ? f.label : (v || '');
+  };
+  G.reportMessage = async function (m) {
+    if (!m || !G.me) return false;
+    var reason = await G.chooseAction({
+      title: 'Denunciar mensagem',
+      text: 'De ' + (m.author_name || 'Membro') + '. A equipe recebe e analisa. Quem foi denunciado não fica sabendo quem denunciou.',
+      icon: 'flag', danger: true,
+      options: G.REPORT_REASONS
+    });
+    if (!reason) return false;
+    var details = null;
+    if (reason === 'outro') {
+      details = await G.promptDialog({ title: 'O que aconteceu?', text: 'Escreva em poucas palavras. Ajuda a equipe a decidir.', placeholder: 'Descreva o motivo', ok: 'Enviar denúncia' });
+      if (details === null) return false;
+      details = String(details).trim();
+      if (!details) { G.toast('Escreva o motivo para poder enviar.'); return false; }
+    }
+    var snap = m.kind === 'image' ? ('📷 Foto' + (m.body ? ': ' + m.body : ''))
+      : m.kind === 'audio' ? '🎤 Áudio'
+      : m.kind === 'video' ? '🎬 Vídeo'
+      : m.kind === 'file' ? ('📎 Arquivo' + (m.body ? ': ' + m.body : ''))
+      : (m.body || '');
+    var ins = await G.sb.from('comu_reports').insert({
+      message_id: m.id || null,
+      topic_id: m.topic_id || null,
+      reported_user_id: m.author_id || null,
+      reported_name: m.author_name || null,
+      message_snapshot: String(snap).slice(0, 2000),
+      reporter_id: G.me.id,
+      reporter_name: (G.me && G.me.full_name) || null,
+      reason: reason,
+      details: details
+    });
+    if (ins.error) { G.toast('Não foi possível enviar: ' + ins.error.message); return false; }
+    G.toast('Denúncia enviada. A equipe vai analisar.');
+    return true;
+  };
+
   // ---- Init (guarda de auth + carrega perfil + shell) ----
   document.addEventListener('DOMContentLoaded', async function () {
     if (!G.sb) { location.replace('/login'); return; }
@@ -966,6 +1053,8 @@ GVSI.views = GVSI.views || {};
     // Via RPC SECURITY DEFINER: o RLS de lms_students só deixa cada um ler a própria
     // linha, então um SELECT direto viria vazio para membros comuns.
     try { G.adminIds = {}; var _ad = await G.sb.rpc('comu_admin_ids'); (_ad.data || []).forEach(function (x) { var id = (x && x.id) ? x.id : x; if (id) G.adminIds[id] = 1; }); } catch (e) { G.adminIds = G.adminIds || {}; }
+    // quem este usuário bloqueou (o RLS já esconde as mensagens; isto é para o tempo real e os rótulos)
+    await G.loadBlocked();
     initTheme();
     G.updateSidebarProfile();
     G.topics = await loadTopics();

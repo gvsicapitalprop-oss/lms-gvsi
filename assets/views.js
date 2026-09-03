@@ -525,6 +525,10 @@
               if (cEdit) it.push({ icon: 'edit', label: 'Editar', run: function () { startEdit(mm); } });
               if (cDelete) it.push({ icon: 'delete', label: 'Apagar', danger: true, run: function () { doDelete(mm); } });
               if (cBan) it.push({ icon: 'gavel', label: 'Banir usuário', danger: true, run: function () { doBan(mm); } });
+              // Google Play exige que o MEMBRO comum consiga denunciar e bloquear, não só a equipe.
+              var cOutro = !mineM && !!mm.author_id && !isSupport && mm.kind !== 'system';
+              if (cOutro) it.push({ icon: 'flag', label: 'Denunciar', run: function () { doReport(mm); } });
+              if (cOutro) it.push({ icon: 'block', label: G.isBlocked(mm.author_id) ? 'Desbloquear pessoa' : 'Bloquear pessoa', danger: !G.isBlocked(mm.author_id), run: function () { doBlock(mm); } });
               if (isAdmin && !isSupport && mm.author_id && mm.author_id !== me.id) it.push({ icon: 'support_agent', label: 'Responder no suporte', run: function () { replyInSupport(mm); } });
               if (isAdmin && mm.moderation === 'hidden') it.unshift({ icon: 'visibility', label: 'Mostrar a todos', run: function () { doApprove(mm); } });
               return it;
@@ -573,7 +577,7 @@
         function markRead() { if (!me.id || !topic) return; clearTimeout(self.readT); self.readT = setTimeout(function () { if (self.destroyed) return; sb.from('comu_topic_reads').upsert({ topic_id: topic.id, user_id: me.id, last_read_at: new Date().toISOString() }, { onConflict: 'topic_id,user_id' }).then(function () { G.applyUnread(); }, function () {}); }, 600); }
         // poda: em conversas muito longas, mantém ~250 msgs no DOM (evita travar com o tempo). Só quando no fim; rolar pra cima recarrega.
         function pruneTop() { if (msgsEl.children.length <= 350 || !nearBottom()) return; while (msgsEl.children.length > 250) { var first = msgsEl.firstChild; if (!first) break; var id = first.getAttribute && first.getAttribute('data-msg-id'); if (id && seen[id]) delete seen[id]; msgsEl.removeChild(first); } var f = msgsEl.firstChild, ts = null; while (f) { var c = f.getAttribute && f.getAttribute('data-created'); if (c) { ts = c; break; } f = f.nextSibling; } if (ts) { oldestTs = ts; noOlder = false; } }
-        function addMessage(m, scroll, live) { if (!m || seen[m.id]) return; if (m.expires_at && new Date(m.expires_at).getTime() <= Date.now()) return; seen[m.id] = true; msgsEl.appendChild(bubble(m)); renderReactions(m.id); emptyEl.classList.add('hidden'); msgsEl.classList.remove('hidden'); if (scroll) scrollBottom(); else updateScrollBtn(); markRead(); if (live && me.id && m.author_id !== me.id) G.playPing(); if (!isSupport && m.kind !== 'system') { try { G.lastMsgs[slug] = { body: m.body, kind: m.kind, author_name: m.author_name, created_at: m.created_at }; if (G.applyTopicPreviews) G.applyTopicPreviews(); } catch (e) {} } if (m.expires_at) { var _d = new Date(m.expires_at).getTime() - Date.now(); if (_d > 0 && _d < 90000000) setTimeout(function () { removeMessage(m.id); }, _d + 400); } applyDayDividers(); regroup(); pruneTop(); }
+        function addMessage(m, scroll, live) { if (!m || seen[m.id]) return; if (m.expires_at && new Date(m.expires_at).getTime() <= Date.now()) return; if (m.author_id && m.author_id !== me.id && G.isBlocked(m.author_id)) return; seen[m.id] = true; msgsEl.appendChild(bubble(m)); renderReactions(m.id); emptyEl.classList.add('hidden'); msgsEl.classList.remove('hidden'); if (scroll) scrollBottom(); else updateScrollBtn(); markRead(); if (live && me.id && m.author_id !== me.id) G.playPing(); if (!isSupport && m.kind !== 'system') { try { G.lastMsgs[slug] = { body: m.body, kind: m.kind, author_name: m.author_name, created_at: m.created_at }; if (G.applyTopicPreviews) G.applyTopicPreviews(); } catch (e) {} } if (m.expires_at) { var _d = new Date(m.expires_at).getTime() - Date.now(); if (_d > 0 && _d < 90000000) setTimeout(function () { removeMessage(m.id); }, _d + 400); } applyDayDividers(); regroup(); pruneTop(); }
         function startEdit(m) {
           var wrap = msgsEl.querySelector('[data-msg-id="' + m.id + '"]'); if (!wrap) return;
           var body = wrap.querySelector('.msg-body'); var isMine = me.id && m.author_id === me.id; body.innerHTML = '';
@@ -623,6 +627,20 @@
           if (r.error) { G.toast('Não foi possível banir: ' + r.error.message); return; }
           removeAuthorMessages(m.author_id);
           G.toast((m.author_name || 'Membro') + ' foi banido.');
+        }
+        async function doReport(m) { await G.reportMessage(m); }
+        async function doBlock(m) {
+          if (!m.author_id) return;
+          var nome = m.author_name || 'esta pessoa';
+          if (G.isBlocked(m.author_id)) {
+            var okU = await G.confirmDialog({ title: 'Desbloquear ' + nome + '?', text: 'Você volta a ver as mensagens dela.', ok: 'Desbloquear' });
+            if (!okU) return;
+            if (await G.unblockUser(m.author_id)) { G.toast(nome + ' foi desbloqueada.'); G.navigate(location.pathname); }
+            return;
+          }
+          var ok = await G.confirmDialog({ title: 'Bloquear ' + nome + '?', text: 'Você deixa de ver as mensagens dela em toda a comunidade. Dá para desfazer em Meu Perfil.', ok: 'Bloquear', danger: true });
+          if (!ok) return;
+          if (await G.blockUser(m.author_id, m.author_name)) { removeAuthorMessages(m.author_id); G.toast(nome + ' foi bloqueada. Você não vê mais as mensagens dela.'); }
         }
         function updateMessage(m) { if (m && m.status === 'deleted') { removeMessage(m.id); return; } var wrap = msgsEl.querySelector('[data-msg-id="' + m.id + '"]'); if (!wrap) { if (m && m.moderation === 'ok' && (Date.now() - new Date(m.created_at).getTime()) < 600000) addMessage(m, nearBottom()); return; } renderMsgBody(wrap.querySelector('.msg-body'), m, me.id && m.author_id === me.id); }
         async function replyInSupport(m) {
@@ -1196,6 +1214,8 @@
             '<button type="button" id="pf-mod" class="hidden w-full items-center justify-between p-lg hover:bg-surface-container-high transition-colors text-left"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">shield</span><span class="font-body-md text-body-md text-on-surface">Moderação</span></div><span class="material-symbols-outlined text-outline">chevron_right</span></button>' +
             '<button type="button" id="pf-ia" class="hidden w-full items-center justify-between p-lg hover:bg-surface-container-high transition-colors text-left"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">smart_toy</span><span class="font-body-md text-body-md text-on-surface">Rascunhos da IA</span></div><span id="pf-ia-badge" class="hidden text-[11px] font-bold text-on-primary bg-primary rounded-full px-2 py-[1px] leading-none">0</span></button>' +
             '<button type="button" data-edit-open class="w-full flex items-center justify-between p-lg hover:bg-surface-container-high transition-colors text-left"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">person_edit</span><span class="font-body-md text-body-md text-on-surface">Editar perfil</span></div><span class="material-symbols-outlined text-outline">chevron_right</span></button>' +
+            '<button type="button" id="pf-blocked" class="w-full flex items-center justify-between p-lg hover:bg-surface-container-high transition-colors text-left"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">block</span><span class="font-body-md text-body-md text-on-surface">Pessoas bloqueadas</span></div><span id="pf-blocked-count" class="text-body-sm text-on-surface-variant">0</span></button>' +
+            '<a href="/regras" target="_blank" rel="noopener" class="w-full flex items-center justify-between p-lg hover:bg-surface-container-high transition-colors text-left"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">gavel</span><span class="font-body-md text-body-md text-on-surface">Regras da comunidade</span></div><span class="material-symbols-outlined text-outline">open_in_new</span></a>' +
             '<a href="/privacidade" target="_blank" rel="noopener" class="w-full flex items-center justify-between p-lg hover:bg-surface-container-high transition-colors text-left"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">policy</span><span class="font-body-md text-body-md text-on-surface">Política de Privacidade</span></div><span class="material-symbols-outlined text-outline">open_in_new</span></a>' +
             '<button type="button" id="pf-notif" class="w-full flex items-center justify-between p-lg hover:bg-surface-container-high transition-colors text-left"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">notifications</span><span class="font-body-md text-body-md text-on-surface">Notificações do navegador</span></div><span id="pf-notif-state" class="text-body-sm text-on-surface-variant">—</span></button>' +
             '<button type="button" id="pf-install" class="w-full flex items-center justify-between p-lg hover:bg-surface-container-high transition-colors text-left"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">install_mobile</span><span class="font-body-md text-body-md text-on-surface">Instalar o app no celular</span></div><span class="material-symbols-outlined text-outline">chevron_right</span></button>' +
@@ -1363,6 +1383,29 @@
       // Link discreto de instalar o app (PWA)
       var pfAdmin = document.getElementById('pf-admin'); if (pfAdmin && me.role === 'admin') { pfAdmin.classList.remove('hidden'); pfAdmin.classList.add('flex'); pfAdmin.addEventListener('click', function () { G.navigate('/membros'); }); }
       var pfMod = document.getElementById('pf-mod'); if (pfMod && me.role === 'admin') { pfMod.classList.remove('hidden'); pfMod.classList.add('flex'); pfMod.addEventListener('click', function () { G.navigate('/moderacao'); }); }
+      // Pessoas bloqueadas. Precisa existir aqui porque pelo chat não dá para desfazer:
+      // as mensagens de quem está bloqueado somem, então o menu delas fica inalcançável.
+      var pfBlk = document.getElementById('pf-blocked');
+      if (pfBlk) {
+        var pfBlkN = document.getElementById('pf-blocked-count');
+        var paintBlk = function () { if (pfBlkN) pfBlkN.textContent = G.blockedList().length; };
+        paintBlk();
+        pfBlk.addEventListener('click', async function () {
+          var lista = G.blockedList();
+          if (!lista.length) { G.toast('Você não bloqueou ninguém.'); return; }
+          var escolhido = await G.chooseAction({
+            title: 'Pessoas bloqueadas',
+            text: 'Você não vê as mensagens de quem está nesta lista. Toque em alguém para desbloquear.',
+            icon: 'block',
+            options: lista.map(function (p) { return { label: p.name, desc: 'Toque para desbloquear', value: p.id, icon: 'person_off' }; })
+          });
+          if (!escolhido) return;
+          var alvo = lista.filter(function (p) { return p.id === escolhido; })[0];
+          var okD = await G.confirmDialog({ title: 'Desbloquear ' + (alvo ? alvo.name : 'esta pessoa') + '?', text: 'Você volta a ver as mensagens dela.', ok: 'Desbloquear' });
+          if (!okD) return;
+          if (await G.unblockUser(escolhido)) { paintBlk(); G.toast((alvo ? alvo.name : 'Pessoa') + ' foi desbloqueada.'); }
+        });
+      }
       var pfIa = document.getElementById('pf-ia'); if (pfIa && me.role === 'admin') { pfIa.classList.remove('hidden'); pfIa.classList.add('flex'); pfIa.addEventListener('click', function () { G.navigate('/ia-suporte'); }); (async function () { try { var cc = await sb.from('comu_ai_drafts').select('id', { count: 'exact', head: true }).eq('status', 'pending'); var bdg = document.getElementById('pf-ia-badge'); if (bdg && cc && cc.count) { bdg.textContent = cc.count; bdg.classList.remove('hidden'); } } catch (e) {} })(); }
       var pfInstall = document.getElementById('pf-install');
       if (pfInstall) {
@@ -2330,8 +2373,16 @@
       view.innerHTML =
         '<header class="fixed top-0 left-0 right-0 lg:left-[var(--side-w)] z-50 bg-surface shadow-[0px_4px_20px_rgba(0,0,0,0.05)] h-14 flex items-center justify-between px-container-margin"><button type="button" id="md-back" class="flex items-center gap-sm text-primary" aria-label="Voltar"><span class="material-symbols-outlined">arrow_back</span><span class="font-headline-sm text-headline-sm font-bold">Administração · Moderação</span></button><button type="button" data-theme-toggle class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors" aria-label="Tema"><span class="material-symbols-outlined" data-theme-icon>dark_mode</span></button></header>' +
         '<div class="pt-14 lg:pl-[var(--side-w)] min-h-screen"><div class="max-w-3xl mx-auto px-container-margin py-lg space-y-md">' +
-          '<div class="flex gap-1 bg-surface-container-low rounded-xl p-1"><button type="button" id="md-tab-oc" class="flex-1 py-2 rounded-lg text-label-md font-label-md bg-primary text-on-primary transition-colors">Ocultadas</button><button type="button" id="md-tab-tm" class="flex-1 py-2 rounded-lg text-label-md font-label-md text-on-surface-variant transition-colors">Palavras bloqueadas</button></div>' +
-          '<div id="md-pane-oc" class="space-y-md">' +
+          '<div class="flex gap-1 bg-surface-container-low rounded-xl p-1">' +
+            '<button type="button" id="md-tab-dn" class="flex-1 py-2 rounded-lg text-label-md font-label-md bg-primary text-on-primary transition-colors">Denúncias<span id="md-dn-badge" class="hidden ml-1 text-[11px] font-bold text-white bg-error rounded-full px-2 py-[1px] leading-none">0</span></button>' +
+            '<button type="button" id="md-tab-oc" class="flex-1 py-2 rounded-lg text-label-md font-label-md text-on-surface-variant transition-colors">Ocultadas</button>' +
+            '<button type="button" id="md-tab-tm" class="flex-1 py-2 rounded-lg text-label-md font-label-md text-on-surface-variant transition-colors">Palavras</button>' +
+          '</div>' +
+          '<div id="md-pane-dn" class="space-y-md">' +
+            '<p class="text-body-sm text-on-surface-variant px-1">Denúncias enviadas pelos próprios membros. Quem denunciou nunca aparece para o denunciado.</p>' +
+            '<div id="md-dn-list" class="bg-surface-container-lowest rounded-xl border border-outline-variant/30 divide-y divide-outline-variant/20 overflow-hidden"><p class="p-lg text-center text-on-surface-variant text-body-sm">Carregando…</p></div>' +
+          '</div>' +
+          '<div id="md-pane-oc" class="hidden space-y-md">' +
             '<p class="text-body-sm text-on-surface-variant px-1">Mensagens escondidas automaticamente antes de chegarem aos outros. Só a equipe vê aqui.</p>' +
             '<div id="md-oc-list" class="bg-surface-container-lowest rounded-xl border border-outline-variant/30 divide-y divide-outline-variant/20 overflow-hidden"><p class="p-lg text-center text-on-surface-variant text-body-sm">Carregando…</p></div>' +
           '</div>' +
@@ -2388,15 +2439,74 @@
         document.getElementById('md-term').value = ''; G.toast('Palavra adicionada.'); loadTerms();
       });
       (function () { var ti = document.getElementById('md-term'); if (ti) ti.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('md-add').click(); } }); })();
-      var loadedTm = false;
-      function tab(w) {
-        var po = document.getElementById('md-pane-oc'), pt = document.getElementById('md-pane-tm'), to = document.getElementById('md-tab-oc'), tt = document.getElementById('md-tab-tm');
-        if (w === 'tm') { po.classList.add('hidden'); pt.classList.remove('hidden'); tt.classList.add('bg-primary', 'text-on-primary'); tt.classList.remove('text-on-surface-variant'); to.classList.remove('bg-primary', 'text-on-primary'); to.classList.add('text-on-surface-variant'); if (!loadedTm) { loadedTm = true; loadTerms(); } }
-        else { pt.classList.add('hidden'); po.classList.remove('hidden'); to.classList.add('bg-primary', 'text-on-primary'); to.classList.remove('text-on-surface-variant'); tt.classList.remove('bg-primary', 'text-on-primary'); tt.classList.add('text-on-surface-variant'); }
+      // ---- Denúncias dos membros (exigência de Conteúdo Gerado pelo Usuário do Google Play) ----
+      async function resolveReport(id, status) {
+        var up = await sb.from('comu_reports').update({ status: status, reviewed_by: (G.me || {}).id || null, reviewed_at: new Date().toISOString() }).eq('id', id);
+        if (up.error) { G.toast('Erro: ' + up.error.message); return false; }
+        return true;
       }
+      async function loadReports() {
+        var list = document.getElementById('md-dn-list'); if (!list) return;
+        var r = await sb.from('comu_reports').select('*').eq('status', 'open').order('created_at', { ascending: false }).limit(200);
+        if (st.destroyed) return;
+        if (r.error) { list.innerHTML = '<p class="p-lg text-error text-body-sm">' + esc(r.error.message) + '</p>'; return; }
+        var rows = r.data || [];
+        var badge = document.getElementById('md-dn-badge');
+        if (badge) { badge.textContent = rows.length; badge.classList.toggle('hidden', !rows.length); }
+        if (!rows.length) { list.innerHTML = '<p class="p-lg text-center text-on-surface-variant text-body-sm">Nenhuma denúncia aberta. 🎉</p>'; return; }
+        list.innerHTML = '';
+        rows.forEach(function (d) {
+          var el = document.createElement('div'); el.className = 'p-md space-y-xs';
+          el.innerHTML = '<div class="flex items-center justify-between gap-sm"><span class="font-bold text-on-surface text-body-sm truncate">' + esc(d.reported_name || 'Membro') + '</span><span class="text-[12px] text-on-surface-variant shrink-0">' + fmtWhen(d.created_at) + '</span></div>'
+            + '<div class="flex flex-wrap items-center gap-xs"><span class="text-[11px] px-2 py-0.5 rounded-full bg-error/10 text-error font-bold">' + esc(G.reportReasonLabel(d.reason)) + '</span><span class="text-[12px] text-on-surface-variant">denunciado por ' + esc(d.reporter_name || 'um membro') + '</span></div>'
+            + (d.details ? '<p class="text-body-sm text-on-surface-variant italic">' + esc(d.details) + '</p>' : '')
+            + '<p class="text-body-md text-on-surface whitespace-pre-wrap break-words bg-surface-container-low rounded-lg p-sm">' + esc(d.message_snapshot || '(mensagem já removida)') + '</p>'
+            + '<div class="flex flex-wrap gap-sm justify-end pt-xs">'
+              + (d.message_id ? '<button type="button" data-dnhide="' + d.id + '" data-msg="' + d.message_id + '" class="h-9 px-3 rounded-full border border-outline-variant text-on-surface text-label-md hover:bg-surface-container-high flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">visibility_off</span>Ocultar</button>' : '')
+              + (d.reported_user_id ? '<button type="button" data-dnban="' + d.id + '" data-user="' + d.reported_user_id + '" class="h-9 px-3 rounded-full text-error text-label-md hover:bg-error/10 flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">gavel</span>Banir</button>' : '')
+              + '<button type="button" data-dnok="' + d.id + '" class="h-9 px-3 rounded-full text-primary text-label-md hover:bg-primary/10 flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">check</span>Sem problema</button>'
+            + '</div>';
+          list.appendChild(el);
+        });
+        list.querySelectorAll('[data-dnhide]').forEach(function (b) {
+          b.onclick = async function () {
+            var up = await sb.from('comu_messages').update({ moderation: 'hidden' }).eq('id', b.getAttribute('data-msg'));
+            if (up.error) { G.toast('Erro: ' + up.error.message); return; }
+            if (await resolveReport(b.getAttribute('data-dnhide'), 'reviewed')) { G.toast('Mensagem ocultada.'); loadReports(); }
+          };
+        });
+        list.querySelectorAll('[data-dnban]').forEach(function (b) {
+          b.onclick = async function () {
+            var ok = await G.confirmDialog({ title: 'Banir este membro?', text: 'A pessoa perde o acesso e não participa mais da comunidade.', ok: 'Banir', danger: true });
+            if (!ok) return;
+            var rb = await sb.rpc('comu_ban', { p_user_id: b.getAttribute('data-user') });
+            if (rb.error) { G.toast('Erro: ' + rb.error.message); return; }
+            if (await resolveReport(b.getAttribute('data-dnban'), 'reviewed')) { G.toast('Membro banido.'); loadReports(); }
+          };
+        });
+        list.querySelectorAll('[data-dnok]').forEach(function (b) {
+          b.onclick = async function () { if (await resolveReport(b.getAttribute('data-dnok'), 'dismissed')) { G.toast('Denúncia arquivada.'); loadReports(); } };
+        });
+      }
+      var loaded = { dn: false, oc: false, tm: false };
+      function tab(w) {
+        ['dn', 'oc', 'tm'].forEach(function (k) {
+          var pane = document.getElementById('md-pane-' + k), btn = document.getElementById('md-tab-' + k);
+          if (!pane || !btn) return;
+          var on = (k === w);
+          pane.classList.toggle('hidden', !on);
+          btn.classList.toggle('bg-primary', on);
+          btn.classList.toggle('text-on-primary', on);
+          btn.classList.toggle('text-on-surface-variant', !on);
+        });
+        if (w === 'dn' && !loaded.dn) { loaded.dn = true; loadReports(); }
+        if (w === 'oc' && !loaded.oc) { loaded.oc = true; loadHidden(); }
+        if (w === 'tm' && !loaded.tm) { loaded.tm = true; loadTerms(); }
+      }
+      document.getElementById('md-tab-dn').addEventListener('click', function () { tab('dn'); });
       document.getElementById('md-tab-oc').addEventListener('click', function () { tab('oc'); });
       document.getElementById('md-tab-tm').addEventListener('click', function () { tab('tm'); });
-      loadHidden();
+      loaded.dn = true; loadReports();
     },
     destroy: function () { if (GVSI.views.moderacao._st) GVSI.views.moderacao._st.destroyed = true; }
   };

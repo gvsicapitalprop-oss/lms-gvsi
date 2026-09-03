@@ -33,6 +33,10 @@
       "dest": "/privacidade.html"
     },
     {
+      "src": "/regras",
+      "dest": "/regras.html"
+    },
+    {
       "src": "/.*",
       "dest": "/index.html"
     }
