@@ -19,5 +19,9 @@
   "categories": ["education", "finance", "social"],
   "screenshots": [
     { "src": "/assets/og.png", "sizes": "1200x630", "type": "image/png", "form_factor": "wide", "label": "Comunidade do Giovanni" }
+  ],
+  "prefer_related_applications": false,
+  "related_applications": [
+    { "platform": "play", "id": "com.giovannipaganini.comunidade", "url": "https://play.google.com/store/apps/details?id=com.giovannipaganini.comunidade" }
   ]
 }
