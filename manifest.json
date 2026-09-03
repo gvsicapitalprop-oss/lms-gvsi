@@ -8,16 +8,28 @@
   "scope": "/",
   "id": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "orientation": "portrait-primary",
   "background_color": "#0d244e",
   "theme_color": "#0d244e",
+  "handle_links": "preferred",
+  "launch_handler": { "client_mode": "navigate-existing" },
+  "edge_side_panel": { "preferred_width": 400 },
   "icons": [
     { "src": "/assets/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "/assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "/assets/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "categories": ["education", "finance", "social"],
+  "shortcuts": [
+    { "name": "Suporte", "short_name": "Suporte", "description": "Falar com o suporte", "url": "/suporte", "icons": [{ "src": "/assets/icon-192.png", "sizes": "192x192", "type": "image/png" }] },
+    { "name": "Chat Geral", "short_name": "Geral", "description": "Abrir o chat geral", "url": "/chat/geral", "icons": [{ "src": "/assets/icon-192.png", "sizes": "192x192", "type": "image/png" }] },
+    { "name": "Desafio", "short_name": "Desafio", "description": "Ver o desafio da comunidade", "url": "/chat/desafio", "icons": [{ "src": "/assets/icon-192.png", "sizes": "192x192", "type": "image/png" }] },
+    { "name": "Meu Perfil", "short_name": "Perfil", "description": "Abrir meu perfil", "url": "/perfil", "icons": [{ "src": "/assets/icon-192.png", "sizes": "192x192", "type": "image/png" }] }
+  ],
   "screenshots": [
+    { "src": "/assets/screenshot-suporte.png", "sizes": "1149x1912", "type": "image/png", "form_factor": "narrow", "label": "Atendimento de suporte dentro da comunidade" },
+    { "src": "/assets/screenshot-chat.png", "sizes": "1013x1912", "type": "image/png", "form_factor": "narrow", "label": "Converse com a comunidade em tempo real" },
     { "src": "/assets/og.png", "sizes": "1200x630", "type": "image/png", "form_factor": "wide", "label": "Comunidade do Giovanni" }
   ],
   "prefer_related_applications": false,
