@@ -1196,10 +1196,11 @@
             '<button type="button" id="pf-mod" class="hidden w-full items-center justify-between p-lg hover:bg-surface-container-high transition-colors text-left"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">shield</span><span class="font-body-md text-body-md text-on-surface">Moderação</span></div><span class="material-symbols-outlined text-outline">chevron_right</span></button>' +
             '<button type="button" id="pf-ia" class="hidden w-full items-center justify-between p-lg hover:bg-surface-container-high transition-colors text-left"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">smart_toy</span><span class="font-body-md text-body-md text-on-surface">Rascunhos da IA</span></div><span id="pf-ia-badge" class="hidden text-[11px] font-bold text-on-primary bg-primary rounded-full px-2 py-[1px] leading-none">0</span></button>' +
             '<button type="button" data-edit-open class="w-full flex items-center justify-between p-lg hover:bg-surface-container-high transition-colors text-left"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">person_edit</span><span class="font-body-md text-body-md text-on-surface">Editar perfil</span></div><span class="material-symbols-outlined text-outline">chevron_right</span></button>' +
-            '<button type="button" data-soon class="w-full flex items-center justify-between p-lg hover:bg-surface-container-high transition-colors text-left"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">shield</span><span class="font-body-md text-body-md text-on-surface">Privacidade e segurança</span></div><span class="material-symbols-outlined text-outline">chevron_right</span></button>' +
+            '<a href="/privacidade" target="_blank" rel="noopener" class="w-full flex items-center justify-between p-lg hover:bg-surface-container-high transition-colors text-left"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">policy</span><span class="font-body-md text-body-md text-on-surface">Política de Privacidade</span></div><span class="material-symbols-outlined text-outline">open_in_new</span></a>' +
             '<button type="button" id="pf-notif" class="w-full flex items-center justify-between p-lg hover:bg-surface-container-high transition-colors text-left"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">notifications</span><span class="font-body-md text-body-md text-on-surface">Notificações do navegador</span></div><span id="pf-notif-state" class="text-body-sm text-on-surface-variant">—</span></button>' +
             '<button type="button" id="pf-install" class="w-full flex items-center justify-between p-lg hover:bg-surface-container-high transition-colors text-left"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-primary">install_mobile</span><span class="font-body-md text-body-md text-on-surface">Instalar o app no celular</span></div><span class="material-symbols-outlined text-outline">chevron_right</span></button>' +
             '<button type="button" data-signout class="w-full flex items-center justify-between p-lg hover:bg-error/10 transition-colors text-left"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-error">logout</span><span class="font-body-md text-body-md text-error">Sair da conta</span></div></button>' +
+            '<button type="button" id="pf-delete" class="w-full flex items-center justify-between p-lg hover:bg-error/10 transition-colors text-left border-t border-outline-variant/40"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-error">delete_forever</span><span class="font-body-md text-body-md text-error">Excluir minha conta</span></div></button>' +
           '</div></section>' +
         '</div></div>' +
         '<nav class="lg:hidden fixed bottom-0 left-0 right-0 z-50 rounded-t-xl bg-surface shadow-[0px_-4px_20px_rgba(0,0,0,0.05)] h-16 flex justify-around items-center px-2"><a class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1" href="/"><span class="material-symbols-outlined">groups</span><span class="font-label-md text-label-md">Grupos</span></a><a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-full px-4 py-1" href="/perfil"><span class="material-symbols-outlined fill">person</span><span class="font-label-md text-label-md">Meu Perfil</span></a></nav>' +
@@ -1257,6 +1258,23 @@
           }).join('');
         });
       }
+
+      // Excluir minha conta (exigência de Google Play e App Store) — apaga tudo em cascata
+      (function () {
+        var d = document.getElementById('pf-delete');
+        if (!d) return;
+        d.addEventListener('click', async function () {
+          var typed = await G.promptDialog({ title: 'Excluir minha conta', text: 'Isso apaga sua conta e TODOS os seus dados (mensagens, participação, tickets) para sempre. Não dá pra desfazer. Digite EXCLUIR para confirmar.', placeholder: 'EXCLUIR', ok: 'Excluir para sempre' });
+          if (String(typed || '').trim().toUpperCase() !== 'EXCLUIR') return;
+          d.disabled = true; d.classList.add('opacity-60');
+          var res = await G.sb.functions.invoke('delete-account', { body: {} });
+          var data = res && res.data;
+          if ((res && res.error) || !data || data.ok === false) { d.disabled = false; d.classList.remove('opacity-60'); G.toast('Não foi possível: ' + ((data && data.error) || (res && res.error && res.error.message) || 'falha')); return; }
+          try { await G.sb.auth.signOut(); } catch (e) {}
+          try { localStorage.clear(); } catch (e) {}
+          location.href = '/';
+        });
+      })();
 
       // Notificações do navegador — ligar/desligar
       (function () {

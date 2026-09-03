@@ -1,10 +1,40 @@
 {
   "routes": [
-    { "src": "/index.html", "status": 308, "headers": { "Location": "/" } },
-    { "src": "/app/(.*)", "status": 308, "headers": { "Location": "/$1" } },
-    { "src": "/app", "status": 308, "headers": { "Location": "/" } },
-    { "handle": "filesystem" },
-    { "src": "/login", "dest": "/login.html" },
-    { "src": "/.*", "dest": "/index.html" }
+    {
+      "src": "/index.html",
+      "status": 308,
+      "headers": {
+        "Location": "/"
+      }
+    },
+    {
+      "src": "/app/(.*)",
+      "status": 308,
+      "headers": {
+        "Location": "/$1"
+      }
+    },
+    {
+      "src": "/app",
+      "status": 308,
+      "headers": {
+        "Location": "/"
+      }
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/login",
+      "dest": "/login.html"
+    },
+    {
+      "src": "/privacidade",
+      "dest": "/privacidade.html"
+    },
+    {
+      "src": "/.*",
+      "dest": "/index.html"
+    }
   ]
 }
