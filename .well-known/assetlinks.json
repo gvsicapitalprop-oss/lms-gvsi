@@ -1,14 +1,8 @@
-[
-  {
-    "relation": [
-      "delegate_permission/common.handle_all_urls"
-    ],
-    "target": {
-      "namespace": "android_app",
-      "package_name": "com.giovannipaganini.comunidade",
-      "sha256_cert_fingerprints": [
-        "REPLACE_WITH_APP_SIGNING_SHA256_FINGERPRINT"
-      ]
-    }
-  }
-]
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.giovannipaganini.comunidade",
+        "sha256_cert_fingerprints": ["FC:B9:E0:81:14:0B:6A:A3:55:35:57:54:CA:B5:20:32:FB:EF:C5:27:E7:75:BC:C3:F6:DA:B3:34:BE:4B:E7:DD"]
+      }
+    }]
