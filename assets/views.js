@@ -1476,7 +1476,7 @@
           var name = (tk.member && tk.member.full_name) || 'Membro';
           var ov = document.createElement('div');
           ov.className = 'fixed inset-0 z-[80] flex items-center justify-center p-container-margin bg-black/40';
-          ov.innerHTML = '<div class="w-full max-w-md bg-surface-container-lowest rounded-2xl shadow-xl border border-outline-variant/40 p-lg space-y-md max-h-[90vh] overflow-y-auto custom-scrollbar">' +
+          ov.innerHTML = '<div class="w-full max-w-2xl bg-surface-container-lowest rounded-2xl shadow-xl border border-outline-variant/40 p-lg space-y-md max-h-[90vh] overflow-y-auto custom-scrollbar">' +
             '<div class="flex items-center justify-between"><h3 class="font-headline-sm text-headline-sm text-on-surface flex items-center gap-2"><span class="material-symbols-outlined text-primary">key</span>Acessos do aluno</h3><button type="button" id="ac-close" class="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high"><span class="material-symbols-outlined">close</span></button></div>' +
             '<p class="text-body-sm text-on-surface-variant">' + esc(name) + '<br><span class="text-outline">' + esc(email) + '</span></p>' +
             '<div id="ac-hub"><div class="py-4 text-center text-on-surface-variant text-body-sm">Carregando acessos…</div></div>' +
