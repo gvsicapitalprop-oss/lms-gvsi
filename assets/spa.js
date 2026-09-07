@@ -836,8 +836,51 @@ GVSI.views = GVSI.views || {};
     document.addEventListener('click', function (e) { if (!pop.classList.contains('hidden') && !pop.contains(e.target) && e.target !== fab && !fab.contains(e.target)) pop.classList.add('hidden'); });
     window.addEventListener('resize', function () { try { G.positionChallengeFab(G._route); if (!pop.classList.contains('hidden')) positionPop(); } catch (e) {} });
     G.positionChallengeFab(G._route);
+    // Concluiu 100%: o aviso não pode depender de clicar no botão nem de estar na tela
+    // inicial, então abre na tela mesmo, em qualquer rota. O balão e o widget continuam
+    // como registro permanente, esse modal aparece uma vez por aparelho.
+    var venceu = !!d.ended && days.length > 0 && days.every(function (x) { return x.status === 'cumprido'; });
+    if (venceu) { setTimeout(function () { try { G.challengeWinModal(days.length); } catch (e) {} }, 600); return; }
     // Primeira vez: abre o balão sozinho pra pessoa já ver os dados do desafio dela
     try { if (localStorage.getItem('gvsi-chal-hint') !== '1') { localStorage.setItem('gvsi-chal-hint', '1'); setTimeout(function () { try { G.positionChallengeFab(G._route); positionPop(); pop.classList.remove('hidden'); } catch (e) {} }, 900); } } catch (e) {}
+  };
+  // Aviso de tela para quem fechou o desafio. Uma vez por aparelho (localStorage);
+  // se o armazenamento estiver bloqueado, mostra assim mesmo (melhor repetir do que sumir).
+  G.challengeWinModal = function (nDias) {
+    var JA = 'gvsi-chal-venceu-v1';
+    try { if (localStorage.getItem(JA) === '1') return; } catch (e) {}
+    if (document.getElementById('chal-win')) return;
+    var wrap = document.createElement('div');
+    wrap.id = 'chal-win';
+    wrap.className = 'fixed inset-0 z-[96] flex items-center justify-center p-container-margin bg-black/50';
+    wrap.setAttribute('role', 'dialog'); wrap.setAttribute('aria-modal', 'true'); wrap.setAttribute('aria-labelledby', 'chal-win-t');
+    wrap.innerHTML =
+      '<div class="w-full max-w-sm rounded-3xl border border-amber-400/50 shadow-2xl overflow-hidden bg-surface-container-lowest">' +
+        '<div class="px-lg pt-lg pb-md text-center" style="background:linear-gradient(160deg,rgba(246,195,67,.28),rgba(224,165,0,.08))">' +
+          '<span class="material-symbols-outlined text-amber-500 text-[52px] leading-none">emoji_events</span>' +
+          '<h2 id="chal-win-t" class="font-headline-sm text-headline-sm text-on-surface mt-xs">Parabéns, desafio concluído!</h2>' +
+        '</div>' +
+        '<div class="px-lg py-md space-y-sm text-body-md text-on-surface">' +
+          '<p>Você postou operação nos <b>' + nDias + ' dias</b>, sem falhar nenhum. Foi um trabalho muito bem feito.</p>' +
+          '<p>Como prêmio, o seu acesso à <b>Sala ao Vivo</b> está garantido pelo próximo mês. É por lá que saem os links de todas as aulas.</p>' +
+        '</div>' +
+        '<div class="px-lg pb-lg pt-sm flex flex-col gap-xs">' +
+          '<button type="button" id="chal-win-go" class="h-11 rounded-full bg-amber-500 text-black font-label-md active:scale-95 transition flex items-center justify-center gap-1"><span class="material-symbols-outlined text-[20px]">live_tv</span>Abrir a Sala ao Vivo</button>' +
+          '<button type="button" id="chal-win-x" class="h-11 rounded-full text-on-surface font-label-md hover:bg-surface-container-high transition">Fechar</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(wrap);
+    function fechar() {
+      try { localStorage.setItem(JA, '1'); } catch (e) {}
+      document.removeEventListener('keydown', onKey);
+      wrap.remove();
+    }
+    function onKey(e) { if (e.key === 'Escape') fechar(); }
+    document.addEventListener('keydown', onKey);
+    wrap.addEventListener('click', function (e) { if (e.target === wrap) fechar(); });
+    wrap.querySelector('#chal-win-x').addEventListener('click', fechar);
+    wrap.querySelector('#chal-win-go').addEventListener('click', function () { fechar(); G.navigate('/chat/sala-ao-vivo'); });
+    try { wrap.querySelector('#chal-win-go').focus(); } catch (e) {}
   };
   // Sobe o botão acima do compositor na tela de chat; nas outras, fica no canto (classes bottom-24/lg:bottom-6)
   G.positionChallengeFab = function (routeName) {
