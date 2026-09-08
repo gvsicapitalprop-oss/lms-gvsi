@@ -56,9 +56,9 @@
           }).join('');
           function wdf(iso) { var p = String(iso).split('-'); var dt = new Date(+p[0], +p[1] - 1, +p[2]); return ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'][dt.getDay()]; }
           // Concluiu 100%: só aparece para quem fechou TODOS os dias, e só depois que o
-          // desafio acabou. É calculado por usuário no comu_challenge_for_me, então não
-          // tem risco de aparecer para quem não cumpriu.
-          var venceu = !!d.ended && days.length > 0 && days.every(function (x) { return x.status === 'cumprido'; });
+          // desafio acabou (comu_challenge_for_me é por usuário). E só se JÁ tiver o tópico
+          // Sala ao Vivo (G.hasSala), pra o banner nunca prometer um menu que não chegou.
+          var venceu = !!d.ended && days.length > 0 && days.every(function (x) { return x.status === 'cumprido'; }) && G.hasSala();
           var banner = venceu
             ? '<div class="mb-md rounded-xl border border-amber-400/50 px-4 py-3" style="background:linear-gradient(135deg,rgba(246,195,67,.22),rgba(224,165,0,.10))"><div class="flex items-start gap-2"><span class="material-symbols-outlined text-amber-500 text-[24px] shrink-0">emoji_events</span><div class="text-body-sm text-on-surface"><b class="block text-[15px] mb-1">Parabéns, desafio concluído!</b>Você postou operação nos <b>' + days.length + ' dias</b>, sem falhar nenhum. Foi um trabalho muito bem feito.<div class="mt-2">Como prêmio, o seu acesso à <b>Sala ao Vivo</b> está garantido pelo próximo mês. O menu <b>Sala Ao Vivo</b> aparece aqui na sua lista de tópicos, e é por ali que saem os links de todas as aulas.</div></div></div></div>'
             : (!d.started ? '<div class="mb-md rounded-xl bg-primary/10 border border-primary/25 px-3 py-2 text-body-sm text-primary flex items-center gap-2"><span class="material-symbols-outlined text-[18px]">celebration</span><span>Você já está participando! O desafio <b>começa ' + wdf(ch.start) + ' (' + fd(ch.start) + ')</b>. Suas operações passam a contar a partir desse dia.</span></div>' : '');

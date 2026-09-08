@@ -797,6 +797,10 @@ GVSI.views = GVSI.views || {};
       try { G.maybeNotify(map); } catch (e) {}
     } catch (e) {}
   };
+  // Só é "vencedor" pra fins do aviso quem ALÉM de ter fechado o desafio JÁ enxerga o
+  // tópico Sala ao Vivo (G.topics vem filtrado por RLS: se não tem acesso, não está lá).
+  // Assim o banner nunca promete um menu que ainda não chegou.
+  G.hasSala = function () { return (G.topics || []).some(function (t) { return t.id === 'sala-ao-vivo'; }); };
   // Balão flutuante do Desafio (aparece em qualquer tela, só para participantes)
   G.setupChallengeFab = async function () {
     if (!G.sb || !G.me || document.getElementById('challenge-fab')) return;
@@ -804,6 +808,7 @@ GVSI.views = GVSI.views || {};
     try { r = await G.sb.rpc('comu_challenge_for_me'); } catch (e) { return; }
     var d = r && r.data; if (!d || r.error || !d.participating || !d.challenge) return;
     var ch = d.challenge, days = d.days || [];
+    var venceu = !!d.ended && days.length > 0 && days.every(function (x) { return x.status === 'cumprido'; }) && G.hasSala();
     function fd(iso) { var p = String(iso).split('-'); return p[2] + '/' + p[1]; }
     function wd(iso) { var p = String(iso).split('-'); var dt = new Date(+p[0], +p[1] - 1, +p[2]); return ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'][dt.getDay()]; }
     var CFG = { cumprido: ['check_circle', 'bg-primary/15 text-primary', 'Feito'], falha_sem: ['cancel', 'bg-error/15 text-error', 'Sem operar'], falha_invalido: ['rule', 'bg-amber-400/20 text-amber-700 dark:text-amber-300', 'Sem campos'], falha_excesso: ['warning', 'bg-amber-400/20 text-amber-700 dark:text-amber-300', 'Demais'], hoje: ['schedule', 'bg-blue-500/15 text-blue-500', 'Hoje'], futuro: ['lock_clock', 'bg-surface-container-high text-on-surface-variant', '—'] };
@@ -823,7 +828,7 @@ GVSI.views = GVSI.views || {};
     pop.innerHTML =
       '<div class="flex items-center justify-between mb-xs"><h3 class="font-bold text-on-surface flex items-center gap-1"><span class="material-symbols-outlined text-amber-500 text-[20px]">emoji_events</span>' + G.esc(ch.name) + '</h3><button type="button" id="challenge-pop-x" class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high"><span class="material-symbols-outlined text-[20px]">close</span></button></div>' +
       '<p class="text-body-sm text-on-surface-variant mb-sm">' + fd(ch.start) + ' a ' + fd(ch.end) + ' · ' + ch.min + '–' + ch.max + ' operações/dia</p>' +
-      ((!!d.ended && days.length > 0 && days.every(function (x) { return x.status === 'cumprido'; }))
+      (venceu
         ? '<div class="mb-sm rounded-xl border border-amber-400/50 px-3 py-2 text-[12px] text-on-surface" style="background:linear-gradient(135deg,rgba(246,195,67,.22),rgba(224,165,0,.10))"><b class="block mb-0.5">Parabéns, desafio concluído!</b>Você fechou os ' + days.length + ' dias. Seu acesso à <b>Sala ao Vivo</b> está garantido pelo próximo mês, e o menu já aparece na sua lista.</div>'
         : '') +
       (!d.started ? '<div class="mb-sm rounded-xl bg-primary/10 border border-primary/25 px-3 py-2 text-[12px] text-primary flex items-center gap-2"><span class="material-symbols-outlined text-[18px]">celebration</span><span>Você já está participando! O desafio <b>começa ' + ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'][(function () { var p = String(ch.start).split('-'); return new Date(+p[0], +p[1] - 1, +p[2]).getDay(); })()] + ' (' + fd(ch.start) + ')</b>. Suas operações contam a partir daí.</span></div>' : '') +
@@ -836,10 +841,10 @@ GVSI.views = GVSI.views || {};
     document.addEventListener('click', function (e) { if (!pop.classList.contains('hidden') && !pop.contains(e.target) && e.target !== fab && !fab.contains(e.target)) pop.classList.add('hidden'); });
     window.addEventListener('resize', function () { try { G.positionChallengeFab(G._route); if (!pop.classList.contains('hidden')) positionPop(); } catch (e) {} });
     G.positionChallengeFab(G._route);
-    // Concluiu 100%: o aviso não pode depender de clicar no botão nem de estar na tela
-    // inicial, então abre na tela mesmo, em qualquer rota. O balão e o widget continuam
-    // como registro permanente, esse modal aparece uma vez por aparelho.
-    var venceu = !!d.ended && days.length > 0 && days.every(function (x) { return x.status === 'cumprido'; });
+    // Concluiu 100% E já tem o tópico Sala (venceu, calculado acima): o aviso não pode
+    // depender de clicar no botão nem de estar na tela inicial, então abre na tela mesmo,
+    // em qualquer rota. O balão e o widget continuam como registro permanente, esse modal
+    // aparece uma vez por aparelho.
     if (venceu) { setTimeout(function () { try { G.challengeWinModal(days.length); } catch (e) {} }, 600); return; }
     // Primeira vez: abre o balão sozinho pra pessoa já ver os dados do desafio dela
     try { if (localStorage.getItem('gvsi-chal-hint') !== '1') { localStorage.setItem('gvsi-chal-hint', '1'); setTimeout(function () { try { G.positionChallengeFab(G._route); positionPop(); pop.classList.remove('hidden'); } catch (e) {} }, 900); } } catch (e) {}
