@@ -2427,7 +2427,7 @@
       function catLabel(c) { return c === 'toxico' ? 'Toxicidade' : (c === 'critica' ? 'Crítica' : (c === 'spam' ? 'Spam/links' : (c === 'concorrente' ? 'Concorrente' : c))); }
       async function loadHidden() {
         var list = document.getElementById('md-oc-list'); if (!list) return;
-        var r = await sb.from('comu_messages').select('id,body,kind,created_at,topic_id,author_name').eq('moderation', 'hidden').is('ticket_id', null).order('created_at', { ascending: false }).limit(200);
+        var r = await sb.from('comu_messages').select('id,body,kind,media_url,media_meta,created_at,topic_id,author_name').eq('moderation', 'hidden').is('ticket_id', null).order('created_at', { ascending: false }).limit(200);
         if (st.destroyed) return;
         if (r.error) { list.innerHTML = '<p class="p-lg text-error text-body-sm">' + esc(r.error.message) + '</p>'; return; }
         var rows = r.data || [];
@@ -2435,10 +2435,24 @@
         var topicName = {}; (G.topics || []).forEach(function (t) { topicName[t.id] = t.name; });
         list.innerHTML = '';
         rows.forEach(function (m) {
-          var text = m.kind === 'text' ? esc(m.body || '') : (m.kind === 'image' ? '📷 Foto' + (m.body ? ': ' + esc(m.body) : '') : (m.kind === 'audio' ? '🎤 Áudio' : (m.kind === 'video' ? '🎬 Vídeo' : (m.kind === 'file' ? '📎 Arquivo' : esc(m.body || '')))));
+          // Mídia de verdade pra equipe julgar (comu-media e' bucket publico -> src direto).
+          // Imagem = miniatura clicavel que abre em tamanho cheio numa aba; audio/video = tocador.
+          var media = '';
+          if (m.media_url) {
+            var u = esc(m.media_url);
+            if (m.kind === 'image') media = '<a href="' + u + '" target="_blank" rel="noopener" title="Abrir imagem em tamanho cheio" class="inline-block"><img src="' + u + '" loading="lazy" class="max-h-72 max-w-full rounded-lg border border-outline-variant object-contain bg-surface-container-low cursor-zoom-in"></a>';
+            else if (m.kind === 'video') media = '<video src="' + u + '" controls preload="metadata" class="max-h-72 max-w-full rounded-lg border border-outline-variant bg-black"></video>';
+            else if (m.kind === 'audio') media = '<audio src="' + u + '" controls preload="none" class="w-full"></audio>';
+            else if (m.kind === 'file') media = '<a href="' + u + '" target="_blank" rel="noopener" class="inline-flex items-center gap-1 text-primary underline text-body-sm"><span class="material-symbols-outlined text-[18px]">description</span>' + esc((m.media_meta && m.media_meta.name) || 'Abrir arquivo') + '</a>';
+          }
+          var cap = '';
+          if (m.kind === 'text') cap = '<p class="text-body-md text-on-surface whitespace-pre-wrap break-words">' + esc(m.body || '') + '</p>';
+          else if (m.body) cap = '<p class="text-body-md text-on-surface whitespace-pre-wrap break-words">' + esc(m.body) + '</p>';
+          if (!media && m.kind !== 'text') cap = '<p class="text-body-md text-on-surface-variant italic">' + (m.kind === 'image' ? '📷 Foto (arquivo indisponível)' : m.kind === 'audio' ? '🎤 Áudio' : m.kind === 'video' ? '🎬 Vídeo' : '📎 Arquivo') + '</p>' + cap;
           var el = document.createElement('div'); el.className = 'p-md space-y-xs';
           el.innerHTML = '<div class="flex items-center justify-between gap-sm"><span class="font-bold text-on-surface text-body-sm truncate">' + esc(m.author_name || 'Membro') + '</span><span class="text-[12px] text-on-surface-variant shrink-0">' + esc(topicName[m.topic_id] || '') + ' · ' + fmtWhen(m.created_at) + '</span></div>'
-            + '<p class="text-body-md text-on-surface whitespace-pre-wrap break-words">' + text + '</p>'
+            + media
+            + cap
             + '<div class="flex gap-sm justify-end pt-xs"><button type="button" data-approve="' + m.id + '" class="h-9 px-3 rounded-full border border-outline-variant text-primary text-label-md hover:bg-primary/10 flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">visibility</span>Mostrar a todos</button><button type="button" data-del="' + m.id + '" class="h-9 px-3 rounded-full text-error text-label-md hover:bg-error/10 flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">delete</span>Apagar</button></div>';
           list.appendChild(el);
         });
