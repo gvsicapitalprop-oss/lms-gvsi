@@ -1484,7 +1484,7 @@
           '<div class="pt-14 lg:pl-[var(--side-w)] h-[100dvh] flex">' +
             '<aside id="list-panel" class="w-full lg:w-[380px] lg:border-r border-outline-variant flex flex-col shrink-0"><div class="p-sm border-b border-outline-variant"><div class="relative"><span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[20px] pointer-events-none">search</span><input id="sup-search" type="text" autocomplete="off" placeholder="Buscar por nome, telefone ou e-mail" class="w-full bg-surface-container-low border border-outline-variant rounded-xl py-2 pl-10 pr-3 text-body-sm text-on-surface focus:ring-2 focus:ring-primary/30 placeholder:text-on-surface-variant"></div><button type="button" id="sup-new" class="w-full h-10 mt-sm rounded-xl bg-primary text-on-primary font-label-md flex items-center justify-center gap-1 active:scale-[0.98] transition"><span class="material-symbols-outlined text-[20px]">edit_square</span>Nova conversa</button></div><div class="p-sm flex gap-1 border-b border-outline-variant"><button data-filter="voce" class="flex-1 py-2 px-1 rounded-lg text-[12.5px] leading-tight font-label-md bg-primary text-on-primary transition-colors">Aguardando você</button><button data-filter="cliente" class="flex-1 py-2 px-1 rounded-lg text-[12.5px] leading-tight font-label-md text-on-surface-variant hover:bg-surface-container-high transition-colors">Aguardando cliente</button><button data-filter="resolvidos" class="flex-1 py-2 px-1 rounded-lg text-[12.5px] leading-tight font-label-md text-on-surface-variant hover:bg-surface-container-high transition-colors">Resolvidos</button></div><div id="tag-filter" class="hidden gap-1 px-sm pb-sm pt-1 overflow-x-auto custom-scrollbar border-b border-outline-variant items-center whitespace-nowrap"></div><div id="ticket-list" class="flex-1 overflow-y-auto custom-scrollbar"><p class="p-lg text-center text-on-surface-variant text-body-sm">Carregando…</p></div></aside>' +
             '<section id="convo-panel" class="hidden lg:flex flex-1 flex-col min-w-0"><div id="convo-empty" class="flex-1 flex flex-col items-center justify-center text-center gap-md p-xl text-on-surface-variant"><span class="material-symbols-outlined text-[48px]">forum</span><p class="text-body-md max-w-xs">Selecione uma conversa para ver o histórico e responder.</p></div>' +
-              '<div id="convo-main" class="hidden flex-1 flex-col min-h-0 relative"><div class="min-h-16 shrink-0 border-b border-outline-variant px-md py-2 flex items-center"><div class="max-w-3xl mx-auto w-full flex items-center gap-md"><button id="convo-back" class="lg:hidden text-primary flex items-center" aria-label="Voltar"><span class="material-symbols-outlined">arrow_back</span></button><span id="convo-avatar" class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center text-outline shrink-0 overflow-hidden"><span class="material-symbols-outlined">person</span></span><div class="flex-1 min-w-0"><h2 id="convo-name" class="font-bold text-on-surface truncate"></h2><p id="convo-protocol" class="text-body-sm text-outline truncate"></p><p id="convo-presence" class="hidden text-[12px] font-medium text-primary truncate mt-0.5"></p><div id="convo-rating" class="hidden flex-wrap items-center gap-1 mt-0.5"></div><button type="button" id="convo-history" class="hidden items-center gap-1 mt-0.5 text-[12px] text-primary hover:underline"><span class="material-symbols-outlined text-[14px]">history</span><span id="convo-history-lbl"></span></button><div id="convo-tags" class="flex flex-wrap items-center gap-1 mt-1"></div></div><button type="button" id="btn-history" class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors shrink-0" aria-label="Conversas anteriores" title="Conversas anteriores"><span class="material-symbols-outlined">history</span></button><button type="button" id="btn-profile" class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors shrink-0" aria-label="Editar perfil do membro" title="Editar perfil"><span class="material-symbols-outlined">manage_accounts</span></button><button type="button" id="btn-access" class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors shrink-0" aria-label="Acesso ao Diário" title="Acesso ao Diário de Trade"><span class="material-symbols-outlined">key</span></button><button type="button" id="btn-challenge" class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors shrink-0" aria-label="Desafio" title="Desafio"><span class="material-symbols-outlined">emoji_events</span></button><button type="button" id="btn-tags" class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors shrink-0" aria-label="Tags do contato"><span class="material-symbols-outlined">sell</span></button><button id="btn-resolve" class="bg-primary text-on-primary rounded-full px-4 py-2 text-label-md font-label-md active:scale-95 transition disabled:opacity-60 flex items-center gap-xs"><span class="material-symbols-outlined text-[18px]">check_circle</span><span id="btn-resolve-label">Marcar como resolvido</span></button></div></div>' +
+              '<div id="convo-main" class="hidden flex-1 flex-col min-h-0 relative"><div class="min-h-16 shrink-0 border-b border-outline-variant px-md py-2 flex items-center"><div class="max-w-3xl mx-auto w-full flex items-center gap-md"><button id="convo-back" class="lg:hidden text-primary flex items-center" aria-label="Voltar"><span class="material-symbols-outlined">arrow_back</span></button><span id="convo-avatar" class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center text-outline shrink-0 overflow-hidden"><span class="material-symbols-outlined">person</span></span><div class="flex-1 min-w-0"><h2 id="convo-name" class="font-bold text-on-surface truncate"></h2><p id="convo-protocol" class="text-body-sm text-outline truncate"></p><p id="convo-presence" class="hidden text-[12px] font-medium text-primary truncate mt-0.5"></p><div id="convo-rating" class="hidden flex-wrap items-center gap-1 mt-0.5"></div><button type="button" id="convo-history" class="hidden items-center gap-1 mt-0.5 text-[12px] text-primary hover:underline"><span class="material-symbols-outlined text-[14px]">history</span><span id="convo-history-lbl"></span></button><div id="convo-tags" class="flex flex-wrap items-center gap-1 mt-1"></div></div><button type="button" id="btn-history" class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors shrink-0" aria-label="Conversas anteriores" title="Conversas anteriores"><span class="material-symbols-outlined">history</span></button><button type="button" id="btn-progress" class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors shrink-0" aria-label="Progresso nos cursos" title="Progresso nos cursos"><span class="material-symbols-outlined">school</span></button><button type="button" id="btn-profile" class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors shrink-0" aria-label="Editar perfil do membro" title="Editar perfil"><span class="material-symbols-outlined">manage_accounts</span></button><button type="button" id="btn-access" class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors shrink-0" aria-label="Acesso ao Diário" title="Acesso ao Diário de Trade"><span class="material-symbols-outlined">key</span></button><button type="button" id="btn-challenge" class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors shrink-0" aria-label="Desafio" title="Desafio"><span class="material-symbols-outlined">emoji_events</span></button><button type="button" id="btn-tags" class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors shrink-0" aria-label="Tags do contato"><span class="material-symbols-outlined">sell</span></button><button id="btn-resolve" class="bg-primary text-on-primary rounded-full px-4 py-2 text-label-md font-label-md active:scale-95 transition disabled:opacity-60 flex items-center gap-xs"><span class="material-symbols-outlined text-[18px]">check_circle</span><span id="btn-resolve-label">Marcar como resolvido</span></button></div></div>' +
                 '<div id="convo-scroll" class="flex-1 overflow-y-auto custom-scrollbar p-md"><div id="convo-messages" class="flex flex-col gap-md max-w-3xl mx-auto w-full"></div></div>' +
                 '<button type="button" id="ai-draft-reopen" class="hidden absolute bottom-24 right-3 z-30 items-center gap-xs h-11 px-4 rounded-full bg-primary text-on-primary shadow-lg active:scale-95 transition"><span class="material-symbols-outlined text-[20px]">smart_toy</span><span class="font-label-md">Sugestão da IA</span></button>' +
                 '<div id="ai-draft-bar" class="hidden absolute bottom-24 right-3 left-3 sm:left-auto sm:w-[400px] max-w-[calc(100%-1.5rem)] z-30"><div class="bg-surface-container-lowest border border-primary/40 rounded-2xl shadow-2xl p-md max-h-[60vh] overflow-y-auto custom-scrollbar"></div></div>' +
@@ -1576,6 +1576,79 @@
             if (r.error) { var b = ov.querySelector('#dz-body'); if (b) b.innerHTML = '<p class="text-error text-body-sm">' + esc(r.error.message) + '</p>'; return; }
             render(!!r.data);
           });
+        }
+        // Progresso do aluno na área de membros (mesmo banco: lms_*). A RLS já deixa o admin ler o
+        // progresso de qualquer aluno e todos os cursos/módulos/aulas. Destaca o módulo que libera a
+        // Sala ao Vivo ("ACESSO A SALA AO VIVO", o 8º do Master), que é a pergunta mais comum do suporte.
+        function openProgressPanel(tk) {
+          var uid = tk.user_id; var name = (tk.member && tk.member.full_name) || 'Membro';
+          if (!uid) { G.toast('Este contato não tem cadastro na área de membros.'); return; }
+          var ov = document.createElement('div');
+          ov.className = 'fixed inset-0 z-[80] flex items-center justify-center p-container-margin bg-black/40';
+          ov.innerHTML = '<div class="w-full max-w-lg bg-surface-container-lowest rounded-2xl shadow-xl border border-outline-variant/40 p-lg space-y-md max-h-[85vh] overflow-y-auto custom-scrollbar">' +
+            '<div class="flex items-center justify-between"><h3 class="font-headline-sm text-headline-sm text-on-surface flex items-center gap-2"><span class="material-symbols-outlined text-primary">school</span>Progresso nos cursos</h3><button type="button" id="pg-close" class="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high"><span class="material-symbols-outlined">close</span></button></div>' +
+            '<p class="text-body-sm text-on-surface-variant">' + esc(name) + '</p>' +
+            '<div id="pg-body" class="py-4 text-center text-on-surface-variant text-body-sm">Consultando…</div></div>';
+          document.body.appendChild(ov);
+          function close() { ov.remove(); }
+          ov.querySelector('#pg-close').onclick = close;
+          ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
+          function fail(msg) { var b = ov.querySelector('#pg-body'); if (b) b.innerHTML = '<p class="text-error text-body-sm">' + esc(msg) + '</p>'; }
+          function dataBR(iso) { try { return new Date(iso).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }); } catch (e) { return ''; } }
+          function barra(pct) { return '<div class="h-1.5 rounded-full bg-outline-variant/30 overflow-hidden"><div class="h-full rounded-full ' + (pct >= 100 ? 'bg-emerald-500' : 'bg-primary') + '" style="width:' + (pct > 0 ? Math.max(3, pct) : 0) + '%"></div></div>'; }
+          Promise.all([
+            sb.from('lms_lesson_progress').select('lesson_id, completed_at, updated_at').eq('student_id', uid).eq('completed', true).limit(5000),
+            sb.from('lms_courses').select('id, title, slug, status, menu_order').order('menu_order'),
+            sb.from('lms_modules').select('id, course_id, title, menu_order').eq('status', 'published').order('menu_order').limit(2000),
+            sb.from('lms_lessons').select('id, module_id').eq('status', 'published').limit(5000)
+          ]).then(function (res) {
+            var erro = res.filter(function (r) { return r.error; })[0];
+            if (erro) { fail('Não foi possível consultar: ' + erro.error.message); return; }
+            var feitas = Object.create(null), ultima = null;
+            (res[0].data || []).forEach(function (p) {
+              feitas[p.lesson_id] = 1;
+              var d = p.completed_at || p.updated_at;
+              if (d && (!ultima || d > ultima)) ultima = d;
+            });
+            var aulasPorModulo = Object.create(null);
+            (res[3].data || []).forEach(function (l) { (aulasPorModulo[l.module_id] = aulasPorModulo[l.module_id] || []).push(l.id); });
+            var modsPorCurso = Object.create(null);
+            (res[2].data || []).forEach(function (m) { (modsPorCurso[m.course_id] = modsPorCurso[m.course_id] || []).push(m); });
+            var html = '', resumoSala = null;
+            (res[1].data || []).forEach(function (c) {
+              var mods = (modsPorCurso[c.id] || []).filter(function (m) { return (aulasPorModulo[m.id] || []).length > 0; });
+              var total = 0, feito = 0;
+              var linhas = mods.map(function (m, i) {
+                var ids = aulasPorModulo[m.id];
+                var ok = ids.filter(function (id) { return feitas[id]; }).length;
+                total += ids.length; feito += ok;
+                var completo = ok === ids.length;
+                var libera = /sala ao vivo/i.test(m.title || '') && /^acesso/i.test(m.title || '');
+                if (libera && c.status === 'published') resumoSala = completo;
+                return '<div class="flex items-center gap-2 py-1.5 border-b border-outline-variant/20 last:border-0' + (libera ? ' bg-amber-400/10 -mx-2 px-2 rounded-lg' : '') + '">' +
+                  '<span class="material-symbols-outlined text-[18px] ' + (completo ? 'text-emerald-500' : ok ? 'text-primary' : 'text-outline') + '">' + (completo ? 'check_circle' : ok ? 'timelapse' : 'radio_button_unchecked') + '</span>' +
+                  '<span class="flex-1 min-w-0 text-body-sm text-on-surface truncate">' + (i + 1) + '. ' + esc(m.title || 'Módulo') +
+                  (libera ? ' <span class="text-[11px] font-bold text-amber-600 dark:text-amber-400">(libera a Sala ao Vivo)</span>' : '') + '</span>' +
+                  '<span class="shrink-0 text-[12px] tabular-nums text-on-surface-variant">' + ok + '/' + ids.length + '</span></div>';
+              }).join('');
+              if (!total) return;
+              if (c.status !== 'published' && !feito) return; // curso antigo/rascunho só aparece se o aluno tem progresso nele
+              var pct = Math.round((feito / total) * 100);
+              html += '<details class="rounded-xl border border-outline-variant/40 p-3"' + (feito ? ' open' : '') + '><summary class="cursor-pointer list-none">' +
+                '<div class="flex items-center justify-between gap-2"><span class="font-bold text-on-surface text-body-md truncate">' + esc(c.title || 'Curso') +
+                (c.status !== 'published' ? ' <span class="text-[11px] font-normal text-outline">(versão antiga)</span>' : '') + '</span>' +
+                '<span class="shrink-0 text-label-md font-bold ' + (pct >= 100 ? 'text-emerald-500' : 'text-primary') + '">' + pct + '%</span></div>' +
+                '<p class="text-[12px] text-on-surface-variant mb-1">' + feito + ' de ' + total + ' aulas</p>' + barra(pct) + '</summary><div class="mt-2">' + linhas + '</div></details>';
+            });
+            var b = ov.querySelector('#pg-body'); if (!b) return;
+            var topo = '';
+            if (resumoSala === true) topo = '<div class="flex items-center gap-2 rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 p-3 text-body-sm font-medium"><span class="material-symbols-outlined">check_circle</span>Concluiu o módulo que libera a Sala ao Vivo.</div>';
+            else if (resumoSala === false) topo = '<div class="flex items-center gap-2 rounded-xl bg-amber-400/15 text-amber-700 dark:text-amber-300 p-3 text-body-sm font-medium"><span class="material-symbols-outlined">schedule</span>Ainda não concluiu o módulo que libera a Sala ao Vivo.</div>';
+            b.className = 'space-y-sm text-left';
+            b.innerHTML = topo +
+              '<p class="text-[12px] text-on-surface-variant">' + Object.keys(feitas).length + ' aula(s) concluída(s)' + (ultima ? ', última em ' + dataBR(ultima) : '') + '</p>' +
+              (html || '<p class="text-body-sm text-on-surface-variant py-2">Nenhum curso com aulas encontrado.</p>');
+          }, function (e) { fail('Não foi possível consultar: ' + (e && e.message ? e.message : 'erro')); });
         }
         function openAccessPanel(tk) {
           var email = (tk.member && tk.member.email) || '';
@@ -2239,6 +2312,7 @@
         document.getElementById('btn-tags').addEventListener('click', function () { if (self.currentTicket) openTagsPanel(self.currentTicket); });
         document.getElementById('btn-access').addEventListener('click', function () { if (self.currentTicket) openAccessPanel(self.currentTicket); });
         document.getElementById('btn-challenge').addEventListener('click', function () { if (self.currentTicket) openChallengePanel(self.currentTicket); });
+        document.getElementById('btn-progress').addEventListener('click', function () { if (self.currentTicket) openProgressPanel(self.currentTicket); });
         document.getElementById('btn-profile').addEventListener('click', function () { if (self.currentTicket) openProfileEditor(self.currentTicket); });
         document.getElementById('btn-history').addEventListener('click', function () { if (self.currentTicket) openHistoryPanel(self.currentTicket); });
         (function () { var nb = document.getElementById('sup-new'); if (nb) nb.addEventListener('click', openNewConversation); })();
