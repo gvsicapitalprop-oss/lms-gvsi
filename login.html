@@ -181,7 +181,15 @@ html.dark #gvsi-splash .r{border-color:rgba(157,184,255,.22);border-top-color:#9
     if (p1 !== p2) { showMsg('As senhas não conferem.', false); return; }
     $('rec-save').disabled = true; showMsg('Salvando a nova senha...', true);
     try {
-      var r = await sb.auth.updateUser({ password: p1 });
+      // Falha de rede ("Load failed" no iPhone / navegador do Gmail): tenta de novo até 3x antes de desistir.
+      var isNet = function (er) { return er && (er.name === 'AuthRetryableFetchError' || er.status === 0 || /load failed|failed to fetch|network/i.test(er.message || '')); };
+      var r;
+      for (var tent = 0; tent < 3; tent++) {
+        if (tent) await new Promise(function (ok) { setTimeout(ok, 1200 * tent); });
+        try { r = await sb.auth.updateUser({ password: p1 }); } catch (er) { r = { error: er }; }
+        if (!r.error || !isNet(r.error)) break;
+      }
+      if (r.error && isNet(r.error)) { showMsg('Falha de conexão ao salvar. Verifique a internet e toque em "Salvar" de novo. Se abriu pelo app do Gmail, abra o link no Safari/Chrome.', false); $('rec-save').disabled = false; return; }
       if (r.error) { showMsg('Não foi possível: ' + r.error.message, false); $('rec-save').disabled = false; return; }
       showMsg('Senha alterada com sucesso! Entrando...', true);
       setTimeout(function () { location.replace('/'); }, 900);
