@@ -614,7 +614,29 @@
         }
         function removeMessage(id) { var w = msgsEl.querySelector('[data-msg-id="' + id + '"]'); if (w) w.remove(); if (!msgsEl.children.length) { msgsEl.classList.add('hidden'); emptyEl.classList.remove('hidden'); } }
         function removeAuthorMessages(authorId) { if (!authorId) return; msgsEl.querySelectorAll('[data-author-id="' + authorId + '"]').forEach(function (w) { w.remove(); }); if (!msgsEl.children.length) { msgsEl.classList.add('hidden'); emptyEl.classList.remove('hidden'); } }
+        // arquivo da mensagem no bucket comu-media (a policy só deixa o DONO do arquivo apagar)
+        function removeOwnMedia(url) {
+          try {
+            var path = decodeURIComponent((String(url || '').split('/comu-media/')[1] || '').split('?')[0]);
+            if (path) sb.storage.from('comu-media').remove([path]).then(function () {}, function () {});
+          } catch (e) {}
+        }
         async function doDelete(m) {
+          // Admin apagando a PRÓPRIA mensagem: apaga de verdade (linha, reações e arquivo), e ela some
+          // para todos, inclusive para ele. O soft-hide abaixo deixava a mensagem visível para o autor
+          // e parada em "Ocultadas". Pedido do dono em 16/09/2026.
+          if (isAdmin && me.id && m.author_id === me.id) {
+            var okMine = await G.confirmDialog({ title: 'Apagar esta mensagem?', text: 'Ela será apagada para todos, de vez. Esta ação não pode ser desfeita.', ok: 'Apagar', danger: true });
+            if (!okMine) return;
+            // .select() devolve o que foi apagado: RLS que barra não dá erro, só apaga zero linhas
+            var rm = await sb.from('comu_messages').delete().eq('id', m.id).select('id');
+            if (rm.error || !rm.data || !rm.data.length) { G.toast('Não foi possível apagar' + (rm.error ? ': ' + rm.error.message : '.')); return; }
+            removeMessage(m.id);
+            if (m.media_url) removeOwnMedia(m.media_url);
+            if (G.loadLastMessages) G.loadLastMessages();
+            G.toast('Mensagem apagada');
+            return;
+          }
           var choice;
           if (isAdmin) {
             choice = await G.chooseAction({
@@ -2075,10 +2097,15 @@
           self.editingDraft = null;
           self.currentTicket = tk; self.seen = Object.create(null);
           document.getElementById('convo-empty').classList.add('hidden'); var cm = document.getElementById('convo-main'); cm.classList.remove('hidden'); cm.classList.add('flex');
-          document.getElementById('list-panel').classList.add('hidden'); document.getElementById('convo-panel').classList.remove('hidden'); document.getElementById('convo-panel').classList.add('flex');
+          // A lista só some no celular (não cabem as duas); no computador ela fica ao lado da conversa
+          // para trocar de atendimento sem voltar. 'lg:flex' vence o 'hidden' a partir do breakpoint lg.
+          document.getElementById('list-panel').classList.add('hidden', 'lg:flex'); document.getElementById('convo-panel').classList.remove('hidden'); document.getElementById('convo-panel').classList.add('flex');
           var m = tk.member || {}; document.getElementById('convo-name').textContent = m.full_name || 'Membro'; document.getElementById('convo-protocol').textContent = tk.protocol + ' · ' + statusLabel(tk.status); updateResolveBtn(); refreshConvoTags(); renderConvoRating(); renderHistory(tk); var _av = document.getElementById('convo-avatar'); if (_av) _av.innerHTML = m.avatar_url ? '<img src="' + esc(m.avatar_url) + '" class="w-full h-full object-cover">' : '<span class="material-symbols-outlined">person</span>';
           document.getElementById('convo-messages').innerHTML = '';
           var r = await sb.from('comu_messages').select('*').eq('ticket_id', tk.id).order('created_at', { ascending: true }); if (self.destroyed) return;
+          // Com a lista visível dá para clicar em outra conversa antes desta carregar: a resposta
+          // atrasada não pode despejar as mensagens desta na conversa que está aberta agora.
+          if (self.currentTicket !== tk) return;
           (r.data || []).forEach(addMsg); loadReactSup((r.data || []).map(function (m) { return m.id; })); scrollConvo(); subscribeConvo(tk.id); updateConvoComposer(); loadAiDraft(tk.id); loadTickets();
           self.imTyping = false; if (self.updateMyPresence) self.updateMyPresence();
         }
