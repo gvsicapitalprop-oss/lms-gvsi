@@ -22,7 +22,9 @@ GVSI.views = GVSI.views || {};
   // Escapa TUDO primeiro, depois aplica só as tags permitidas.
   G.fmt = function (s, linkify) {
     var out = G.esc(s);
-    out = out.replace(/`([^`\n]+)`/g, '<code class="px-1 py-0.5 rounded bg-black/10 dark:bg-white/20 text-[0.92em]">$1</code>');
+    // código fica intacto: negrito/itálico não se aplicam dentro de `...`
+    var codes = [];
+    out = out.replace(/`([^`\n]+)`/g, function (_m, c) { var i = codes.length; codes.push('<code class="px-1 py-0.5 rounded bg-black/10 dark:bg-white/20 text-[0.92em]">' + c + '</code>'); return '\u0001' + i + '\u0002'; });
     out = out.replace(/\*\*\*([^*\n]+?)\*\*\*/g, '<strong><em>$1</em></strong>'); // ***negrito+itálico***
     out = out.replace(/\*\*([^\n]+?)\*\*(?!\*)/g, function (_m, inner) { return '<strong>' + inner.replace(/(^|[^*])\*([^*<\n]+?)\*(?!\*)/g, '$1<em>$2</em>') + '</strong>'; }); // **negrito** (fecha no ÚLTIMO **, deixa *itálico* no fim virar tag)
     out = out.replace(/(^|[^\w*])\*([^*<\n]+?)\*(?![\w*])/g, '$1<em>$2</em>'); // *itálico*
@@ -36,6 +38,7 @@ GVSI.views = GVSI.views || {};
     });
     out = out.replace(/(^|\s)@([A-Za-zÀ-ÿ0-9][A-Za-zÀ-ÿ0-9_.]*)/g, '$1<span class="text-primary font-medium">@$2</span>');
     if (linkify) out = out.replace(/(https?:\/\/[^\s<]+|www\.[^\s<]+)/gi, function (u) { var tail = ''; var mm = u.match(/[.,;:!?)\]]+$/); if (mm) { tail = mm[0]; u = u.slice(0, -tail.length); } var href = /^https?:/i.test(u) ? u : 'https://' + u; return '<a href="' + href + '" target="_blank" rel="noopener noreferrer" class="text-primary underline break-all">' + u + '</a>' + tail; });
+    out = out.replace(/\u0001(\d+)\u0002/g, function (_m, i) { return codes[+i] || ''; });
     return out;
   };
   // Exibição: só os 2 primeiros nomes (o nome completo continua no banco).
@@ -440,8 +443,11 @@ GVSI.views = GVSI.views || {};
     var focoAnterior = document.activeElement;
     function ensure() { if (window.Cropper) return Promise.resolve(); if (G._cropperP) return G._cropperP; G._cropperP = new Promise(function (res, rej) { try { var css = document.createElement('link'); css.rel = 'stylesheet'; css.href = 'https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css'; document.head.appendChild(css); var s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js'; s.onload = function () { res(); }; s.onerror = function () { G._cropperP = null; rej(new Error('cropper')); }; document.head.appendChild(s); } catch (e) { rej(e); } }); return G._cropperP; }
     ensure().then(function () {
+      var old = document.getElementById('img-editor'); if (old) { if (old._cancel) old._cancel(); old.remove(); }
+      var cancelled = false;
       var src = URL.createObjectURL(file);
       var ov = document.createElement('div'); ov.id = 'img-editor'; ov.className = 'fixed inset-0 z-[100] bg-black/95 flex flex-col p-3 gap-3';
+      ov._cancel = function () { cancelled = true; };
       ov.innerHTML =
         '<style>#img-editor .cropper-view-box{outline:2px solid rgba(124,156,255,.95)}#img-editor .cropper-line{background-color:#6f8cff;opacity:.4}#img-editor .cropper-point{background-color:#7c9cff;opacity:1;width:13px;height:13px}</style>' +
         '<div class="relative flex-1 min-h-0 flex items-center justify-center overflow-hidden" style="padding:14px 84px 14px 20px"><img id="ic-img" class="max-w-full max-h-full block" alt="">' +
@@ -459,7 +465,7 @@ GVSI.views = GVSI.views || {};
           '</div></div>';
       document.body.appendChild(ov);
       var imgEl = ov.querySelector('#ic-img'), cropper = null, baseRatio = 1, zoomEl = ov.querySelector('#ic-zoom');
-      function closeC() { try { if (cropper) cropper.destroy(); } catch (e) {} try { URL.revokeObjectURL(src); } catch (e) {} ov.remove(); try { if (focoAnterior && focoAnterior.focus) focoAnterior.focus(); } catch (e) {} }
+      function closeC() { cancelled = true; try { if (cropper) cropper.destroy(); } catch (e) {} try { URL.revokeObjectURL(src); } catch (e) {} ov.remove(); try { if (focoAnterior && focoAnterior.focus) focoAnterior.focus(); } catch (e) {} }
       function applyZoom() { if (cropper) { try { cropper.zoomTo(baseRatio * (parseInt(zoomEl.value, 10) || 100) / 100); } catch (e) {} } }
       imgEl.onload = function () { try { cropper = new Cropper(imgEl, { viewMode: 1, autoCropArea: 0.95, background: false, dragMode: 'crop', zoomOnWheel: false, ready: function () { var cd = cropper.getCanvasData(); baseRatio = (cd && cd.naturalWidth) ? (cd.width / cd.naturalWidth) : 1; if (zoomEl) zoomEl.value = 100; } }); } catch (e) {} };
       imgEl.onerror = function () { if (G.toast) G.toast('Não foi possível abrir a imagem.'); closeC(); };
@@ -476,12 +482,87 @@ GVSI.views = GVSI.views || {};
         var canvas; try { canvas = cropper.getCroppedCanvas(opts); } catch (e) { canvas = null; }
         if (!canvas) { if (G.toast) G.toast('Falha ao processar a imagem.'); btn.disabled = false; return; }
         canvas.toBlob(function (blob) {
+          if (cancelled) return;
           if (!blob) { if (G.toast) G.toast('Falha ao gerar a imagem.'); btn.disabled = false; return; }
           var caption = (ov.querySelector('#ic-caption').value || '').trim() || null;
           Promise.resolve(onConfirm(blob, caption, { w: canvas.width, h: canvas.height })).then(function (ok) { if (ok === false) { btn.disabled = false; btn.innerHTML = '<span class="material-symbols-outlined text-[20px]">send</span>Enviar'; } else closeC(); }, function () { btn.disabled = false; });
         }, 'image/jpeg', 0.9);
       };
     }, function () { if (G.toast) G.toast('Editor de imagem indisponível.'); });
+  };
+  // Composer de pré-envio para vídeo/áudio/arquivo: mostra o arquivo, legenda opcional
+  // e botões Cancelar/Enviar. Nada é enviado antes do usuário confirmar, e o upload usa
+  // G.uploadWithProgress (barra de progresso). onConfirm({url,path,caption}) só roda DEPOIS
+  // do upload concluir; retornar false mantém o modal aberto (ex.: inserir a mensagem falhou).
+  G.mediaComposer = function (opts) {
+    if (!opts || !opts.file || !opts.path || !opts.onConfirm) return;
+    var file = opts.file, kind = opts.kind || 'file';
+    var focoAnterior = document.activeElement;
+    var cancelled = false;
+    var old = document.getElementById('media-composer'); if (old) { if (old._cancel) old._cancel(); old.remove(); }
+    function humanSize(n) { n = n || 0; return n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'; }
+    var isVideo = kind === 'video', isAudio = kind === 'audio';
+    var ov = document.createElement('div'); ov.id = 'media-composer';
+    ov.className = 'fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-3';
+    ov.innerHTML =
+      '<div class="w-full max-w-md bg-surface-container-lowest rounded-2xl shadow-2xl border border-outline-variant/40 p-lg space-y-md">' +
+        '<div class="flex items-center justify-between"><h3 class="font-headline-sm text-headline-sm text-on-surface">Confirmar envio</h3><button type="button" id="mc-close" class="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high"><span class="material-symbols-outlined">close</span></button></div>' +
+        '<div class="flex items-center gap-md bg-surface-container-high rounded-xl p-sm border border-outline-variant/30">' +
+          '<span class="w-12 h-12 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-[26px]">' + (isVideo ? 'movie' : isAudio ? 'graphic_eq' : 'description') + '</span></span>' +
+          '<div class="flex-1 min-w-0"><p class="font-label-md text-label-md text-on-surface truncate">' + G.esc(file.name || 'arquivo') + '</p><p class="text-body-sm text-on-surface-variant">' + humanSize(file.size) + '</p></div>' +
+        '</div>' +
+        '<div id="mc-preview" class="hidden"></div>' +
+        '<input id="mc-caption" type="text" placeholder="Legenda (opcional)" maxlength="1000" class="w-full h-11 px-3 rounded-xl bg-surface-container-low border border-outline-variant text-body-md text-on-surface placeholder:text-on-surface-variant" value="' + G.esc(opts.initialCaption || '') + '">' +
+        '<div id="mc-progress" class="hidden"><div class="h-2 rounded-full bg-surface-container-high overflow-hidden"><div id="mc-bar" class="h-full bg-primary" style="width:0%;transition:width .15s"></div></div><p id="mc-txt" class="text-[12px] text-on-surface-variant mt-1 text-center">Enviando… 0%</p></div>' +
+        '<div class="flex gap-sm">' +
+          '<button type="button" id="mc-cancel" class="h-11 flex-1 rounded-xl border border-outline-variant text-on-surface font-label-md">Cancelar</button>' +
+          '<button type="button" id="mc-send" class="h-11 flex-1 bg-primary text-on-primary rounded-xl font-label-md flex items-center justify-center gap-1 active:scale-[0.98] transition"><span class="material-symbols-outlined text-[20px]">send</span>Enviar</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(ov);
+    ov._cancel = function () { cancelled = true; };
+    var srcUrl = null;
+    if (isVideo || isAudio) {
+      try {
+        srcUrl = URL.createObjectURL(file);
+        var media = document.createElement(isVideo ? 'video' : 'audio');
+        media.controls = true; media.src = srcUrl;
+        media.className = isVideo ? 'w-full rounded-xl bg-black' : 'w-full';
+        if (isVideo) media.setAttribute('playsinline', '');
+        var pv = ov.querySelector('#mc-preview');
+        pv.appendChild(media); pv.classList.remove('hidden');
+      } catch (e) { srcUrl = null; }
+    }
+    var bar = ov.querySelector('#mc-bar'), prog = ov.querySelector('#mc-progress'), txt = ov.querySelector('#mc-txt'), send = ov.querySelector('#mc-send'), cancel = ov.querySelector('#mc-cancel');
+    var sending = false;
+    function setUI(busy) {
+      sending = busy;
+      send.disabled = busy; cancel.disabled = busy;
+      send.innerHTML = busy ? '<span class="material-symbols-outlined text-[20px] animate-spin">progress_activity</span>Enviando…' : '<span class="material-symbols-outlined text-[20px]">send</span>Enviar';
+      prog.classList.toggle('hidden', !busy);
+      ov.querySelector('#mc-close').style.pointerEvents = busy ? 'none' : '';
+      if (busy) { bar.style.width = '0%'; txt.textContent = 'Enviando… 0%'; }
+    }
+    function closeC() { cancelled = true; if (srcUrl) { try { URL.revokeObjectURL(srcUrl); } catch (e) {} } ov.remove(); try { if (focoAnterior && focoAnterior.focus) focoAnterior.focus(); } catch (e) {} if (opts.onClose) opts.onClose(); }
+    ov.querySelector('#mc-close').onclick = function () { if (!sending) closeC(); };
+    cancel.onclick = function () { if (!sending) closeC(); };
+    send.onclick = async function () {
+      if (sending) return;
+      var caption = (ov.querySelector('#mc-caption').value || '').trim() || null;
+      setUI(true);
+      var up = await G.uploadWithProgress(opts.path, file, file.type || undefined, function (frac) { var p = Math.round(frac * 100); if (bar) bar.style.width = p + '%'; if (txt) txt.textContent = (p >= 100 ? 'Finalizando…' : 'Enviando… ' + p + '%'); });
+      if (cancelled) return; // modal substituído/cancelado durante o upload: não envia
+      if (!up.ok) { if (G.toast) G.toast('Não consegui enviar. Verifique sua conexão e tente de novo.'); setUI(false); return; }
+      var url = G.sb.storage.from('comu-media').getPublicUrl(opts.path).data.publicUrl;
+      try {
+        var ok = await opts.onConfirm({ url: url, path: opts.path, caption: caption });
+        if (ok === false) { setUI(false); return; }
+        closeC();
+      } catch (e) {
+        if (G.toast) G.toast('Não foi possível enviar.');
+        setUI(false);
+      }
+    };
   };
   // ---- 1º acesso: criar senha (item #13). Campos VISÍVEIS + aviso de maiúscula. ----
   G.showSetPassword = function () {
@@ -565,7 +646,6 @@ GVSI.views = GVSI.views || {};
         btn.disabled = false; btn.textContent = 'Salvar e entrar';
       }
     });
-    try { nameEl.focus(); } catch (e) {}
   };
 
   // ---- Onboarding guiado: painel aberto, ilumina cada grupo de verdade (coach-marks) ----
@@ -660,7 +740,7 @@ GVSI.views = GVSI.views || {};
         return;
       }
       var so = e.target.closest && e.target.closest('[data-signout]');
-      if (so) { e.preventDefault(); (async function () { try { await G.sb.auth.signOut(); } catch (er) {} location.replace('/login'); })(); }
+      if (so && !e.defaultPrevented) { e.preventDefault(); (async function () { try { await G.sb.auth.signOut(); } catch (er) {} location.replace('/login'); })(); }
     });
     G.updateThemeIcons();
   }
@@ -720,7 +800,7 @@ GVSI.views = GVSI.views || {};
     var active = t.id === activeId;
     return '<a href="/chat/' + t.id + '" data-slug="' + t.id + '" class="topic-item flex items-center gap-md p-md rounded-xl transition-colors cursor-pointer ' +
       (active ? 'bg-surface-container-high' : 'hover:bg-surface-container-low') + '">' +
-      '<div class="w-12 h-12 rounded-full ' + tone.bg + ' flex items-center justify-center ' + tone.fg + ' shrink-0"><span class="material-symbols-outlined text-[24px]">' + t.icon + '</span></div>' +
+      '<div class="w-12 h-12 rounded-full ' + tone.bg + ' flex items-center justify-center ' + tone.fg + ' shrink-0"><span class="material-symbols-outlined text-[24px]">' + G.esc(t.icon) + '</span></div>' +
       '<div class="flex-1 min-w-0"><h3 class="font-bold text-on-surface truncate">' + G.esc(t.name) + '</h3><p class="topic-preview text-body-sm text-on-surface-variant truncate" data-desc="' + G.esc(t.desc) + '">' + (topicPreview(t.id) || G.esc(t.desc)) + '</p></div>' +
       '<div class="flex flex-col items-end gap-1 shrink-0 ml-1"><span class="topic-time text-[12px] text-on-surface-variant/80 tabular-nums whitespace-nowrap">' + topicTime(t.id) + '</span>' +
       '<span class="unread-badge hidden min-w-[24px] h-6 px-1.5 rounded-full bg-primary text-on-primary text-[13px] font-bold flex items-center justify-center">0</span></div></a>';
@@ -996,7 +1076,7 @@ GVSI.views = GVSI.views || {};
     if (a.target === '_blank' || a.hasAttribute('download') || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     var href = a.getAttribute('href');
     if (!href) return;
-    if (href.charAt(0) === '#') { e.preventDefault(); return; }               // âncora (ex.: #conquistas) — no-op
+    if (href.charAt(0) === '#') return;                                        // âncora (ex.: #conquistas): deixa o navegador rolar
     if (href.charAt(0) === '/' && href.charAt(1) !== '/') { e.preventDefault(); G.navigate(href); }  // rota interna
   });
 
