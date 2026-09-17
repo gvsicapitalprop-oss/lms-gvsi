@@ -56,8 +56,8 @@ GVSI.views = GVSI.views || {};
       var panel = document.createElement('div'); panel.className = 'w-full max-w-sm bg-surface-container-lowest rounded-2xl shadow-xl border border-outline-variant/40 p-lg space-y-md';
       panel.innerHTML = '<h3 class="font-headline-sm text-headline-sm text-on-surface">' + G.esc(opts.title || '') + '</h3>'
         + (opts.text ? '<p class="text-body-sm text-on-surface-variant">' + G.esc(opts.text) + '</p>' : '')
-        + '<input id="pd-input" type="' + (opts.type || 'text') + '" autocomplete="' + (opts.type === 'password' ? 'new-password' : 'off') + '" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" data-form-type="other" name="pd-field-' + Math.floor(Date.now() % 1e6) + '" class="w-full h-12 bg-surface-container-low border border-outline rounded-lg px-4 text-body-md text-on-surface focus:ring-2 focus:ring-primary/40 placeholder:text-on-surface-variant" placeholder="' + G.esc(opts.placeholder || '') + '" value="' + G.esc(opts.value || '') + '">'
-        + '<div class="flex gap-sm justify-end pt-sm"><button type="button" id="pd-cancel" class="h-11 px-4 rounded-lg text-on-surface-variant font-label-md hover:bg-surface-container-high">Cancelar</button><button type="button" id="pd-ok" class="h-11 px-5 rounded-lg bg-inverse-surface text-inverse-on-surface font-label-md active:scale-95 transition">' + G.esc(opts.ok || 'Salvar') + '</button></div>';
+        + '<input id="pd-input" type="' + (opts.type || 'text') + '" autocomplete="' + (opts.type === 'password' ? 'new-password' : 'off') + '" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" data-form-type="other" name="pd-field-' + Math.floor(Date.now() % 1e6) + '" class="w-full bg-surface-container-low border border-outline-variant rounded-xl px-3 py-2 text-body-md text-on-surface focus:ring-2 focus:ring-primary/30" placeholder="' + G.esc(opts.placeholder || '') + '" value="' + G.esc(opts.value || '') + '">'
+        + '<div class="flex gap-sm justify-end pt-sm"><button type="button" id="pd-cancel" class="h-10 px-4 rounded-full text-on-surface font-label-md hover:bg-surface-container-high">Cancelar</button><button type="button" id="pd-ok" class="h-10 px-4 rounded-full bg-primary text-on-primary font-label-md active:scale-95 transition">' + G.esc(opts.ok || 'Salvar') + '</button></div>';
       ov.appendChild(panel); document.body.appendChild(ov);
       var input = panel.querySelector('#pd-input');
       function done(v) { ov.remove(); document.removeEventListener('keydown', onKey); resolve(v); }
@@ -276,7 +276,7 @@ GVSI.views = GVSI.views || {};
       document.getElementById('confirm-title').textContent = opts.title || 'Confirmar?';
       document.getElementById('confirm-text').textContent = opts.text || '';
       var okBtn = document.getElementById('confirm-ok'); okBtn.textContent = opts.ok || 'Confirmar';
-      okBtn.className = 'h-11 px-5 rounded-lg font-label-md active:scale-95 transition ' + (opts.danger ? 'bg-error text-on-error' : 'bg-inverse-surface text-inverse-on-surface');
+      okBtn.className = 'h-10 px-4 rounded-full font-label-md active:scale-95 transition ' + (opts.danger ? 'bg-error text-on-error' : 'bg-primary text-on-primary');
       var cancelBtn = document.getElementById('confirm-cancel');
       modal.classList.remove('hidden'); modal.classList.add('flex');
       function close(v) { modal.classList.add('hidden'); modal.classList.remove('flex'); okBtn.onclick = null; cancelBtn.onclick = null; modal.onclick = null; resolve(v); }
@@ -313,7 +313,7 @@ GVSI.views = GVSI.views || {};
       }
       (opts.options || []).forEach(function (o) {
         var b = document.createElement('button'); b.type = 'button';
-        b.className = 'w-full text-left rounded-xl border p-md flex items-center gap-md transition active:scale-[0.99] ' +
+        b.className = 'w-full text-left rounded-2xl border p-md flex items-center gap-md transition active:scale-[0.99] ' +
           (o.danger ? 'border-error/30 bg-error/5 hover:bg-error/10' : 'border-outline-variant/60 bg-surface-container-low hover:bg-surface-container-high');
         var ic = o.icon ? '<span class="w-11 h-11 rounded-full flex items-center justify-center shrink-0 ' + (o.danger ? 'bg-error/15 text-error' : 'bg-primary/10 text-primary') + '"><span class="material-symbols-outlined text-[24px]">' + o.icon + '</span></span>' : '';
         var txt = '<span class="min-w-0 flex-1"><span class="block font-bold ' + (o.danger ? 'text-error' : 'text-on-surface') + '">' + G.esc(o.label) + '</span>' +
@@ -324,7 +324,7 @@ GVSI.views = GVSI.views || {};
       });
       sheet.appendChild(list);
       var cancel = document.createElement('button'); cancel.type = 'button';
-      cancel.className = 'w-full h-12 rounded-lg border border-outline text-on-surface font-bold active:scale-[0.99] transition hover:bg-surface-container-high';
+      cancel.className = 'w-full h-12 rounded-2xl border border-outline-variant text-on-surface font-bold active:scale-[0.99] transition hover:bg-surface-container-high';
       cancel.textContent = opts.cancel || 'Cancelar'; cancel.onclick = function () { close(null); };
       sheet.appendChild(cancel);
       overlay.appendChild(sheet); document.body.appendChild(overlay);
@@ -342,10 +342,10 @@ GVSI.views = GVSI.views || {};
     var wrap = document.createElement('div'); wrap.id = 'banned-screen';
     wrap.innerHTML =
       '<style>' +
-      '#banned-screen{position:fixed;inset:0;z-index:99999;background:#191c1f;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px 24px;font-family:"Nunito Sans",Inter,system-ui,sans-serif}' +
+      '#banned-screen{position:fixed;inset:0;z-index:99999;background:#0d244e;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px 24px;font-family:Inter,system-ui,sans-serif}' +
       '#banned-screen .blogo{height:42px;width:auto;margin-bottom:44px;opacity:.95}' +
       '#banned-screen .bic{width:92px;height:92px;border-radius:9999px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;margin-bottom:28px}' +
-      '#banned-screen .bic .material-symbols-outlined{font-size:46px;color:#ff9a77}' +
+      '#banned-screen .bic .material-symbols-outlined{font-size:46px;color:#9db8ff}' +
       '#banned-screen h1{color:#fff;font-weight:800;font-size:clamp(1.5rem,5vw,2.1rem);line-height:1.15;margin:0 0 12px;letter-spacing:-.01em}' +
       '#banned-screen p{color:rgba(255,255,255,.72);font-size:1.05rem;line-height:1.55;max-width:34rem;margin:0 auto;text-wrap:balance}' +
       '#banned-screen .bfoot{margin-top:36px;color:rgba(255,255,255,.45);font-size:.85rem}' +
@@ -798,12 +798,11 @@ GVSI.views = GVSI.views || {};
   function topicItemHtml(t, activeId) {
     var tone = TONES[t.tone] || TONES.primary;
     var active = t.id === activeId;
-    // ativo = bloco escuro com texto claro, como o item marcado do menu da Área de Membros
     return '<a href="/chat/' + t.id + '" data-slug="' + t.id + '" class="topic-item flex items-center gap-md p-md rounded-xl transition-colors cursor-pointer ' +
-      (active ? 'bg-inverse-surface' : 'hover:bg-surface-container-low') + '">' +
+      (active ? 'bg-surface-container-high' : 'hover:bg-surface-container-low') + '">' +
       '<div class="w-12 h-12 rounded-full ' + tone.bg + ' flex items-center justify-center ' + tone.fg + ' shrink-0"><span class="material-symbols-outlined text-[24px]">' + G.esc(t.icon) + '</span></div>' +
-      '<div class="flex-1 min-w-0"><h3 class="font-bold truncate ' + (active ? 'text-inverse-on-surface' : 'text-on-surface') + '">' + G.esc(t.name) + '</h3><p class="topic-preview text-body-sm truncate ' + (active ? 'text-inverse-on-surface/70' : 'text-on-surface-variant') + '" data-desc="' + G.esc(t.desc) + '">' + (topicPreview(t.id) || G.esc(t.desc)) + '</p></div>' +
-      '<div class="flex flex-col items-end gap-1 shrink-0 ml-1"><span class="topic-time text-[12px] tabular-nums whitespace-nowrap ' + (active ? 'text-inverse-on-surface/60' : 'text-on-surface-variant/80') + '">' + topicTime(t.id) + '</span>' +
+      '<div class="flex-1 min-w-0"><h3 class="font-bold text-on-surface truncate">' + G.esc(t.name) + '</h3><p class="topic-preview text-body-sm text-on-surface-variant truncate" data-desc="' + G.esc(t.desc) + '">' + (topicPreview(t.id) || G.esc(t.desc)) + '</p></div>' +
+      '<div class="flex flex-col items-end gap-1 shrink-0 ml-1"><span class="topic-time text-[12px] text-on-surface-variant/80 tabular-nums whitespace-nowrap">' + topicTime(t.id) + '</span>' +
       '<span class="unread-badge hidden min-w-[24px] h-6 px-1.5 rounded-full bg-primary text-on-primary text-[13px] font-bold flex items-center justify-center">0</span></div></a>';
   }
   var TOPIC_GROUPS = [
@@ -1024,13 +1023,13 @@ GVSI.views = GVSI.views || {};
     // botão flutuante "Tutorial": só nas telas calmas (home/perfil), pra não cobrir o Enviar
     var fab = document.getElementById('onb-fab');
     if (fab) { if (!fab._wired) { fab._wired = true; fab.addEventListener('click', function () { if (G.showOnboarding) G.showOnboarding(); }); } fab.style.display = (route.name === 'grupos' || route.name === 'perfil') ? 'flex' : 'none'; }
-    // tópico ativo na sidebar: re-renderiza (as cores do item ativo dependem do estado)
+    // tópico ativo na sidebar
     var activeSlug = route.name === 'chat' ? route.params.topico : '';
-    if (G._activeTopic !== activeSlug) {
-      G._activeTopic = activeSlug;
-      var _stl = document.getElementById('side-topics');
-      if (_stl) G.renderTopicList(_stl, activeSlug);
-    }
+    document.querySelectorAll('#side-topics .topic-item').forEach(function (a) {
+      var on = a.dataset.slug === activeSlug;
+      a.classList.toggle('bg-surface-container-high', on);
+      a.classList.toggle('hover:bg-surface-container-low', !on);
+    });
     // link do perfil na sidebar
     var pl = document.querySelector('[data-side-profile]');
     if (pl) pl.classList.toggle('bg-surface-container-high', route.name === 'perfil');
