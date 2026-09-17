@@ -6,94 +6,96 @@
 
 :root {
   color-scheme: light;
-  /* Cores dinâmicas (mudam no dark) */
-  --c-primary: 0 55 176;
+  /* Paleta da Área de Membros (Hotmart Club): marca laranja + escala de neutros.
+     --c-primary continua sendo a cor "da ação"; neutros seguem a referência. */
+  --c-primary: 240 78 35;               /* --brand #f04e23 */
   --c-on-primary: 255 255 255;
-  --c-primary-container: 29 78 216;
-  --c-on-primary-container: 202 211 255;
-  --c-inverse-primary: 183 196 255;
-  --c-secondary: 77 91 148;
+  --c-primary-container: 253 236 231;   /* --brand-lightest #fdece7 */
+  --c-on-primary-container: 197 49 10;  /* --brand-dark #c5310a */
+  --c-inverse-primary: 255 154 119;     /* --brand-link #ff9a77 */
+  --c-secondary: 38 98 184;             /* azul Programa Master Trader */
   --c-on-secondary: 255 255 255;
-  --c-secondary-container: 176 190 254;
-  --c-on-secondary-container: 61 76 131;
-  --c-tertiary: 127 37 0;
-  --c-on-tertiary: 255 255 255;
-  --c-tertiary-container: 167 52 0;
-  --c-on-tertiary-container: 255 201 183;
-  --c-error: 186 26 26;
+  --c-secondary-container: 233 240 250;
+  --c-on-secondary-container: 0 32 84;
+  --c-tertiary: 217 150 10;             /* dourado Construindo Riqueza */
+  --c-on-tertiary: 138 92 0;            /* par escuro do dourado (texto sobre ele) */
+  --c-tertiary-container: 251 243 221;
+  --c-on-tertiary-container: 138 92 0;
+  --c-error: 168 26 10;                 /* #a81a0a (erro da referência) */
   --c-on-error: 255 255 255;
-  --c-error-container: 255 218 214;
-  --c-on-error-container: 147 0 10;
-  --c-background: 250 248 255;
-  --c-on-background: 26 27 35;
-  --c-surface: 250 248 255;
-  --c-on-surface: 26 27 35;
-  --c-surface-variant: 226 225 237;
-  --c-on-surface-variant: 67 70 85;
-  --c-surface-bright: 250 248 255;
-  --c-surface-dim: 217 217 229;
+  --c-error-container: 255 240 240;
+  --c-on-error-container: 168 26 10;
+  --c-background: 255 255 255;          /* --n-0 */
+  --c-on-background: 50 54 59;          /* --n-700 */
+  --c-surface: 255 255 255;
+  --c-on-surface: 50 54 59;
+  --c-surface-variant: 230 233 237;     /* --n-200 */
+  --c-on-surface-variant: 112 119 128;  /* --n-500 */
+  --c-surface-bright: 255 255 255;
+  --c-surface-dim: 201 206 212;         /* --n-300 */
   --c-surface-container-lowest: 255 255 255;
-  --c-surface-container-low: 243 242 254;
-  --c-surface-container: 237 237 249;
-  --c-surface-container-high: 232 231 243;
-  --c-surface-container-highest: 226 225 237;
-  --c-inverse-surface: 46 48 57;
-  --c-inverse-on-surface: 240 240 251;
-  --c-outline: 116 118 134;
-  --c-outline-variant: 196 197 215;
-  --c-surface-tint: 33 81 218;
+  --c-surface-container-low: 247 249 250;    /* --n-100 */
+  --c-surface-container: 247 249 250;
+  --c-surface-container-high: 230 233 237;   /* --n-200 */
+  --c-surface-container-highest: 255 255 255;
+  --c-inverse-surface: 25 28 31;        /* --n-900 */
+  --c-inverse-on-surface: 255 255 255;
+  --c-outline: 158 164 172;             /* --n-400 */
+  --c-outline-variant: 230 233 237;     /* --n-200 */
+  --c-surface-tint: 240 78 35;
   /* Cores "fixed" (estáticas nos dois temas, por definição do Material 3) */
-  --c-primary-fixed: 220 225 255;
-  --c-primary-fixed-dim: 183 196 255;
-  --c-on-primary-fixed: 0 21 81;
-  --c-on-primary-fixed-variant: 0 57 181;
-  --c-secondary-fixed: 220 225 255;
-  --c-secondary-fixed-dim: 183 196 255;
-  --c-on-secondary-fixed: 3 22 77;
-  --c-on-secondary-fixed-variant: 53 67 123;
-  --c-tertiary-fixed: 255 219 207;
-  --c-tertiary-fixed-dim: 255 181 156;
-  --c-on-tertiary-fixed: 57 12 0;
-  --c-on-tertiary-fixed-variant: 131 39 0;
+  --c-primary-fixed: 255 219 207;
+  --c-primary-fixed-dim: 255 181 156;
+  --c-on-primary-fixed: 57 12 0;
+  --c-on-primary-fixed-variant: 131 39 0;
+  --c-secondary-fixed: 220 232 252;
+  --c-secondary-fixed-dim: 166 200 239;
+  --c-on-secondary-fixed: 0 32 84;
+  --c-on-secondary-fixed-variant: 0 69 152;
+  --c-tertiary-fixed: 253 238 198;
+  --c-tertiary-fixed-dim: 236 203 109;
+  --c-on-tertiary-fixed: 46 30 0;
+  --c-on-tertiary-fixed-variant: 105 69 0;
 }
 
 .dark {
   color-scheme: dark;
-  --c-primary: 183 196 255;
-  --c-on-primary: 0 42 108;
-  --c-primary-container: 0 57 181;
-  --c-on-primary-container: 220 225 255;
-  --c-inverse-primary: 0 55 176;
-  --c-secondary: 176 190 254;
-  --c-on-secondary: 31 45 97;
-  --c-secondary-container: 53 67 123;
-  --c-on-secondary-container: 220 225 255;
-  --c-tertiary: 255 181 156;
-  --c-on-tertiary: 92 25 0;
-  --c-tertiary-container: 131 39 0;
-  --c-on-tertiary-container: 255 219 207;
-  --c-error: 255 180 171;
-  --c-on-error: 105 0 5;
-  --c-error-container: 147 0 10;
-  --c-on-error-container: 255 218 214;
-  --c-background: 18 19 24;
-  --c-on-background: 227 225 233;
-  --c-surface: 18 19 24;
-  --c-on-surface: 227 225 233;
-  --c-surface-variant: 69 70 79;
-  --c-on-surface-variant: 196 197 215;
-  --c-surface-bright: 56 57 63;
-  --c-surface-dim: 18 19 24;
-  --c-surface-container-lowest: 12 13 17;
-  --c-surface-container-low: 26 27 35;
-  --c-surface-container: 30 31 39;
-  --c-surface-container-high: 41 42 50;
-  --c-surface-container-highest: 51 53 61;
-  --c-inverse-surface: 227 225 233;
-  --c-inverse-on-surface: 46 48 57;
-  --c-outline: 142 144 158;
-  --c-outline-variant: 68 70 85;
-  --c-surface-tint: 183 196 255;
+  /* Escuro da referência: neutros invertem; a marca continua laranja nas ações. */
+  --c-primary: 240 78 35;
+  --c-on-primary: 255 255 255;
+  --c-primary-container: 58 26 18;      /* --brand-lightest escuro #3a1a12 */
+  --c-on-primary-container: 255 180 166;
+  --c-inverse-primary: 240 78 35;
+  --c-secondary: 143 182 238;           /* --brand-link do PMT */
+  --c-on-secondary: 0 32 84;
+  --c-secondary-container: 18 35 60;    /* #12233c */
+  --c-on-secondary-container: 166 200 239;
+  --c-tertiary: 238 207 111;            /* --brand-link do CR */
+  --c-on-tertiary: 46 30 0;
+  --c-tertiary-container: 58 47 20;     /* #3a2f14 */
+  --c-on-tertiary-container: 236 203 109;
+  --c-error: 255 180 166;
+  --c-on-error: 58 26 23;
+  --c-error-container: 58 26 23;        /* #3a1a17 */
+  --c-on-error-container: 255 199 188;
+  --c-background: 20 23 26;             /* --n-0 escuro #14171a */
+  --c-on-background: 221 227 232;       /* --n-700 escuro */
+  --c-surface: 20 23 26;
+  --c-on-surface: 221 227 232;
+  --c-surface-variant: 42 48 55;        /* --n-200 escuro #2a3037 */
+  --c-on-surface-variant: 152 163 173;  /* --n-500 escuro */
+  --c-surface-bright: 59 68 77;
+  --c-surface-dim: 20 23 26;
+  --c-surface-container-lowest: 20 23 26;
+  --c-surface-container-low: 27 31 35;      /* --n-100 escuro #1b1f23 */
+  --c-surface-container: 27 31 35;
+  --c-surface-container-high: 42 48 55;     /* --n-200 escuro */
+  --c-surface-container-highest: 59 68 77;  /* --n-300 escuro */
+  --c-inverse-surface: 244 247 249;     /* --n-900 escuro: vira claro */
+  --c-inverse-on-surface: 25 28 31;
+  --c-outline: 107 118 129;
+  --c-outline-variant: 59 68 77;
+  --c-surface-tint: 255 154 119;
 }
 
 /* ---- Ícones (Material Symbols) ---- */
@@ -120,20 +122,20 @@ html {
   background-color: rgb(var(--c-background)); /* evita flash branco antes do Tailwind carregar */
 }
 body {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Nunito Sans', 'Inter', sans-serif;
   min-height: 100dvh;
   font-size: calc(18px * var(--fs, 1)); /* base legível p/ público 70+: texto sem classe de tamanho herda isso; escala com o controle de tamanho (--fs) */
 }
 
 /* ---- Balão de mensagem enviada (reutilizado quando houver mensagens reais) ---- */
 .message-gradient-outgoing {
-  background: linear-gradient(135deg, #004ac6 0%, #2563eb 100%);
+  background: linear-gradient(135deg, #f04e23 0%, #c5310a 100%);
 }
 
 /* ---- Scrollbars ---- */
 .custom-scrollbar::-webkit-scrollbar { width: 6px; }
 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background: #d3e4fe; border-radius: 10px; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #c9ced4; border-radius: 10px; }
 .dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #33353d; }
 .hide-scrollbar::-webkit-scrollbar { display: none; }
 .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -150,8 +152,8 @@ body {
 #chat-scroll { scrollbar-width: auto; }
 #chat-scroll::-webkit-scrollbar { width: 12px; }
 #chat-scroll::-webkit-scrollbar-track { background: transparent; }
-#chat-scroll::-webkit-scrollbar-thumb { background: #9db8ff; border-radius: 10px; border: 3px solid transparent; background-clip: padding-box; min-height: 40px; }
-#chat-scroll::-webkit-scrollbar-thumb:hover { background: #6f93ff; }
+#chat-scroll::-webkit-scrollbar-thumb { background: #c9ced4; border-radius: 10px; border: 3px solid transparent; background-clip: padding-box; min-height: 40px; }
+#chat-scroll::-webkit-scrollbar-thumb:hover { background: #9ea4ac; }
 .dark #chat-scroll::-webkit-scrollbar-thumb { background: #4a4d57; border: 3px solid transparent; background-clip: padding-box; }
 .dark #chat-scroll::-webkit-scrollbar-thumb:hover { background: #5c606c; }
 
@@ -170,7 +172,7 @@ body {
 .dark .glass-card { background: rgba(30, 31, 39, 0.7); }
 
 /* ---- Seleção de mídia ---- */
-.active-media-ring { outline: 3px solid #004ac6; outline-offset: 2px; }
+.active-media-ring { outline: 3px solid #f04e23; outline-offset: 2px; }
 
 /* ---- Animações ---- */
 @keyframes slideInFromRight {

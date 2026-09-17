@@ -11,7 +11,7 @@
 <link rel="icon" type="image/png" href="assets/favicon.png">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 <link rel="manifest" href="/manifest.json">
-<meta name="theme-color" content="#0d244e">
+<meta name="theme-color" content="#191c1f">
 <meta name="description" content="Comunidade do Giovanni | converse, tire dúvidas e acompanhe os avisos.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Comunidade do Giovanni">
@@ -34,23 +34,23 @@
 <script>(function(){try{var d=document.documentElement;var w=parseInt(localStorage.getItem('gvsi-side-w'),10);if(w>=260&&w<=560)d.style.setProperty('--side-w',w+'px');var f=parseFloat(localStorage.getItem('gvsi-fs'));if(f>=0.9&&f<=1.3)d.style.setProperty('--fs',f);}catch(e){}})();</script>
 <!-- Anti-flash: esconde a tela atrás de um splash até fontes+estilos prontos, e revela tudo de uma vez -->
 <style id="gvsi-boot">
-html.gvsi-loading{background:#faf8ff}
-html.dark.gvsi-loading{background:#121318}
+html.gvsi-loading{background:#ffffff}
+html.dark.gvsi-loading{background:#14171a}
 html.gvsi-loading body{visibility:hidden}
-#gvsi-splash{position:fixed;inset:0;z-index:2147483000;display:none;align-items:center;justify-content:center;background:#faf8ff}
-html.dark #gvsi-splash{background:#121318}
+#gvsi-splash{position:fixed;inset:0;z-index:2147483000;display:none;align-items:center;justify-content:center;background:#ffffff}
+html.dark #gvsi-splash{background:#14171a}
 html.gvsi-loading #gvsi-splash{display:flex;visibility:visible}
-#gvsi-splash .r{width:40px;height:40px;border-radius:50%;border:3px solid rgba(13,36,78,.15);border-top-color:#0d244e;animation:gvsi-rot .8s linear infinite}
-html.dark #gvsi-splash .r{border-color:rgba(157,184,255,.22);border-top-color:#9db8ff}
+#gvsi-splash .r{width:40px;height:40px;border-radius:50%;border:3px solid rgba(240,78,35,.18);border-top-color:#f04e23;animation:gvsi-rot .8s linear infinite}
+html.dark #gvsi-splash .r{border-color:rgba(255,154,119,.22);border-top-color:#ff9a77}
 @keyframes gvsi-rot{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){#gvsi-splash .r{animation:none}}
 </style>
 <script>(function(){var el=document.documentElement;el.classList.add('gvsi-loading');var done=false;function reveal(){if(done)return;done=true;el.classList.remove('gvsi-loading');}var fp=(document.fonts&&document.fonts.ready)?document.fonts.ready:Promise.resolve();var cp=new Promise(function(res){window.__gvsiContentReady=res;if(document.readyState==='complete')res();else addEventListener('load',res);});Promise.all([fp,cp]).then(reveal);setTimeout(reveal,2500);})();</script>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <script src="assets/tailwind-config.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@300;400;600;700;800&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/app.css?v=3">
+<link rel="stylesheet" href="assets/app.css?v=4">
 </head>
 <body class="bg-background text-on-background font-body-md min-h-screen">
 <div id="gvsi-splash" aria-hidden="true"><span class="r"></span></div>
@@ -82,14 +82,14 @@ html.dark #gvsi-splash .r{border-color:rgba(157,184,255,.22);border-top-color:#9
 <!-- Região de conteúdo — trocada pelo roteador (sem recarregar) -->
 <div id="view" class="min-h-screen"></div>
 
-<!-- Modal de confirmação -->
+<!-- Modal de confirmação (estilo da Área de Membros: painel branco, borda fina, botão principal escuro) -->
 <div id="confirm-modal" class="hidden fixed inset-0 z-[90] items-center justify-center p-container-margin bg-black/40">
-<div class="w-full max-w-xs bg-surface-container-lowest rounded-2xl shadow-xl border border-outline-variant/40 p-lg space-y-md">
+<div class="w-full max-w-xs bg-surface-container-lowest rounded-xl shadow-lg border border-outline-variant/70 p-lg space-y-md">
 <h3 id="confirm-title" class="font-headline-sm text-headline-sm text-on-surface">Confirmar?</h3>
 <p id="confirm-text" class="text-body-sm text-on-surface-variant"></p>
 <div class="flex gap-sm justify-end pt-sm">
-<button type="button" id="confirm-cancel" class="h-10 px-4 rounded-full text-on-surface font-label-md hover:bg-surface-container-high transition">Cancelar</button>
-<button type="button" id="confirm-ok" class="h-10 px-4 rounded-full bg-primary text-on-primary font-label-md active:scale-95 transition">Confirmar</button>
+<button type="button" id="confirm-cancel" class="h-11 px-4 rounded-lg text-on-surface-variant font-label-md hover:bg-surface-container-high transition">Cancelar</button>
+<button type="button" id="confirm-ok" class="h-11 px-5 rounded-lg font-label-md active:scale-95 transition">Confirmar</button>
 </div>
 </div>
 </div>

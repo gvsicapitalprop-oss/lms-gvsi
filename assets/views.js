@@ -1518,7 +1518,7 @@
         var supportTopicId = topicRes.data.id;
         if (me.id) { sb.from('comu_topic_reads').upsert({ topic_id: supportTopicId, user_id: me.id, last_read_at: new Date().toISOString() }, { onConflict: 'topic_id,user_id' }).then(function () { if (G.applyUnread) G.applyUnread(); }, function () {}); }
         // ---- tags de contato ----
-        var TAG_COLORS = ['#2563eb', '#16a34a', '#ea580c', '#dc2626', '#7c3aed', '#0d244e', '#0891b2', '#db2777'];
+        var TAG_COLORS = ['#2563eb', '#16a34a', '#ea580c', '#dc2626', '#7c3aed', '#f04e23', '#0891b2', '#db2777'];
         async function loadTags() {
           var t = await sb.from('comu_support_tags').select('*').order('created_at');
           var c = await sb.from('comu_support_contact_tags').select('user_id,tag_id');
