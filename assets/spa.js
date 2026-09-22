@@ -830,7 +830,7 @@ GVSI.views = GVSI.views || {};
     { title: 'Ajuda', slugs: ['suporte'] },
     { title: 'Exclusivos', slugs: ['construindo-riqueza', 'sala-ao-vivo'] },
     { title: 'Conversas', slugs: ['prints', 'geral', 'resultados'] },
-    { title: 'Publicações do Giovanni', slugs: ['tutoriais', 'recados', 'desafio', 'arquivos'] }
+    { title: 'Publicações do Giovanni', slugs: ['tutoriais', 'recados', 'arquivos'] }
   ];
   function groupHeaderHtml(title) {
     return '<div class="topic-group-header px-md pt-md pb-xs text-label-md font-label-md text-on-surface-variant/80 uppercase tracking-wide">' + G.esc(title) + '</div>';
@@ -903,7 +903,9 @@ GVSI.views = GVSI.views || {};
   // Assim o banner nunca promete um menu que ainda não chegou.
   G.hasSala = function () { return (G.topics || []).some(function (t) { return t.id === 'sala-ao-vivo'; }); };
   // Balão flutuante do Desafio (aparece em qualquer tela, só para participantes)
+  G.CHALLENGE_ON = false; // Desafio encerrado: esconde balão e aviso de vencedores
   G.setupChallengeFab = async function () {
+    if (!G.CHALLENGE_ON) return;
     if (!G.sb || !G.me || document.getElementById('challenge-fab')) return;
     var r;
     try { r = await G.sb.rpc('comu_challenge_for_me'); } catch (e) { return; }
@@ -953,6 +955,7 @@ GVSI.views = GVSI.views || {};
   // Aviso de tela para quem fechou o desafio. Uma vez por aparelho (localStorage);
   // se o armazenamento estiver bloqueado, mostra assim mesmo (melhor repetir do que sumir).
   G.challengeWinModal = function (nDias) {
+    if (!G.CHALLENGE_ON) return;
     var JA = 'gvsi-chal-venceu-v1';
     try { if (localStorage.getItem(JA) === '1') return; } catch (e) {}
     if (document.getElementById('chal-win')) return;
