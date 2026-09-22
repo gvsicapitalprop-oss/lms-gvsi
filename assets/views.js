@@ -1865,7 +1865,9 @@
           var legenda = msg.body ? '<p class="font-body-md mt-xs whitespace-pre-wrap break-words ' + (mine ? '' : 'text-on-surface') + '">' + G.fmt(msg.body, isAgent) + edited + '</p>' : '';
           if (msg.kind === 'image' && msg.media_url) return quote + '<img src="' + esc(msg.media_url) + '" data-full="' + esc(msg.media_url) + '" class="sup-img rounded-lg max-w-full cursor-zoom-in">' + legenda;
           if (msg.kind === 'video' && msg.media_url) return quote + G.videoHtml(msg.media_url) + legenda;
-          if (msg.kind === 'audio' && msg.media_url) return quote + G.audioHtml(msg.media_url, mine, msg.media_meta && msg.media_meta.duration) + supTranscript(msg);
+          if (msg.kind === 'audio' && msg.media_url) return quote + (msg.media_meta && msg.media_meta.forwarded ? '<p class="text-[11px] italic opacity-70 mb-xs flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">forward</span>Encaminhado</p>' : '') + G.audioHtml(msg.media_url, mine, msg.media_meta && msg.media_meta.duration) + supTranscript(msg) +
+            '<div class="flex gap-1 mt-xs ' + (mine ? 'justify-end' : '') + '"><button type="button" class="aud-dl flex items-center gap-1 px-2 h-7 rounded-full text-[12px] opacity-80 hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/10" data-id="' + esc(msg.id) + '" title="Baixar áudio"><span class="material-symbols-outlined text-[16px]">download</span>Baixar</button>' +
+            '<button type="button" class="aud-fw flex items-center gap-1 px-2 h-7 rounded-full text-[12px] opacity-80 hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/10" data-id="' + esc(msg.id) + '" title="Encaminhar áudio"><span class="material-symbols-outlined text-[16px]">forward</span>Encaminhar</button></div>';
           if (msg.kind === 'file' && msg.media_url) return quote + G.fileCard(msg, mine) + legenda;
           return quote + '<p class="font-body-md whitespace-pre-wrap break-words ' + (mine ? '' : 'text-on-surface') + '">' + G.fmt(msg.body || '', isAgent) + edited + '</p>';
         }
@@ -1887,7 +1889,62 @@
           var ci = document.getElementById('convo-input'); if (ci) ci.focus();
         }
         function clearSupReply() { self.supReply = null; var bar = document.getElementById('convo-reply-bar'); if (bar) bar.classList.add('hidden'); }
-        function supItems(id) { var m = self.msgById[id]; if (!m) return []; var mine = m.author_id === me.id; var items = [{ icon: 'reply', label: 'Responder', run: function () { startSupReply(id); } }, { icon: 'add_reaction', label: 'Reagir', run: function () { var b = document.querySelector('#convo-messages [data-msg-id="' + id + '"] .sup-bubble'); openSupPicker(b || document.body, id); } }]; if (mine && m.kind === 'text') items.push({ icon: 'edit', label: 'Editar', run: function () { startEditSup(id); } }); items.push({ icon: 'delete', label: 'Apagar', danger: true, run: function () { doDeleteSup(id); } }); return items; }
+        // Baixa a mídia com nome legível (o atributo download não vale para outro domínio, então busca o blob)
+        async function downloadSupMedia(m) {
+          var url = m.media_url; if (!url) return;
+          var ext = ((m.media_meta && m.media_meta.name) || url.split('?')[0]).split('.').pop().toLowerCase();
+          if (!/^[a-z0-9]{2,5}$/.test(ext)) ext = 'webm';
+          var quem = ((m.author_name || 'audio') + '').replace(/[^\wÀ-ſ -]/g, '').trim().replace(/\s+/g, '-') || 'audio';
+          var d = new Date(m.created_at || Date.now()), pad = function (n) { return (n < 10 ? '0' : '') + n; };
+          var nome = 'audio-' + quem + '-' + d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + '-' + pad(d.getHours()) + pad(d.getMinutes()) + '.' + ext;
+          try {
+            var resp = await fetch(url); if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            var blob = await resp.blob(), obj = URL.createObjectURL(blob), a = document.createElement('a');
+            a.href = obj; a.download = nome; document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(function () { URL.revokeObjectURL(obj); }, 4000);
+          } catch (e) { window.open(url, '_blank', 'noopener'); }
+        }
+        // Encaminha o áudio para outro atendimento em aberto (reaproveita o mesmo arquivo, sem novo upload)
+        function forwardSupAudio(m) {
+          var ov = document.createElement('div');
+          ov.className = 'fixed inset-0 z-[80] flex items-center justify-center p-container-margin bg-black/40';
+          ov.innerHTML = '<div class="w-full max-w-md bg-surface-container-lowest rounded-2xl shadow-xl border border-outline-variant/40 p-lg flex flex-col gap-sm max-h-[80vh]">' +
+            '<div class="flex items-center justify-between"><h3 class="font-headline-sm text-headline-sm text-on-surface flex items-center gap-2"><span class="material-symbols-outlined text-primary">forward</span>Encaminhar áudio</h3><button type="button" class="fw-x w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high"><span class="material-symbols-outlined">close</span></button></div>' +
+            '<input type="search" class="fw-q w-full h-10 rounded-full border border-outline-variant bg-surface-container-low px-4 text-body-md text-on-surface" placeholder="Buscar por nome, e-mail ou protocolo">' +
+            '<p class="text-[12px] text-on-surface-variant">Só aparecem conversas em aberto.</p>' +
+            '<div class="fw-list flex-1 min-h-0 overflow-y-auto custom-scrollbar divide-y divide-outline-variant/20"><p class="py-4 text-center text-body-sm text-on-surface-variant">Carregando…</p></div></div>';
+          document.body.appendChild(ov);
+          function close() { ov.remove(); }
+          ov.querySelector('.fw-x').onclick = close;
+          ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
+          var rows = [], busy = false, box = ov.querySelector('.fw-list'), qi = ov.querySelector('.fw-q');
+          function render() {
+            var q = G.deburr((qi.value || '').trim());
+            var vis = rows.filter(function (t) { if (!q) return true; var mb = t.member || {}; return G.deburr([mb.full_name, mb.email, t.protocol].join(' ')).indexOf(q) >= 0; });
+            if (!vis.length) { box.innerHTML = '<p class="py-4 text-center text-body-sm text-on-surface-variant">Nenhuma conversa encontrada.</p>'; return; }
+            box.innerHTML = vis.slice(0, 100).map(function (t) { var mb = t.member || {}; return '<button type="button" data-tk="' + t.id + '" class="w-full text-left flex items-center gap-md p-sm hover:bg-surface-container-low"><span class="flex-1 min-w-0"><span class="block font-bold text-on-surface text-body-sm truncate">' + esc(mb.full_name || 'Membro') + '</span><span class="block text-[12px] text-on-surface-variant truncate">' + esc(t.protocol || '') + ' · ' + statusLabel(t.status) + (mb.email ? ' · ' + esc(mb.email) : '') + '</span></span><span class="material-symbols-outlined text-primary">send</span></button>'; }).join('');
+            box.querySelectorAll('[data-tk]').forEach(function (b) { b.onclick = function () { var t = rows.filter(function (x) { return x.id === b.getAttribute('data-tk'); })[0]; if (t) enviar(t); }; });
+          }
+          async function enviar(t) {
+            if (busy) return; busy = true;
+            var nome = (t.member && t.member.full_name) || 'Membro';
+            var meta = Object.assign({}, m.media_meta || {}, { forwarded: true });
+            var ins = await sb.from('comu_messages').insert({ topic_id: supportTopicId, author_id: me.id, ticket_id: t.id, kind: 'audio', body: null, media_url: m.media_url, media_meta: meta, author_name: me.full_name || 'Suporte', author_avatar: me.avatar_url || null }).select().single();
+            busy = false;
+            if (ins.error) { G.toast('Erro ao encaminhar: ' + ins.error.message); return; }
+            close(); G.toast('Áudio encaminhado para ' + nome + '.');
+            if (!self.destroyed && self.currentTicket && self.currentTicket.id === t.id) { addMsg(ins.data); scrollConvo(); }
+            loadTickets();
+          }
+          qi.addEventListener('input', render);
+          (async function () {
+            var r = await sb.from('comu_support_tickets').select('id,protocol,status,last_message_at, member:lms_students!user_id(full_name,email)').in('status', ['aberto', 'aguardando']).order('last_message_at', { ascending: false }).limit(500);
+            if (!ov.isConnected) return;
+            if (r.error) { box.innerHTML = '<p class="py-4 text-center text-body-sm text-error">' + esc(r.error.message) + '</p>'; return; }
+            rows = (r.data || []).filter(function (t) { return t.id !== m.ticket_id; }); render(); qi.focus();
+          })();
+        }
+        function supItems(id) { var m = self.msgById[id]; if (!m) return []; var mine = m.author_id === me.id; var items = [{ icon: 'reply', label: 'Responder', run: function () { startSupReply(id); } }, { icon: 'add_reaction', label: 'Reagir', run: function () { var b = document.querySelector('#convo-messages [data-msg-id="' + id + '"] .sup-bubble'); openSupPicker(b || document.body, id); } }]; if (m.kind === 'audio' && m.media_url) { items.push({ icon: 'download', label: 'Baixar áudio', run: function () { downloadSupMedia(m); } }); items.push({ icon: 'forward', label: 'Encaminhar', run: function () { forwardSupAudio(m); } }); } if (mine && m.kind === 'text') items.push({ icon: 'edit', label: 'Editar', run: function () { startEditSup(id); } }); items.push({ icon: 'delete', label: 'Apagar', danger: true, run: function () { doDeleteSup(id); } }); return items; }
         function bindSupActions(bubble, id) { bubble.addEventListener('contextmenu', function (e) { e.preventDefault(); openSupMenu(e.clientX, e.clientY, supItems(id)); }); var lpT = null, lx = 0, ly = 0, mv = false; bubble.addEventListener('touchstart', function (e) { if (!e.touches[0]) return; mv = false; lx = e.touches[0].clientX; ly = e.touches[0].clientY; lpT = setTimeout(function () { if (!mv) openSupMenu(lx, ly, supItems(id)); }, 500); }, { passive: true }); bubble.addEventListener('touchmove', function (e) { if (e.touches[0] && (Math.abs(e.touches[0].clientX - lx) > 10 || Math.abs(e.touches[0].clientY - ly) > 10)) { mv = true; if (lpT) { clearTimeout(lpT); lpT = null; } } }, { passive: true }); ['touchend', 'touchcancel'].forEach(function (ev) { bubble.addEventListener(ev, function () { if (lpT) { clearTimeout(lpT); lpT = null; } }); }); }
         function updateMsgSup(msg) { if (!msg || !msg.id) return; self.msgById[msg.id] = msg; var bubble = document.querySelector('#convo-messages [data-msg-id="' + msg.id + '"] .sup-bubble'); if (bubble) { bubble.innerHTML = contentHtml(msg); G.mountAudios(bubble); } }
         function addMsg(msg) {
@@ -2061,6 +2118,7 @@
           } catch (e) {}
         }
         async function openTicket(tk) {
+          if (supRec.on && supRec.tk !== tk) { supCancelRec(); G.toast('Áudio descartado: você trocou de conversa.'); }
           self.editingDraft = null;
           self.currentTicket = tk; self.seen = Object.create(null);
           document.getElementById('convo-empty').classList.add('hidden'); var cm = document.getElementById('convo-main'); cm.classList.remove('hidden'); cm.classList.add('flex');
@@ -2077,6 +2135,7 @@
           self.imTyping = false; if (self.updateMyPresence) self.updateMyPresence();
         }
         function closeConvo() {
+          if (supRec.on) { supCancelRec(); G.toast('Áudio descartado.'); }
           clearAiDraft(); self.editingDraft = null;
           if (self.convoChannel) { try { sb.removeChannel(self.convoChannel); } catch (e) {} self.convoChannel = null; }
           self.currentTicket = null; self.imTyping = false; if (self.updateMyPresence) self.updateMyPresence();
@@ -2098,22 +2157,25 @@
         });
         function convoGrow() { var ci = document.getElementById('convo-input'); if (!ci) return; ci.style.height = 'auto'; ci.style.height = Math.min(ci.scrollHeight, 200) + 'px'; }
         (function () { var ci = document.getElementById('convo-input'); if (ci) { ci.addEventListener('input', convoGrow); ci.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); var f = document.getElementById('convo-form'); if (f && f.requestSubmit) f.requestSubmit(); else if (f) f.dispatchEvent(new Event('submit', { cancelable: true })); } }); } })();
-        async function sendMedia(file, kind) {
-          if (!file || !self.currentTicket) return;
-          if (['aberto', 'aguardando'].indexOf(self.currentTicket.status) < 0) { G.toast('Conversa finalizada. Não dá pra enviar aqui.'); return; }
+        // tk = conversa de destino, fixada ANTES de qualquer await. Antes o ticket era lido de
+        // self.currentTicket depois do upload, e trocar de conversa no meio mandava a mídia pra outra pessoa.
+        async function sendMedia(file, kind, tk) {
+          tk = tk || self.currentTicket;
+          if (!file || !tk) return;
+          if (['aberto', 'aguardando'].indexOf(tk.status) < 0) { G.toast('Conversa finalizada. Não dá pra enviar aqui.'); return; }
           var ext = (file.name.split('.').pop() || (kind === 'image' ? 'jpg' : kind === 'video' ? 'mp4' : 'm4a')).toLowerCase();
-          var path = 'suporte/' + self.currentTicket.id + '/' + Date.now() + '.' + ext;
+          var path = 'suporte/' + tk.id + '/' + Date.now() + '.' + ext;
           var up = await sb.storage.from('comu-media').upload(path, file, { upsert: true, contentType: file.type || undefined });
           if (up.error) { G.toast('Erro no upload: ' + up.error.message); return; }
           var url = sb.storage.from('comu-media').getPublicUrl(path).data.publicUrl;
           // O que estiver escrito na caixa vira legenda da mídia, como no WhatsApp. Antes o
           // texto ficava preso na caixa e a foto ia sozinha, sem legenda nenhuma.
-          var ci = document.getElementById('convo-input');
+          var ci = self.currentTicket === tk ? document.getElementById('convo-input') : null;
           var legenda = ci && ci.value ? ci.value.trim() : '';
-          var ins = await sb.from('comu_messages').insert({ topic_id: supportTopicId, author_id: me.id, ticket_id: self.currentTicket.id, kind: kind, body: legenda || null, media_url: url, media_meta: { name: file.name, size: file.size, mime: file.type }, author_name: me.full_name || 'Suporte', author_avatar: me.avatar_url || null }).select().single();
+          var ins = await sb.from('comu_messages').insert({ topic_id: supportTopicId, author_id: me.id, ticket_id: tk.id, kind: kind, body: legenda || null, media_url: url, media_meta: { name: file.name, size: file.size, mime: file.type }, author_name: me.full_name || 'Suporte', author_avatar: me.avatar_url || null }).select().single();
           if (ins.error) { G.toast('Erro ao enviar: ' + ins.error.message); return; }
           if (legenda && ci) { ci.value = ''; convoGrow(); }
-          addMsg(ins.data); scrollConvo();
+          if (!self.destroyed && self.currentTicket === tk) { addMsg(ins.data); scrollConvo(); }
         }
         // confirmar antes de enviar (arrastar/colar/botão de anexo) + barra de progresso.
         // A gravação de voz continua usando sendMedia, porque já tem o próprio fluxo de confirmação.
@@ -2137,7 +2199,7 @@
         }
         document.getElementById('convo-attach').addEventListener('click', function () { document.getElementById('convo-file-media').click(); });
         document.getElementById('convo-emoji').addEventListener('click', function (e) { e.stopPropagation(); G.emojiPicker(this, document.getElementById('convo-input'), false); });
-        (function () { var cms = document.getElementById('convo-messages'); if (cms) cms.addEventListener('click', function (e) { if (!e.target || !e.target.closest) return; var im = e.target.closest('.sup-img'); if (im) { G.lightbox(im.getAttribute('data-full') || im.getAttribute('src')); return; } var ve = e.target.closest('.vid-expand'); if (ve) { e.preventDefault(); G.lightbox(ve.getAttribute('data-full'), { video: true }); return; } var rq = e.target.closest('.reply-quote'); if (rq) { var t = cms.querySelector('[data-msg-id="' + rq.getAttribute('data-goto') + '"]'); if (t) { t.scrollIntoView({ behavior: 'smooth', block: 'center' }); t.style.transition = 'background-color .3s'; t.style.backgroundColor = 'rgba(37,99,235,0.15)'; setTimeout(function () { t.style.backgroundColor = ''; }, 900); } } }); })();
+        (function () { var cms = document.getElementById('convo-messages'); if (cms) cms.addEventListener('click', function (e) { if (!e.target || !e.target.closest) return; var adl = e.target.closest('.aud-dl'), afw = e.target.closest('.aud-fw'); if (adl || afw) { var am = self.msgById[(adl || afw).getAttribute('data-id')]; if (am) { if (adl) downloadSupMedia(am); else forwardSupAudio(am); } return; } var im = e.target.closest('.sup-img'); if (im) { G.lightbox(im.getAttribute('data-full') || im.getAttribute('src')); return; } var ve = e.target.closest('.vid-expand'); if (ve) { e.preventDefault(); G.lightbox(ve.getAttribute('data-full'), { video: true }); return; } var rq = e.target.closest('.reply-quote'); if (rq) { var t = cms.querySelector('[data-msg-id="' + rq.getAttribute('data-goto') + '"]'); if (t) { t.scrollIntoView({ behavior: 'smooth', block: 'center' }); t.style.transition = 'background-color .3s'; t.style.backgroundColor = 'rgba(37,99,235,0.15)'; setTimeout(function () { t.style.backgroundColor = ''; }, 900); } } }); })();
         // arrastar/soltar ou colar imagem no atendimento (imagem passa pelo editor de pré-envio)
         (function () {
           var ci = document.getElementById('convo-input'), main = document.getElementById('convo-main');
@@ -2169,7 +2231,7 @@
           if (!navigator.mediaDevices || !window.MediaRecorder) { G.toast('Gravação não é suportada neste navegador.'); return; }
           try { supRec.stream = await navigator.mediaDevices.getUserMedia({ audio: true }); } catch (e) { G.toast('Não foi possível acessar o microfone. Permita o acesso.'); return; }
           if (self.destroyed) { supStopStream(); return; }
-          supRec.mime = supPickMime(); supRec.chunks = []; supRec.paused = false;
+          supRec.mime = supPickMime(); supRec.chunks = []; supRec.paused = false; supRec.tk = self.currentTicket;
           try { supRec.mr = new MediaRecorder(supRec.stream, supRec.mime ? { mimeType: supRec.mime } : undefined); } catch (e) { supRec.mr = new MediaRecorder(supRec.stream); }
           supRec.mr.ondataavailable = function (ev) { if (ev.data && ev.data.size) supRec.chunks.push(ev.data); };
           supRec.mr.start(1000); supRec.secs = 0; supRecTime();
@@ -2200,7 +2262,7 @@
             if (!supRec.chunks.length || secs < 1) return;
             var ext = supRec.mime.indexOf('mp4') >= 0 ? 'mp4' : (supRec.mime.indexOf('ogg') >= 0 ? 'ogg' : 'webm');
             var file; try { file = new File(supRec.chunks, 'voz-' + Date.now() + '.' + ext, { type: supRec.mime || 'audio/webm' }); } catch (e) { file = new Blob(supRec.chunks, { type: supRec.mime || 'audio/webm' }); file.name = 'voz-' + Date.now() + '.' + ext; }
-            sendMedia(file, 'audio');
+            sendMedia(file, 'audio', supRec.tk);
           };
           try { supRec.mr.stop(); } catch (e) { supStopStream(); }
         }
