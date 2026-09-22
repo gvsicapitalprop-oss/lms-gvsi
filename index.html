@@ -30,8 +30,14 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Giovanni">
 <script>(function(){try{var t=localStorage.getItem('gvsi-theme');if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';if(t==='dark')document.documentElement.classList.add('dark');}catch(e){}})();</script>
-<style>:root{--side-w:360px;--fs:1}</style>
-<script>(function(){try{var d=document.documentElement;var w=parseInt(localStorage.getItem('gvsi-side-w'),10);if(w>=260&&w<=560)d.style.setProperty('--side-w',w+'px');var f=parseFloat(localStorage.getItem('gvsi-fs'));if(f>=0.9&&f<=1.3)d.style.setProperty('--fs',f);}catch(e){}})();</script>
+<style>:root{--side-w:360px;--fs:1}
+/* Recolher a barra lateral de topicos (pedido do dono em 22/09/2026), so no desktop */
+#side-expand{display:none}
+@media (min-width:1024px){
+  html.side-collapsed aside[data-side]{display:none!important}
+  html.side-collapsed #side-expand{display:flex}
+}</style>
+<script>(function(){try{var d=document.documentElement;var w=parseInt(localStorage.getItem('gvsi-side-w'),10);if(w>=260&&w<=560)d.style.setProperty('--side-w',w+'px');var f=parseFloat(localStorage.getItem('gvsi-fs'));if(f>=0.9&&f<=1.3)d.style.setProperty('--fs',f);if(localStorage.getItem('gvsi-side-collapsed')==='1'){d.classList.add('side-collapsed');d.style.setProperty('--side-w','0px');}}catch(e){}})();</script>
 <!-- Anti-flash: esconde a tela atrás de um splash até fontes+estilos prontos, e revela tudo de uma vez -->
 <style id="gvsi-boot">
 html.gvsi-loading{background:#faf8ff}
@@ -56,7 +62,8 @@ html.dark #gvsi-splash .r{border-color:rgba(157,184,255,.22);border-top-color:#9
 <div id="gvsi-splash" aria-hidden="true"><span class="r"></span></div>
 
 <!-- Sidebar (desktop) — persiste em toda navegação -->
-<aside class="hidden lg:flex lg:flex-col fixed inset-y-0 left-0 w-[var(--side-w)] bg-surface border-r border-outline-variant z-40">
+<aside data-side class="hidden lg:flex lg:flex-col fixed inset-y-0 left-0 w-[var(--side-w)] bg-surface border-r border-outline-variant z-40">
+<button type="button" id="side-collapse" title="Recolher a barra lateral" aria-label="Recolher a barra lateral" class="hidden lg:flex absolute top-3 right-4 z-50 w-9 h-9 rounded-full items-center justify-center text-on-surface-variant bg-surface-container-high/70 hover:bg-surface-container-highest transition-colors"><span class="material-symbols-outlined text-[20px]">left_panel_close</span></button>
 <a href="/" class="flex items-center px-lg py-5 border-b border-outline-variant shrink-0 bg-surface-container-low">
 <img src="assets/logo-light.svg?v=2" alt="GVSI Capital Prop" class="h-12 w-auto dark:hidden">
 <img src="assets/logo-dark.svg?v=4" alt="GVSI Comunidade" class="h-12 w-auto hidden dark:block brightness-0 invert">
@@ -78,6 +85,9 @@ html.dark #gvsi-splash .r{border-color:rgba(157,184,255,.22);border-top-color:#9
 <span class="w-1 bg-outline-variant/40 group-hover:bg-primary/70 transition-colors"></span>
 </div>
 </aside>
+
+<!-- Aba para reabrir a barra lateral quando recolhida (desktop). A visibilidade e por CSS (html.side-collapsed) -->
+<button type="button" id="side-expand" title="Mostrar a barra lateral" aria-label="Mostrar a barra lateral" class="fixed left-0 top-1/2 -translate-y-1/2 z-[60] w-6 h-16 rounded-r-xl items-center justify-center bg-surface-container-high text-on-surface-variant border border-l-0 border-outline-variant/60 shadow-lg hover:bg-surface-container-highest hover:w-7 active:scale-95 transition-all"><span class="material-symbols-outlined text-[20px]">chevron_right</span></button>
 
 <!-- Região de conteúdo — trocada pelo roteador (sem recarregar) -->
 <div id="view" class="min-h-screen"></div>
@@ -106,7 +116,7 @@ html.dark #gvsi-splash .r{border-color:rgba(157,184,255,.22);border-top-color:#9
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="assets/supabase.js"></script>
 <script src="assets/topics.js"></script>
-<script src="assets/spa.js?v=80"></script>
+<script src="assets/spa.js?v=81"></script>
 <script src="assets/views.js?v=120"></script>
 <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){});});}</script>
 </body>

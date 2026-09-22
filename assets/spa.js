@@ -253,7 +253,28 @@ GVSI.views = GVSI.views || {};
     r.addEventListener('pointerup', end); r.addEventListener('pointercancel', end);
     r.addEventListener('dblclick', function () { setW(360); try { localStorage.setItem('gvsi-side-w', 360); } catch (x) {} });
   };
-  if (document.readyState !== 'loading') G.initSideResizer(); else document.addEventListener('DOMContentLoaded', G.initSideResizer);
+  // ---- Recolher/expandir a barra lateral de topicos (pedido do dono em 22/09/2026) ----
+  // Tudo no app se desloca por --side-w; recolher = --side-w:0 e esconder o <aside>.
+  // Fica so no desktop (o <aside> ja e escondido no mobile). A escolha persiste.
+  G.setSideCollapsed = function (collapsed) {
+    var d = document.documentElement;
+    if (collapsed) {
+      d.classList.add('side-collapsed');
+      d.style.setProperty('--side-w', '0px');
+    } else {
+      d.classList.remove('side-collapsed');
+      var w = parseInt(localStorage.getItem('gvsi-side-w'), 10);
+      d.style.setProperty('--side-w', (w >= 260 && w <= 560 ? w : 360) + 'px');
+    }
+    try { localStorage.setItem('gvsi-side-collapsed', collapsed ? '1' : '0'); } catch (x) {}
+  };
+  G.initSideCollapse = function () {
+    var c = document.getElementById('side-collapse'), x = document.getElementById('side-expand');
+    if (c && !c._wired) { c._wired = true; c.addEventListener('click', function () { G.setSideCollapsed(true); }); }
+    if (x && !x._wired) { x._wired = true; x.addEventListener('click', function () { G.setSideCollapsed(false); }); }
+  };
+  function initSide() { G.initSideResizer(); G.initSideCollapse(); }
+  if (document.readyState !== 'loading') initSide(); else document.addEventListener('DOMContentLoaded', initSide);
   // PWA: guarda (sem mostrar nada) o prompt de instalar, usado pelo link discreto no Perfil.
   window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); G._installPrompt = e; });
   window.addEventListener('appinstalled', function () { G._installPrompt = null; });
