@@ -1938,7 +1938,7 @@
           var legenda = msg.body ? '<p class="font-body-md mt-xs whitespace-pre-wrap break-words ' + (mine ? '' : 'text-on-surface') + '">' + G.fmt(msg.body, isAgent) + edited + '</p>' : '';
           if (msg.kind === 'image' && msg.media_url) return quote + '<img src="' + esc(msg.media_url) + '" data-full="' + esc(msg.media_url) + '" class="sup-img rounded-lg max-w-full cursor-zoom-in">' + legenda;
           if (msg.kind === 'video' && msg.media_url) return quote + G.videoHtml(msg.media_url) + legenda;
-          if (msg.kind === 'audio' && msg.media_url) return quote + (msg.media_meta && msg.media_meta.forwarded ? '<p class="text-[11px] italic opacity-70 mb-xs flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">forward</span>Encaminhado</p>' : '') + G.audioHtml(msg.media_url, mine, msg.media_meta && msg.media_meta.duration) + supTranscript(msg) +
+          if (msg.kind === 'audio' && msg.media_url) return quote + G.audioHtml(msg.media_url, mine, msg.media_meta && msg.media_meta.duration) + supTranscript(msg) +
             '<div class="flex gap-1 mt-xs ' + (mine ? 'justify-end' : '') + '"><button type="button" class="aud-dl flex items-center gap-1 px-2 h-7 rounded-full text-[12px] opacity-80 hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/10" data-id="' + esc(msg.id) + '" title="Baixar áudio"><span class="material-symbols-outlined text-[16px]">download</span>Baixar</button>' +
             '<button type="button" class="aud-fw flex items-center gap-1 px-2 h-7 rounded-full text-[12px] opacity-80 hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/10" data-id="' + esc(msg.id) + '" title="Encaminhar áudio"><span class="material-symbols-outlined text-[16px]">forward</span>Encaminhar</button></div>';
           if (msg.kind === 'file' && msg.media_url) return quote + G.fileCard(msg, mine) + legenda;
@@ -2001,7 +2001,7 @@
           async function enviar(t) {
             if (busy) return; busy = true;
             var nome = (t.member && t.member.full_name) || 'Membro';
-            var meta = Object.assign({}, m.media_meta || {}, { forwarded: true });
+            var meta = Object.assign({}, m.media_meta || {});
             var ins = await sb.from('comu_messages').insert({ topic_id: supportTopicId, author_id: me.id, ticket_id: t.id, kind: 'audio', body: null, media_url: m.media_url, media_meta: meta, author_name: me.full_name || 'Suporte', author_avatar: me.avatar_url || null }).select().single();
             busy = false;
             if (ins.error) { G.toast('Erro ao encaminhar: ' + ins.error.message); return; }
