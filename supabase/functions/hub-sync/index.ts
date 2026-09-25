@@ -11,7 +11,9 @@ const HUB_URL = Deno.env.get("HUB_URL") ?? "";
 const HUB_KEY = Deno.env.get("HUB_SERVICE_KEY") ?? "";
 const SB_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SVC = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-const TEMP = "gvsi!acesso-inicial#2026";
+// 25/09/2026: a conta nasce SEM senha (antes era uma senha interna fixa, que
+// ficava no login público e, com o login compartilhado, abria também os cursos).
+// A pessoa cria a senha no primeiro acesso da área de membros, por código.
 const BAN = "876000h"; // ~100 anos
 
 // Tópicos restritos por produto (allowlist em comu_topic_access; RLS mostra/esconde sozinho).
@@ -192,7 +194,7 @@ Deno.serve(async (req: Request) => {
       const cr = await fetch(`${SB_URL}/auth/v1/admin/users`, {
         method: "POST",
         headers: { apikey: SVC, Authorization: `Bearer ${SVC}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password: TEMP, email_confirm: true }),
+        body: JSON.stringify({ email, email_confirm: true }),
       });
       if (cr.ok) {
         const u = await cr.json();
