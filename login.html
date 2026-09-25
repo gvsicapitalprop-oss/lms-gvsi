@@ -105,7 +105,7 @@ html.dark #gvsi-splash .r{border-color:rgba(157,184,255,.22);border-top-color:#9
 
 <div id="first-access-box" class="flex items-start gap-sm bg-primary/5 border border-primary/20 rounded-xl px-3 py-2 text-body-sm text-on-surface-variant">
 <span class="material-symbols-outlined text-[20px] text-primary shrink-0">tips_and_updates</span>
-<span class="text-balance"><b>Primeiro acesso?</b> Digite seu e-mail, <b>deixe a senha em branco</b> e toque em <b>Entrar</b>. Você cria a sua senha na próxima tela.</span>
+<span class="text-balance"><b>Primeiro acesso ou esqueceu a senha?</b> <a href="https://www.giovannipaganini.com/primeiro-acesso" class="text-primary font-bold underline">Crie a sua senha aqui</a>: você recebe um código por e-mail. A mesma senha vale para a comunidade e para os cursos.</span>
 </div>
 
 <p id="msg" class="hidden text-body-sm text-center"></p>
@@ -150,26 +150,20 @@ html.dark #gvsi-splash .r{border-color:rgba(157,184,255,.22);border-top-color:#9
   }
   if (isRecovery) enterRecovery();
 
-  // Senha temporária interna do 1º acesso (a pessoa nunca vê nem digita).
-  // No pré-cadastro cada conta nasce com esta senha; ao criar a senha própria, ela é substituída.
-  var FIRST_ACCESS = 'gvsi!acesso-inicial#2026';
+  // 25/09/2026: acabou a senha interna fixa do 1º acesso. Ela ficava neste
+  // arquivo público e, com o login compartilhado, abria também os cursos da área
+  // de membros para quem soubesse só o e-mail. Agora a senha nasce na tela de
+  // primeiro acesso da área de membros (código por e-mail) e vale para as duas.
+  var PRIMEIRO_ACESSO = 'https://www.giovannipaganini.com/primeiro-acesso';
 
   (function () {
     var tg = $('toggle-pw'), pw = $('password'), ic = $('toggle-pw-icon');
     if (tg && pw) tg.addEventListener('click', function () { var show = pw.type === 'password'; pw.type = show ? 'text' : 'password'; if (ic) ic.textContent = show ? 'visibility_off' : 'visibility'; tg.setAttribute('aria-label', show ? 'Ocultar senha' : 'Mostrar senha'); pw.focus(); });
   })();
-  // "Esqueci minha senha" — envia o link de redefinição por e-mail
-  $('forgot-btn').addEventListener('click', async function () {
-    if (!sb) return;
-    var email = $('email').value.trim().toLowerCase();
-    if (!email) { showMsg('Digite o seu e-mail acima e toque em "Esqueci minha senha".', false); $('email').focus(); return; }
-    $('forgot-btn').disabled = true; showMsg('Enviando o link para o seu e-mail...', true);
-    try {
-      var r = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + '/login' });
-      if (r.error) { showMsg('Não foi possível enviar: ' + r.error.message, false); }
-      else { showMsg('Enviamos um link de redefinição para ' + email + '. Verifique a caixa de entrada (e o spam).', true); }
-    } catch (err) { showMsg('Não foi possível enviar o link agora.', false); }
-    finally { $('forgot-btn').disabled = false; }
+  // "Esqueci minha senha": o e-mail de senha agora traz um CÓDIGO (não link), e
+  // quem sabe usar o código é a tela de primeiro acesso da área de membros.
+  $('forgot-btn').addEventListener('click', function () {
+    location.href = PRIMEIRO_ACESSO;
   });
 
   // Salvar a nova senha (após clicar no link do e-mail)
@@ -202,16 +196,17 @@ html.dark #gvsi-splash .r{border-color:rgba(157,184,255,.22);border-top-color:#9
     var email = $('email').value.trim().toLowerCase();
     var password = $('password').value;
     if (!email) { showMsg('Digite o seu e-mail.', false); return; }
+    if (!password) {
+      showMsg('Digite a sua senha. Ainda não tem? Toque em "Esqueci minha senha" para criar a sua com um código por e-mail.', false);
+      $('password').focus();
+      return;
+    }
     $('submit-btn').disabled = true;
     showMsg('Aguarde...', true);
     try {
-      // sem senha digitada => tenta o 1º acesso; com senha => usa a senha da pessoa.
-      var r = await sb.auth.signInWithPassword({ email: email, password: password || FIRST_ACCESS });
-      // digitou uma senha que não bateu? tenta ainda o 1º acesso (pode ser primeiro acesso).
-      if (r.error && password) { r = await sb.auth.signInWithPassword({ email: email, password: FIRST_ACCESS }); }
+      var r = await sb.auth.signInWithPassword({ email: email, password: password });
       if (r.error) {
-        if (password) { showMsg('E-mail ou senha incorretos.', false); }
-        else { showMsg('Não encontramos esse e-mail (ou a conta já tem senha). Se você já criou a sua senha, digite ela no campo acima.', false); $('password').focus(); }
+        showMsg('E-mail ou senha incorretos. Se ainda não criou a sua senha, toque em "Esqueci minha senha".', false);
         return;
       }
       await window.GVSIAuth.ensureProfile();
