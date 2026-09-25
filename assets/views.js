@@ -1734,14 +1734,44 @@
             renderHub(res.error ? { ok: false, error: res.error.message || 'Falha ao consultar.' } : res.data);
           })();
         }
+        // Conversa aberta pela tela de login da área de membros: o ticket é da
+        // conta "Visitante" e a pessoa é quem tem o e-mail digitado, que vai no
+        // assunto ("[Pelo login] e-mail: ..."). Identidade NÃO verificada.
+        // Só vale para ticket da conta Visitante: um membro logado não consegue
+        // se passar por outro escrevendo "[Pelo login]" na mensagem.
+        function visitanteEmail(tk) {
+          var dono = (tk && tk.member && tk.member.email) || '';
+          if (!/@suportepaganini\.invalid$/i.test(dono)) return null;
+          var m = /^\[Pelo login\]\s*([^\s:]+@[^\s:]+)/.exec((tk && tk.subject) || '');
+          return m ? m[1].toLowerCase() : null;
+        }
+        // O modal de confirmação fica em z-90, abaixo do painel de perfil (z-95):
+        // sobe só enquanto está aberto, senão a pergunta ficaria escondida.
+        function confirmarPorCima(opts) {
+          var m = document.getElementById('confirm-modal'); var antes = m ? m.style.zIndex : '';
+          if (m) m.style.zIndex = '98';
+          return G.confirmDialog(opts).then(function (v) { if (m) m.style.zIndex = antes; return v; });
+        }
         function openProfileEditor(tk) {
-          var userId = tk.user_id; if (!userId) { G.toast('Este contato não tem cadastro para editar.'); return; }
+          var emailVisitante = visitanteEmail(tk);
+          var userId = emailVisitante ? null : tk.user_id;
+          if (!userId && !emailVisitante) { G.toast('Este contato não tem cadastro para editar.'); return; }
           var overlay = document.createElement('div'); overlay.className = 'fixed inset-0 z-[95] flex items-center justify-center p-container-margin bg-black/40';
           var panel = document.createElement('div'); panel.className = 'w-full max-w-sm bg-surface-container-lowest rounded-2xl shadow-xl border border-outline-variant/40 p-lg space-y-md max-h-[85vh] overflow-y-auto custom-scrollbar';
           panel.innerHTML = '<p class="text-body-sm text-on-surface-variant text-center py-md">Carregando…</p>';
           overlay.appendChild(panel); document.body.appendChild(overlay);
           overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
           (async function () {
+            if (emailVisitante) {
+              var rv = await sb.from('lms_students').select('id').eq('email', emailVisitante).maybeSingle();
+              if (self.destroyed) { overlay.remove(); return; }
+              if (rv.error || !rv.data) {
+                panel.innerHTML = '<p class="text-body-sm text-on-surface-variant text-center py-md">Não há conta com o e-mail <b>' + esc(emailVisitante) + '</b> na área de membros.</p><div class="flex justify-center"><button type="button" class="pe-close h-10 px-4 rounded-full text-on-surface font-label-md hover:bg-surface-container-high">Fechar</button></div>';
+                panel.querySelector('.pe-close').onclick = function () { overlay.remove(); };
+                return;
+              }
+              userId = rv.data.id;
+            }
             var r = await sb.from('lms_students').select('id,full_name,email,phone,bio,avatar_url').eq('id', userId).single();
             if (self.destroyed) { overlay.remove(); return; }
             if (r.error || !r.data) { panel.innerHTML = '<p class="text-body-sm text-error text-center py-md">Não foi possível carregar o perfil.</p>'; return; }
@@ -1751,14 +1781,30 @@
               '<div class="flex items-center justify-between"><h3 class="font-headline-sm text-headline-sm text-on-surface">Editar perfil</h3><button type="button" class="pe-close w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high"><span class="material-symbols-outlined">close</span></button></div>' +
               '<div>' + av + '</div>' +
               '<div class="bg-surface-container-low rounded-xl px-3 py-2 flex items-center gap-2"><span class="material-symbols-outlined text-[20px] text-on-surface-variant shrink-0">mail</span><span class="text-body-md text-on-surface truncate flex-1" title="' + esc(u.email || '') + '">' + esc(u.email || '(sem e-mail)') + '</span>' + (u.email ? '<button type="button" id="pe-copy" class="text-primary text-label-md font-label-md px-2 py-1 rounded-lg hover:bg-primary/10 shrink-0">Copiar</button>' : '') + '</div>' +
-              '<button type="button" id="pe-pw" class="w-full h-10 rounded-xl border border-outline-variant text-on-surface font-label-md flex items-center justify-center gap-1 hover:bg-surface-container-high"><span class="material-symbols-outlined text-[18px]">key</span>Alterar senha</button>' +
+              (emailVisitante ? '<div class="rounded-xl px-3 py-2 bg-amber-500/10 text-amber-800 dark:text-amber-300 text-[12px] flex gap-2"><span class="material-symbols-outlined text-[16px] shrink-0">warning</span><span>Conversa pela tela de login: ninguém confirmou que quem escreve é a dona deste e-mail. Para a senha, prefira <b>Enviar código</b>, que chega só no e-mail dela. Trocar direto, só depois de confirmar por outro canal.</span></div>' : '') +
+              '<div class="grid grid-cols-2 gap-sm">' +
+                '<button type="button" id="pe-code" class="h-10 rounded-xl border border-outline-variant text-on-surface font-label-md flex items-center justify-center gap-1 hover:bg-surface-container-high"><span class="material-symbols-outlined text-[18px]">forward_to_inbox</span>Enviar código</button>' +
+                '<button type="button" id="pe-pw" class="h-10 rounded-xl border border-outline-variant text-on-surface font-label-md flex items-center justify-center gap-1 hover:bg-surface-container-high"><span class="material-symbols-outlined text-[18px]">key</span>Alterar senha</button>' +
+              '</div>' +
               '<label class="block"><span class="text-label-md font-label-md text-on-surface-variant">Nome</span><input id="pe-name" type="text" class="mt-1 w-full bg-surface-container-low border border-outline-variant rounded-xl px-3 py-2 text-body-md text-on-surface" value="' + esc(u.full_name || '') + '"></label>' +
               '<label class="block"><span class="text-label-md font-label-md text-on-surface-variant">Telefone</span><input id="pe-phone" type="text" class="mt-1 w-full bg-surface-container-low border border-outline-variant rounded-xl px-3 py-2 text-body-md text-on-surface" value="' + esc(u.phone || '') + '"></label>' +
               '<label class="block"><span class="text-label-md font-label-md text-on-surface-variant">Bio</span><textarea id="pe-bio" rows="2" class="mt-1 w-full bg-surface-container-low border border-outline-variant rounded-xl px-3 py-2 text-body-md text-on-surface resize-none">' + esc(u.bio || '') + '</textarea></label>' +
               '<div class="flex gap-sm justify-end pt-sm"><button type="button" class="pe-close h-10 px-4 rounded-full text-on-surface font-label-md hover:bg-surface-container-high">Cancelar</button><button type="button" id="pe-save" class="h-10 px-4 rounded-full bg-primary text-on-primary font-label-md active:scale-95 transition">Salvar</button></div>';
             panel.querySelectorAll('.pe-close').forEach(function (b) { b.onclick = function () { overlay.remove(); }; });
             var cp = panel.querySelector('#pe-copy'); if (cp) cp.onclick = function () { try { navigator.clipboard.writeText(u.email); G.toast('E-mail copiado.'); } catch (e) { G.toast(u.email); } };
-            panel.querySelector('#pe-pw').onclick = async function () { var nv = await G.promptDialog({ title: 'Alterar senha', text: 'Definir nova senha para ' + (u.email || 'membro') + '.', placeholder: 'Mínimo 6 caracteres', type: 'password', ok: 'Salvar' }); if (nv === null) return; nv = nv.trim(); if (nv.length < 6) { G.toast('Senha muito curta (mín. 6).'); return; } var rr = await sb.rpc('comu_admin_set_password', { p_user_id: userId, p_password: nv }); if (rr.error) { G.toast('Não foi possível: ' + rr.error.message); return; } G.toast('Senha alterada com sucesso.'); };
+            // Código de senha: o jeito seguro, chega só no e-mail da pessoa. É o
+            // mesmo do "Primeiro acesso" da área de membros (vale 1 hora).
+            panel.querySelector('#pe-code').onclick = async function () {
+              if (!u.email) { G.toast('Este cadastro não tem e-mail.'); return; }
+              var ok = await confirmarPorCima({ title: 'Enviar código de senha?', text: 'O código vai para ' + u.email + ' e vale por 1 hora. A pessoa cria a senha nova em www.giovannipaganini.com/primeiro-acesso, no botão "Já recebi o código".', ok: 'Enviar' });
+              if (!ok) return;
+              var btn = this; btn.disabled = true;
+              var rc = await sb.auth.resetPasswordForEmail(u.email);
+              btn.disabled = false;
+              if (rc.error) { G.toast(/rate|security|seconds/i.test(rc.error.message || '') ? 'Muitos pedidos agora. Espere um minuto e tente de novo.' : 'Não foi possível: ' + rc.error.message); return; }
+              G.toast('Código enviado para ' + u.email + '.');
+            };
+            panel.querySelector('#pe-pw').onclick = async function () { if (emailVisitante && !(await confirmarPorCima({ title: 'Já confirmou que é a própria pessoa?', text: 'Esta conversa veio da tela de login, sem identidade confirmada. Só troque a senha direto se já confirmou por outro canal. Se não, use Enviar código.', ok: 'Já confirmei', danger: true }))) return; var nv = await G.promptDialog({ title: 'Alterar senha', text: 'Definir nova senha para ' + (u.email || 'membro') + '.', placeholder: 'Mínimo 6 caracteres', type: 'password', ok: 'Salvar' }); if (nv === null) return; nv = nv.trim(); if (nv.length < 6) { G.toast('Senha muito curta (mín. 6).'); return; } var rr = await sb.rpc('comu_admin_set_password', { p_user_id: userId, p_password: nv }); if (rr.error) { G.toast('Não foi possível: ' + rr.error.message); return; } G.toast('Senha alterada com sucesso.'); };
             panel.querySelector('#pe-save').onclick = async function () {
               var name = panel.querySelector('#pe-name').value.trim();
               var phone = panel.querySelector('#pe-phone').value.trim();
@@ -1772,7 +1818,7 @@
                 var rn = await sb.rpc('comu_rename_member', { p_user_id: userId, p_name: name }); // também reescreve o nome nas mensagens antigas
                 if (rn.error) { btn.disabled = false; G.toast('Não foi possível renomear: ' + rn.error.message); return; }
               }
-              if (tk.member) tk.member.full_name = name;
+              if (tk.member && !emailVisitante) tk.member.full_name = name; // no visitante, o dono do ticket é a conta Visitante
               var nm = document.getElementById('convo-name'); if (nm && self.currentTicket && self.currentTicket.user_id === userId) nm.textContent = name || 'Membro';
               overlay.remove(); G.toast('Perfil atualizado.'); loadTickets();
               if (nameChanged && self.currentTicket && self.currentTicket.id === tk.id) { // recarrega as bolhas já com o nome novo
