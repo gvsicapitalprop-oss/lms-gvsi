@@ -1620,8 +1620,10 @@
           }, function (e) { fail('Não foi possível consultar: ' + (e && e.message ? e.message : 'erro')); });
         }
         function openAccessPanel(tk) {
-          var email = (tk.member && tk.member.email) || '';
-          var name = (tk.member && tk.member.full_name) || 'Membro';
+          // Conversa pela tela de login: a pessoa é a do e-mail digitado, não a conta Visitante.
+          var emailVisitante = visitanteEmail(tk);
+          var email = emailVisitante || (tk.member && tk.member.email) || '';
+          var name = emailVisitante || (tk.member && tk.member.full_name) || 'Membro';
           var ov = document.createElement('div');
           ov.className = 'fixed inset-0 z-[80] flex items-center justify-center p-container-margin bg-black/40';
           ov.innerHTML = '<div class="w-full max-w-2xl bg-surface-container-lowest rounded-2xl shadow-xl border border-outline-variant/40 p-lg space-y-md max-h-[90vh] overflow-y-auto custom-scrollbar">' +
@@ -1673,18 +1675,26 @@
                 '<div class="flex items-center gap-2 shrink-0">' + stBadge(a.status) + btn + '</div></div>';
             }).join('');
             if (!items) items = '<p class="text-body-sm text-on-surface-variant py-2">Nenhum produto no hub' + (d.achou_no_hub ? '' : ' (contato não encontrado no hub)') + '.</p>';
-            var liberar = d.achou_no_hub
-              ? '<div class="mt-md pt-sm border-t border-outline-variant/30"><p class="text-label-md font-bold text-on-surface-variant mb-1">Liberar acesso a um produto</p>' +
+            // O que a pessoa tem aberto na área de membros (a liberação daqui chega lá na hora).
+            var area = (d.area_de_membros || []).map(function (c) {
+              return '<div class="flex items-center justify-between gap-2 py-1.5 border-b border-outline-variant/20 last:border-0"><p class="text-body-sm text-on-surface truncate min-w-0">' + esc(c.curso) + '</p><span class="shrink-0 text-[11px] text-outline">' + (c.ate ? 'até ' + esc(dpart(c.ate)) : 'sem prazo') + '</span></div>';
+            }).join('');
+            if (!area) area = '<p class="text-body-sm text-on-surface-variant py-2">' + (d.membro ? 'Nenhum curso liberado.' : 'Ainda sem conta. Ela nasce ao liberar um curso.') + '</p>';
+            // Sem contato no Hub, o Liberar cria o contato lá (hub-accesses).
+            var liberar =
+              '<div class="mt-md pt-sm border-t border-outline-variant/30"><p class="text-label-md font-bold text-on-surface-variant mb-1">Liberar acesso a um produto</p>' +
+                (d.achou_no_hub ? '' : '<p class="text-[11px] text-outline mb-1">Sem contato no Hub: ao liberar, o contato é criado lá.</p>') +
                 '<div class="flex gap-sm items-end"><label class="flex-1 flex flex-col text-[11px] text-outline">Produto<select id="ac-prod" class="mt-1 w-full bg-surface-container-low border border-outline-variant rounded-xl py-2 px-2 text-body-sm text-on-surface"><option value="">Carregando…</option></select></label>' +
                 '<label class="flex flex-col text-[11px] text-outline">Até<input type="date" id="ac-until2" value="' + defUntil() + '" class="mt-1 bg-surface-container-low border border-outline-variant rounded-xl py-2 px-2 text-body-sm text-on-surface"></label>' +
-                '<button type="button" id="ac-grant2" class="h-9 px-3 rounded-xl bg-primary text-on-primary text-[12px] font-label-md active:scale-95">Liberar</button></div></div>'
-              : '<p class="text-[12px] text-outline mt-sm">Sem contato no Hub, não dá pra liberar produto por aqui.</p>';
+                '<button type="button" id="ac-grant2" class="h-9 px-3 rounded-xl bg-primary text-on-primary text-[12px] font-label-md active:scale-95">Liberar</button></div></div>';
             box.innerHTML = '<div class="mb-sm">' + mChip + '</div>' +
               '<p class="text-label-md font-bold text-on-surface-variant mb-1 flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">inventory_2</span>Produtos no Hub</p>' +
-              '<div class="bg-surface-container-low rounded-xl px-3 py-1">' + items + '</div>' + liberar;
+              '<div class="bg-surface-container-low rounded-xl px-3 py-1">' + items + '</div>' +
+              '<p class="text-label-md font-bold text-on-surface-variant mb-1 mt-md flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">school</span>Na área de membros</p>' +
+              '<div class="bg-surface-container-low rounded-xl px-3 py-1">' + area + '</div>' + liberar;
             box.querySelectorAll('[data-block]').forEach(function (bt) { bt.onclick = async function () { var f = await acHub({ action: 'block', email: email, product_id: bt.getAttribute('data-block') }, bt); if (f) { G.toast('Acesso bloqueado.'); renderHub(f); } }; });
             box.querySelectorAll('[data-grant]').forEach(function (bt) { bt.onclick = async function () { var u = (box.querySelector('#ac-until2') || {}).value || defUntil(); var f = await acHub({ action: 'grant', email: email, product_id: bt.getAttribute('data-grant'), until: u }, bt); if (f) { G.toast('Acesso liberado.'); renderHub(f); } }; });
-            if (d.achou_no_hub) {
+            {
               var sel = box.querySelector('#ac-prod');
               function fill(list) { if (!sel) return; sel.innerHTML = '<option value="">Escolha um produto…</option>' + list.map(function (p) { return '<option value="' + esc(p.id) + '">' + esc(p.nome) + '</option>'; }).join(''); }
               if (hubProdutos) fill(hubProdutos);
