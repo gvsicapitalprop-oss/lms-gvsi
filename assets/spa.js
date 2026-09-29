@@ -186,7 +186,9 @@ GVSI.views = GVSI.views || {};
   // Vídeo na bolha com botão de ampliar (usado no chat e no suporte)
   G.videoHtml = function (url) {
     var u = G.esc(url);
-    return '<div class="relative inline-block max-w-full mb-xs"><video controls preload="metadata" src="' + u + '" class="rounded-lg max-w-full block" style="max-height:20rem"></video>' +
+    // O video precisa de tamanho proprio: dentro da bolha (flex + min-w-0) ele ficava com
+    // 0x0 quando a mensagem vinha sem legenda, e o aluno so via um pontinho.
+    return '<div class="relative block w-[320px] max-w-full mb-xs"><video controls preload="metadata" src="' + u + '" class="rounded-lg w-full block bg-black" style="max-height:20rem;min-height:10rem"></video>' +
       '<button type="button" class="vid-expand absolute top-2 right-2 h-8 w-8 rounded-full bg-black/55 text-white flex items-center justify-center hover:bg-black/75" data-full="' + u + '" title="Ampliar" aria-label="Ampliar"><span class="material-symbols-outlined text-[18px]">open_in_full</span></button></div>';
   };
   // Seletor de emojis reutilizável: insere no cursor de um <textarea>/<input> ou contenteditable
