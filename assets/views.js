@@ -405,8 +405,12 @@
           function closeC() { try { if (cropper) cropper.destroy(); } catch (e) {} cropper = null; try { URL.revokeObjectURL(src); } catch (e) {} ov.remove(); try { if (input) input.focus(); } catch (e) {} }
           function applyZoom() { if (cropper) { try { cropper.zoomTo(baseRatio * (parseInt(zoomEl.value, 10) || 100) / 100); } catch (e) {} } }
           imgEl.onload = function () { try { cropper = new Cropper(imgEl, { viewMode: 1, autoCropArea: 0.95, background: false, dragMode: 'crop', zoomOnWheel: false, ready: function () { var cd = cropper.getCanvasData(); baseRatio = (cd && cd.naturalWidth) ? (cd.width / cd.naturalWidth) : 1; if (zoomEl) zoomEl.value = 100; } }); } catch (e) {} };
-          imgEl.onerror = function () { G.toast('Não foi possível abrir a imagem.'); closeC(); };
-          imgEl.src = src;
+          imgEl.onerror = function () { G.toast('Não foi possível abrir a imagem. Se for foto do iPhone (HEIC), salve como JPEG e tente de novo.'); closeC(); };
+          G.imagemExibivel(file).then(function (f) {
+            if (!ov.isConnected) return;
+            if (f !== file) { try { URL.revokeObjectURL(src); } catch (e) {} src = URL.createObjectURL(f); }
+            imgEl.src = src;
+          }, function () { G.toast('Não foi possível abrir a imagem. Se for foto do iPhone (HEIC), salve como JPEG e tente de novo.'); closeC(); });
           if (zoomEl) zoomEl.addEventListener('input', applyZoom);
           ov.querySelector('#ic-zin').onclick = function () { zoomEl.value = Math.min(300, (parseInt(zoomEl.value, 10) || 100) + 15); applyZoom(); };
           ov.querySelector('#ic-zout').onclick = function () { zoomEl.value = Math.max(50, (parseInt(zoomEl.value, 10) || 100) - 15); applyZoom(); };

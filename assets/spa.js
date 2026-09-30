@@ -458,6 +458,37 @@ GVSI.views = GVSI.views || {};
     return { ok: false, error: String(lastErr || 'falha no envio') };
   };
   // Editor de imagem reutilizável (pré-envio): abre o cropper e chama onConfirm(blob, caption, dims).
+  // Foto do iPhone/Mac vem em HEIC, formato que Chrome, Edge e Firefox não sabem exibir: o editor
+  // abria e caía direto no "Não foi possível abrir a imagem". Converte para JPEG antes de abrir.
+  G.ehHeic = function (file) {
+    var n = String((file && file.name) || '').toLowerCase(), t = String((file && file.type) || '').toLowerCase();
+    return /\.hei[cf]$/.test(n) || t.indexOf('heic') >= 0 || t.indexOf('heif') >= 0;
+  };
+  G.carregarConversorHeic = function () {
+    if (window.heic2any) return Promise.resolve(window.heic2any);
+    if (!G._heicP) {
+      G._heicP = new Promise(function (ok, fail) {
+        var s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js';
+        s.onload = function () { if (window.heic2any) ok(window.heic2any); else fail(new Error('conversor')); };
+        s.onerror = function () { G._heicP = null; fail(new Error('download')); };
+        document.head.appendChild(s);
+      });
+    }
+    return G._heicP;
+  };
+  // Devolve um arquivo que o navegador consegue exibir (converte só quando é HEIC).
+  G.imagemExibivel = function (file) {
+    if (!G.ehHeic(file)) return Promise.resolve(file);
+    if (G.toast) G.toast('Convertendo a foto…');
+    return G.carregarConversorHeic().then(function (conv) {
+      return conv({ blob: file, toType: 'image/jpeg', quality: 0.92 });
+    }).then(function (out) {
+      var blob = Array.isArray(out) ? out[0] : out;
+      var nome = String((file && file.name) || 'foto').replace(/\.[^.]+$/, '') + '.jpg';
+      try { return new File([blob], nome, { type: 'image/jpeg' }); } catch (e) { blob.name = nome; return blob; }
+    });
+  };
   G.imageComposer = function (file, onConfirm) {
     if (!file || !onConfirm) return;
     // Quem estava com o foco antes de abrir. Sem devolver isto, o Ctrl+V so
@@ -491,8 +522,12 @@ GVSI.views = GVSI.views || {};
       function closeC() { cancelled = true; try { if (cropper) cropper.destroy(); } catch (e) {} try { URL.revokeObjectURL(src); } catch (e) {} ov.remove(); try { if (focoAnterior && focoAnterior.focus) focoAnterior.focus(); } catch (e) {} }
       function applyZoom() { if (cropper) { try { cropper.zoomTo(baseRatio * (parseInt(zoomEl.value, 10) || 100) / 100); } catch (e) {} } }
       imgEl.onload = function () { try { cropper = new Cropper(imgEl, { viewMode: 1, autoCropArea: 0.95, background: false, dragMode: 'crop', zoomOnWheel: false, ready: function () { var cd = cropper.getCanvasData(); baseRatio = (cd && cd.naturalWidth) ? (cd.width / cd.naturalWidth) : 1; if (zoomEl) zoomEl.value = 100; } }); } catch (e) {} };
-      imgEl.onerror = function () { if (G.toast) G.toast('Não foi possível abrir a imagem.'); closeC(); };
-      imgEl.src = src;
+      imgEl.onerror = function () { if (G.toast) G.toast('Não foi possível abrir a imagem. Se for foto do iPhone (HEIC), salve como JPEG e tente de novo.'); closeC(); };
+      G.imagemExibivel(file).then(function (f) {
+        if (cancelled) return;
+        if (f !== file) { try { URL.revokeObjectURL(src); } catch (e) {} src = URL.createObjectURL(f); }
+        imgEl.src = src;
+      }, function () { if (G.toast) G.toast('Não foi possível abrir a imagem. Se for foto do iPhone (HEIC), salve como JPEG e tente de novo.'); closeC(); });
       if (zoomEl) zoomEl.addEventListener('input', applyZoom);
       ov.querySelector('#ic-zin').onclick = function () { zoomEl.value = Math.min(300, (parseInt(zoomEl.value, 10) || 100) + 15); applyZoom(); };
       ov.querySelector('#ic-zout').onclick = function () { zoomEl.value = Math.max(50, (parseInt(zoomEl.value, 10) || 100) - 15); applyZoom(); };
