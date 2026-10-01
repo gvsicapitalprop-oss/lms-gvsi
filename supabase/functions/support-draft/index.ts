@@ -388,14 +388,14 @@ serve(async (req)=>{
               draft_body: texto,
               suggest_handoff: false,
               model: "jev-cortesia",
+              auto_enviar_em: new Date(Date.now() + (25 + Math.floor(Math.random() * 50)) * 1000).toISOString(),
               knowledge_used: [],
               jev
             })
           });
           const id0 = ins0 && ins0[0] && ins0[0].id;
           if (id0) {
-            await rest(`rpc/comu_ai_draft_auto_enviar`, { method: "POST", body: JSON.stringify({ p_draft_id: id0 }) });
-            return ok({ ok: true, auto: "cortesia", draft_id: id0 });
+            return ok({ ok: true, auto: "cortesia agendada", draft_id: id0 });
           }
         } catch (e) {
           console.error("[support-draft] auto cortesia:", String(e).slice(0, 200));
