@@ -98,6 +98,71 @@ const ok = (o)=>new Response(JSON.stringify(o), {
       "Content-Type": "application/json"
     }
   });
+
+// ---------------------------------------------------------------------------
+// Triagem com o Jev (TypeSafe). Devolve decisões curtas e CALIBRADAS em ~0,3s:
+// assunto da mensagem, se é só cortesia e se o caso precisa de gente.
+// Usamos isso para dois fins: responder cortesia na hora e, no resto, só anotar
+// o veredito no rascunho (modo sombra) para o dono comparar antes de ligar mais.
+// Nunca derruba o fluxo: se falhar ou demorar, devolve null e tudo segue como antes.
+const JEV_KEY = Deno.env.get("JEV_API_KEY") ?? "";
+const JEV_CATS = {
+  cortesia: "Só agradecimento, saudação, despedida ou confirmação curta ('obrigado', 'bom dia', 'ok', 'entendi'). Não pede nada nem faz pergunta nova.",
+  acesso: "Acesso, liberação, assinatura, Sala ao Vivo, login, senha, área de membros, link da aula.",
+  plataforma: "Dúvida técnica do MetaTrader 5: instalação, configuração, gráfico, indicadores, conta demo.",
+  financeiro: "Pagamento, boleto, cartão, reembolso, cobrança, renovação.",
+  conteudo: "Dúvida sobre as aulas, estratégia, operação ou mercado.",
+  outro: "Qualquer coisa que não caiba nas anteriores."
+};
+async function jevTriagem(pergunta) {
+  if (!JEV_KEY || !pergunta) return null;
+  try {
+    const r = await fetch("https://api.typesafe.ai/v1/systemone", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${JEV_KEY}`, "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(6000),
+      body: JSON.stringify({
+        state: String(pergunta).slice(0, 1500),
+        model: "jev-latest",
+        questions: {
+          categoria: { type: "choice", instructions: "Em que assunto se encaixa a mensagem do aluno para o suporte?", criteria: JEV_CATS },
+          so_cortesia: { type: "noul", instructions: "A mensagem é apenas cortesia (agradecimento, saudação, 'ok', 'entendi'), sem nenhum pedido ou pergunta nova?" },
+          precisa_humano: { type: "noul", instructions: "Para responder isto é preciso consultar dados da conta do aluno (acesso, pagamento, datas) ou executar uma ação que só a equipe pode fazer?" },
+          mesa: { type: "noul", instructions: "O aluno está pedindo acesso, ativação ou instruções da MESA PROPRIETÁRIA que comprou (conta de avaliação/teste), ou dizendo que comprou a mesa e não recebeu nada?" },
+          tipo_cortesia: { type: "choice", instructions: "Se for cortesia, de que tipo é?", criteria: {
+            agradecimento: "Agradece ou encerra ('obrigado', 'valeu', 'era isso mesmo').",
+            saudacao: "Só cumprimenta, abrindo conversa ('bom dia', 'boa noite, tudo bem?').",
+            confirmacao: "Confirma que entendeu ou que vai testar ('ok', 'entendi', 'vou testar').",
+            nao_cortesia: "Não é cortesia."
+          } }
+        }
+      })
+    });
+    if (!r.ok) return null;
+    const d = await r.json();
+    const a = (d && d.answers) || d || {};
+    const pega = (x)=>x && (x.choice ?? x.value ?? x.noul);
+    return {
+      categoria: pega(a.categoria),
+      categoria_conf: a.categoria && a.categoria.confidence,
+      so_cortesia: pega(a.so_cortesia),
+      mesa: pega(a.mesa),
+      precisa_humano: pega(a.precisa_humano),
+      tipo_cortesia: pega(a.tipo_cortesia),
+      em: new Date().toISOString()
+    };
+  } catch (_e) {
+    return null;
+  }
+}
+// Respostas curtas de cortesia. Texto fixo: não passa por modelo nenhum, não inventa nada.
+function respostaCortesia(tipo, saud, nome) {
+  const quem = nome ? ", " + nome : "";
+  if (tipo === "saudacao") return `${saud}${quem}! Pode mandar sua dúvida por aqui que já te ajudo.`;
+  if (tipo === "confirmacao") return `Combinado${quem}! Fico à disposição.`;
+  return `Imagina${quem}! Qualquer coisa é só chamar por aqui.`;
+}
+
 serve(async (req)=>{
   try {
     if (req.headers.get("x-mod-secret") !== MOD_SECRET) return new Response("forbidden", {
@@ -128,15 +193,14 @@ serve(async (req)=>{
       ok: true,
       skipped: "ticket nao aberto"
     });
-    // economia: só UM rascunho pendente por ticket. Se já existe, não gasta
-    // transcrição/embedding/LLM de novo (o cron redraftava a cada mensagem
-    // do aluno e ~85% dos rascunhos viravam "superseded" sem revisão).
+    // Economia: não refaz o rascunho à toa. MAS o de antes só pode ficar de pé se
+    // ainda responde ao que o aluno perguntou. Ele mandava "bom dia", o rascunho nascia
+    // em cima disso, e as perguntas que vinham depois NÃO geravam nada: a equipe via uma
+    // sugestão genérica respondendo ao cumprimento (01/10/2026).
+    let pendente = null;
     if (force !== true) {
-      const pend = await rest(`comu_ai_drafts?ticket_id=eq.${ticket_id}&status=eq.pending&select=id&limit=1`);
-      if (pend && pend.length) return ok({
-        ok: true,
-        skipped: "rascunho pendente"
-      });
+      const pend = await rest(`comu_ai_drafts?ticket_id=eq.${ticket_id}&status=eq.pending&select=id,member_question&limit=1`);
+      pendente = pend && pend[0] ? pend[0] : null;
     }
     // saudação correta pela HORA de Brasília + primeiro nome do aluno
     let hourSP = 12;
@@ -182,8 +246,13 @@ serve(async (req)=>{
     } catch (_e) {}
     const isSalaDay = wdEn === "Monday" || wdEn === "Wednesday" || wdEn === "Friday";
     let firstName = "";
+    // A conta "Visitante (tela de login)" e COMPARTILHADA: todo mundo que escreve da tela de
+    // login cai nela. Sem isto o Bruno lia a conversa de outra pessoa como se fosse do mesmo
+    // aluno (chegou a chamar um aluno pelo nome de outro) e ainda vazava assunto alheio.
+    let visitante = false;
     try {
-      const st = await rest(`lms_students?id=eq.${tk.user_id}&select=full_name`);
+      const st = await rest(`lms_students?id=eq.${tk.user_id}&select=full_name,email`);
+      visitante = String((st && st[0] && st[0].email) || "").toLowerCase().indexOf("visitante-suporte@") === 0;
       const fn = st && st[0] && st[0].full_name;
       if (fn && String(fn).indexOf("@") < 0) {
         const p = String(fn).trim().split(/\s+/)[0];
@@ -197,12 +266,13 @@ serve(async (req)=>{
       "saimon"
     ];
     if (firstName && NAME_OMIT.indexOf(firstName.toLowerCase()) >= 0) firstName = "";
+    if (visitante) firstName = ""; // "Visitante" nao e nome de ninguem
     // histórico recente do MESMO aluno, atravessando conversas (ele referencia coisas ditas em tickets anteriores)
     let tids = [
       ticket_id
     ];
     try {
-      const others = await rest(`comu_support_tickets?user_id=eq.${tk.user_id}&select=id&order=created_at.desc&limit=8`);
+      const others = visitante ? [] : await rest(`comu_support_tickets?user_id=eq.${tk.user_id}&select=id&order=created_at.desc&limit=8`);
       if (others && others.length) {
         tids = others.map((t)=>t.id);
         if (tids.indexOf(ticket_id) < 0) tids.unshift(ticket_id);
@@ -274,6 +344,65 @@ serve(async (req)=>{
       else q.unshift((m.body || "").trim());
     }
     const member_question = q.join("\n").trim().slice(0, 1500) || "(o aluno enviou mídia)";
+
+    // ---- Triagem (Jev) + resposta automática de cortesia -------------------
+    // O veredito é guardado no rascunho mesmo quando não enviamos nada: é o modo
+    // sombra, que deixa comparar o que a triagem TERIA feito antes de ligar mais.
+    const jev = cfg.jev_enabled === false ? null : await jevTriagem(member_question);
+    // pendente continua valendo se nada novo foi perguntado, ou se a última mensagem é
+    // só cortesia (um "obrigado" no meio não invalida a resposta que já está pronta).
+    if (pendente) {
+      const mesmaPergunta = String(pendente.member_question || "") === member_question;
+      const soCortesia = !!jev && Number(jev.so_cortesia ?? 0) >= 0.8 && cfg.auto_cortesia_enabled !== true;
+      if (mesmaPergunta || soCortesia) return ok({
+        ok: true,
+        skipped: "rascunho pendente"
+      });
+    }
+    if (jev && cfg.auto_cortesia_enabled === true) {
+      const limite = Number(cfg.auto_cortesia_limite ?? 0.8);
+      const doTicket = msgs.filter((m)=>m.ticket_id === ticket_id);
+      const equipeJaFalou = doTicket.some((m)=>m.author_id !== tk.user_id);
+      const tipo = jev.tipo_cortesia;
+      // abertura ("bom dia") só no começo do atendimento; agradecimento/confirmação
+      // só depois que a equipe falou — senão responderíamos "imagina" a quem ainda espera.
+      const momentoOk = tipo === "saudacao" ? !equipeJaFalou : (tipo === "agradecimento" || tipo === "confirmacao") && equipeJaFalou;
+      let jaAuto = 0;
+      try {
+        jaAuto = await rest(`rpc/comu_ai_auto_no_ticket`, { method: "POST", body: JSON.stringify({ p_ticket: ticket_id }) }) ?? 0;
+      } catch (_e) {
+        jaAuto = 99; // sem saber o teto, não arrisca
+      }
+      const pode = momentoOk && last.kind === "text" && member_question.length <= 160 && jaAuto < Number(cfg.auto_max_por_ticket ?? 2) && jev.categoria === "cortesia" && Number(jev.categoria_conf ?? 0) >= 0.8 && Number(jev.so_cortesia ?? 0) >= limite && Number(jev.precisa_humano ?? 1) < 0.5;
+      if (pode) {
+        const texto = respostaCortesia(tipo, saud, firstName);
+        try {
+          const ins0 = await rest(`comu_ai_drafts`, {
+            method: "POST",
+            headers: { Prefer: "return=representation" },
+            body: JSON.stringify({
+              ticket_id,
+              member_id: tk.user_id,
+              trigger_message_id: trigger_message_id || null,
+              member_question,
+              draft_body: texto,
+              suggest_handoff: false,
+              model: "jev-cortesia",
+              auto_enviar_em: new Date(Date.now() + (25 + Math.floor(Math.random() * 50)) * 1000).toISOString(),
+              knowledge_used: [],
+              jev
+            })
+          });
+          const id0 = ins0 && ins0[0] && ins0[0].id;
+          if (id0) {
+            return ok({ ok: true, auto: "cortesia agendada", draft_id: id0 });
+          }
+        } catch (e) {
+          console.error("[support-draft] auto cortesia:", String(e).slice(0, 200));
+        // cai no fluxo normal: vira sugestão para revisão humana
+        }
+      }
+    }
     // status do aluno no desafio ativo (a IA precisa saber quem já está participando)
     let challengeNote = "";
     try {
@@ -307,8 +436,48 @@ serve(async (req)=>{
     const cblock = corr.length ? corr.map((c, i)=>`(${i + 1}) Pergunta: ${(c.member_question || "").slice(0, 160)}\nErro a evitar: ${c.reason}${c.corrected_answer ? `\nCerto: ${c.corrected_answer}` : ""}`).join("\n\n") : "(nenhuma)";
     const baseP = (cfg.system_prompt || "Você é Bruno, do suporte da GVSI.").replace(/\{saudacao\}/g, saud).replace(/\{hora_atual\}/g, horaStr).replace(/\{nome\}/g, firstName || "").replace(/\{context\}/g, "");
     const agora = "\n\n## AGORA — DATA, HORA, SAUDAÇÃO E NOME (OBRIGATÓRIO)\n- Agora em Brasília é " + (diaSemana || "?") + ", " + (dataStr || "") + ", " + (horaStr || "") + "h. A ÚNICA saudação correta agora é \"" + saud + "\" (nunca outra; ignore a hora que aparece nos prints do aluno, o que vale é esta)." + "\n- SALA AO VIVO HOJE: " + (isSalaDay ? "hoje (" + diaSemana + ") É dia de sala ao vivo (10h30). Se agora ja passou das 10h30, a de hoje ja aconteceu/esta rolando; se ainda nao, o link costuma sair perto do horario no topico Sala ao vivo, aqui na comunidade (nao existe mais grupo de WhatsApp da sala)." : "hoje (" + diaSemana + ") NAO tem sala ao vivo. A sala e SO segunda, quarta e sexta as 10h30.") + " Responda perguntas sobre a sala de HOJE com base nisso. NUNCA diga que o link de hoje foi enviado num dia que nao tem sala; nesse caso, avise que hoje nao tem e diga o proximo dia." + "\n- USE tambem o dia da semana e a hora pra qualquer outra pergunta que dependa disso, em vez de dar resposta generica." + (firstName ? "\n- O aluno se chama " + firstName + ". Ao cumprimentar, use o primeiro nome logo na primeira frase, assim: \"" + saud + ", " + firstName + ", tudo bem?\" e só depois vá ao assunto. Escreva o nome EXATAMENTE assim, letra por letra, sem trocar nenhuma letra: " + firstName + ". Se a conversa já estiver em andamento e não fizer sentido cumprimentar de novo, pode ir direto." : "\n- Se cumprimentar, use só \"" + saud + "\" SEM nome (não invente nem chute o nome do aluno).");
+    // o e-mail aparece como autor das mensagens dele (a tela de login pede o e-mail)
+    let visitanteNota = "";
+    if (visitante) {
+      let mail = "";
+      for (let i = msgs.length - 1; i >= 0; i--) {
+        const n = String(msgs[i].author_name || "");
+        if (msgs[i].author_id === tk.user_id && n.indexOf("@") > 0) { mail = n.trim(); break; }
+      }
+      visitanteNota = [
+        "",
+        "## QUEM ESTA FALANDO (TELA DE LOGIN)",
+        "Esta pessoa escreveu da TELA DE LOGIN, entao ainda NAO conseguiu entrar." + (mail ? " O e-mail que ela informou e " + mail + "." : " Ela ainda nao informou o e-mail; peca o e-mail da compra."),
+        "- NUNCA a chame de 'Visitante': use o primeiro nome se ela disser, ou nao use nome nenhum.",
+        "- O assunto e SEMPRE o acesso aos NOSSOS sistemas (area de membros e comunidade). NUNCA mande falar com a corretora (Global Prime) por senha, codigo ou login: a corretora nao tem nada a ver com isso.",
+        "- Senha da area de membros: a pessoa usa 'Esqueci minha senha' / 'Criar minha senha' com o e-mail da compra e recebe um codigo por e-mail, que vale 1 hora. Se nao chegar, mande conferir spam e confirmar se e o mesmo e-mail da compra. O suporte tambem gera esse codigo pelo painel."
+      ].join("\n");
+    }
+    // Mesa proprietária: a liberação é manual, feita pela equipe. Marca a tarefa no
+    // atendimento (vira etiqueta "Ativar mesa" e cai na aba URGENTE) e deixa o Bruno
+    // avisar a pessoa de que o pedido já está com a equipe.
+    let mesaNota = "";
+    if (jev && Number(jev.mesa ?? 0) >= 0.8) {
+      mesaNota = [
+        "",
+        "## MESA PROPRIETARIA (LIBERACAO MANUAL)",
+        "Este aluno esta pedindo acesso/ativacao da mesa proprietaria. A liberacao e MANUAL: a equipe cria e libera a conta depois do pedido.",
+        "- Diga, com naturalidade, que a liberacao da mesa e feita manualmente pela equipe depois da solicitacao e que o pedido dele JA foi registrado e sera feito.",
+        "- Nao prometa horario exato, prazo nem e-mail, e nao diga que ja esta liberado: diga que avisamos por aqui mesmo assim que estiver pronto.",
+        "- Nao peca para ele falar com a corretora."
+      ].join("\n");
+      try {
+        await rest(`comu_support_tickets?id=eq.${ticket_id}`, {
+          method: "PATCH",
+          headers: { Prefer: "return=minimal" },
+          body: JSON.stringify({ tarefa: "ativar_mesa", needs_human: true })
+        });
+      } catch (_e) {}
+    }
     const sys = [
       baseP,
+      visitanteNota,
+      mesaNota,
       agora,
       "\n\n## CONHECIMENTO RECUPERADO (use se ajudar; não invente além disso)\n" + kblock,
       "\n\n## CORRECOES — NAO REPITA ESTES ERROS\n" + cblock,
@@ -390,6 +559,7 @@ serve(async (req)=>{
         suggest_handoff: needs_human || !answer,
         handoff_reason: reason || null,
         model: cfg.draft_model || "gpt-4o-mini",
+        jev,
         knowledge_used: knowledge.map((k)=>({
             id: k.id,
             sim: k.similarity
