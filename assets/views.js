@@ -1934,7 +1934,8 @@
         function timeShort(iso) { try { var d = new Date(iso); if (Date.now() - d.getTime() < 86400000) return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); return d.toLocaleDateString('pt-BR'); } catch (e) { return ''; } }
         async function loadTickets() {
           var q = sb.from('comu_support_tickets').select('*, member:lms_students!user_id(full_name,avatar_url,email,phone,premium)').order('last_message_at', { ascending: false });
-          if (self.filter === 'voce' || self.filter === 'cliente' || self.filter === 'urgente') q = q.in('status', ['aberto', 'aguardando']); else if (self.filter === 'resolvidos') q = q.in('status', ['resolvido', 'fechado']);
+          // 'ia' tambem so mostra conversa em andamento: resolvida ja saiu da fila e so polui.
+          if (self.filter === 'voce' || self.filter === 'cliente' || self.filter === 'urgente' || self.filter === 'ia') q = q.in('status', ['aberto', 'aguardando']); else if (self.filter === 'resolvidos') q = q.in('status', ['resolvido', 'fechado']);
           var r = await q; if (self.destroyed) return;
           // conversas em que o Bruno respondeu sozinho (cortesia): vira etiqueta na linha e aba propria
           var autoSet = Object.create(null);
