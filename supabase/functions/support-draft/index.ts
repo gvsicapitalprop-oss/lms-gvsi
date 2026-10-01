@@ -191,15 +191,14 @@ serve(async (req)=>{
       ok: true,
       skipped: "ticket nao aberto"
     });
-    // economia: só UM rascunho pendente por ticket. Se já existe, não gasta
-    // transcrição/embedding/LLM de novo (o cron redraftava a cada mensagem
-    // do aluno e ~85% dos rascunhos viravam "superseded" sem revisão).
+    // Economia: não refaz o rascunho à toa. MAS o de antes só pode ficar de pé se
+    // ainda responde ao que o aluno perguntou. Ele mandava "bom dia", o rascunho nascia
+    // em cima disso, e as perguntas que vinham depois NÃO geravam nada: a equipe via uma
+    // sugestão genérica respondendo ao cumprimento (01/10/2026).
+    let pendente = null;
     if (force !== true) {
-      const pend = await rest(`comu_ai_drafts?ticket_id=eq.${ticket_id}&status=eq.pending&select=id&limit=1`);
-      if (pend && pend.length) return ok({
-        ok: true,
-        skipped: "rascunho pendente"
-      });
+      const pend = await rest(`comu_ai_drafts?ticket_id=eq.${ticket_id}&status=eq.pending&select=id,member_question&limit=1`);
+      pendente = pend && pend[0] ? pend[0] : null;
     }
     // saudação correta pela HORA de Brasília + primeiro nome do aluno
     let hourSP = 12;
@@ -342,6 +341,16 @@ serve(async (req)=>{
     // O veredito é guardado no rascunho mesmo quando não enviamos nada: é o modo
     // sombra, que deixa comparar o que a triagem TERIA feito antes de ligar mais.
     const jev = cfg.jev_enabled === false ? null : await jevTriagem(member_question);
+    // pendente continua valendo se nada novo foi perguntado, ou se a última mensagem é
+    // só cortesia (um "obrigado" no meio não invalida a resposta que já está pronta).
+    if (pendente) {
+      const mesmaPergunta = String(pendente.member_question || "") === member_question;
+      const soCortesia = !!jev && Number(jev.so_cortesia ?? 0) >= 0.8 && cfg.auto_cortesia_enabled !== true;
+      if (mesmaPergunta || soCortesia) return ok({
+        ok: true,
+        skipped: "rascunho pendente"
+      });
+    }
     if (jev && cfg.auto_cortesia_enabled === true) {
       const limite = Number(cfg.auto_cortesia_limite ?? 0.8);
       const doTicket = msgs.filter((m)=>m.ticket_id === ticket_id);
