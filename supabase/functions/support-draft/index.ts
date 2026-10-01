@@ -128,6 +128,7 @@ async function jevTriagem(pergunta) {
           categoria: { type: "choice", instructions: "Em que assunto se encaixa a mensagem do aluno para o suporte?", criteria: JEV_CATS },
           so_cortesia: { type: "noul", instructions: "A mensagem é apenas cortesia (agradecimento, saudação, 'ok', 'entendi'), sem nenhum pedido ou pergunta nova?" },
           precisa_humano: { type: "noul", instructions: "Para responder isto é preciso consultar dados da conta do aluno (acesso, pagamento, datas) ou executar uma ação que só a equipe pode fazer?" },
+          mesa: { type: "noul", instructions: "O aluno está pedindo acesso, ativação ou instruções da MESA PROPRIETÁRIA que comprou (conta de avaliação/teste), ou dizendo que comprou a mesa e não recebeu nada?" },
           tipo_cortesia: { type: "choice", instructions: "Se for cortesia, de que tipo é?", criteria: {
             agradecimento: "Agradece ou encerra ('obrigado', 'valeu', 'era isso mesmo').",
             saudacao: "Só cumprimenta, abrindo conversa ('bom dia', 'boa noite, tudo bem?').",
@@ -145,6 +146,7 @@ async function jevTriagem(pergunta) {
       categoria: pega(a.categoria),
       categoria_conf: a.categoria && a.categoria.confidence,
       so_cortesia: pega(a.so_cortesia),
+      mesa: pega(a.mesa),
       precisa_humano: pega(a.precisa_humano),
       tipo_cortesia: pega(a.tipo_cortesia),
       em: new Date().toISOString()
@@ -451,9 +453,31 @@ serve(async (req)=>{
         "- Senha da area de membros: a pessoa usa 'Esqueci minha senha' / 'Criar minha senha' com o e-mail da compra e recebe um codigo por e-mail, que vale 1 hora. Se nao chegar, mande conferir spam e confirmar se e o mesmo e-mail da compra. O suporte tambem gera esse codigo pelo painel."
       ].join("\n");
     }
+    // Mesa proprietária: a liberação é manual, feita pela equipe. Marca a tarefa no
+    // atendimento (vira etiqueta "Ativar mesa" e cai na aba URGENTE) e deixa o Bruno
+    // avisar a pessoa de que o pedido já está com a equipe.
+    let mesaNota = "";
+    if (jev && Number(jev.mesa ?? 0) >= 0.8) {
+      mesaNota = [
+        "",
+        "## MESA PROPRIETARIA (LIBERACAO MANUAL)",
+        "Este aluno esta pedindo acesso/ativacao da mesa proprietaria. A liberacao e MANUAL: a equipe cria e libera a conta depois do pedido.",
+        "- Diga, com naturalidade, que a liberacao da mesa e feita manualmente pela equipe depois da solicitacao e que o pedido dele JA foi registrado e sera feito.",
+        "- Nao prometa horario exato, prazo nem e-mail, e nao diga que ja esta liberado: diga que avisamos por aqui mesmo assim que estiver pronto.",
+        "- Nao peca para ele falar com a corretora."
+      ].join("\n");
+      try {
+        await rest(`comu_support_tickets?id=eq.${ticket_id}`, {
+          method: "PATCH",
+          headers: { Prefer: "return=minimal" },
+          body: JSON.stringify({ tarefa: "ativar_mesa", needs_human: true })
+        });
+      } catch (_e) {}
+    }
     const sys = [
       baseP,
       visitanteNota,
+      mesaNota,
       agora,
       "\n\n## CONHECIMENTO RECUPERADO (use se ajudar; não invente além disso)\n" + kblock,
       "\n\n## CORRECOES — NAO REPITA ESTES ERROS\n" + cblock,
