@@ -244,8 +244,13 @@ serve(async (req)=>{
     } catch (_e) {}
     const isSalaDay = wdEn === "Monday" || wdEn === "Wednesday" || wdEn === "Friday";
     let firstName = "";
+    // A conta "Visitante (tela de login)" e COMPARTILHADA: todo mundo que escreve da tela de
+    // login cai nela. Sem isto o Bruno lia a conversa de outra pessoa como se fosse do mesmo
+    // aluno (chegou a chamar um aluno pelo nome de outro) e ainda vazava assunto alheio.
+    let visitante = false;
     try {
-      const st = await rest(`lms_students?id=eq.${tk.user_id}&select=full_name`);
+      const st = await rest(`lms_students?id=eq.${tk.user_id}&select=full_name,email`);
+      visitante = String((st && st[0] && st[0].email) || "").toLowerCase().indexOf("visitante-suporte@") === 0;
       const fn = st && st[0] && st[0].full_name;
       if (fn && String(fn).indexOf("@") < 0) {
         const p = String(fn).trim().split(/\s+/)[0];
@@ -259,12 +264,13 @@ serve(async (req)=>{
       "saimon"
     ];
     if (firstName && NAME_OMIT.indexOf(firstName.toLowerCase()) >= 0) firstName = "";
+    if (visitante) firstName = ""; // "Visitante" nao e nome de ninguem
     // histórico recente do MESMO aluno, atravessando conversas (ele referencia coisas ditas em tickets anteriores)
     let tids = [
       ticket_id
     ];
     try {
-      const others = await rest(`comu_support_tickets?user_id=eq.${tk.user_id}&select=id&order=created_at.desc&limit=8`);
+      const others = visitante ? [] : await rest(`comu_support_tickets?user_id=eq.${tk.user_id}&select=id&order=created_at.desc&limit=8`);
       if (others && others.length) {
         tids = others.map((t)=>t.id);
         if (tids.indexOf(ticket_id) < 0) tids.unshift(ticket_id);
@@ -428,8 +434,26 @@ serve(async (req)=>{
     const cblock = corr.length ? corr.map((c, i)=>`(${i + 1}) Pergunta: ${(c.member_question || "").slice(0, 160)}\nErro a evitar: ${c.reason}${c.corrected_answer ? `\nCerto: ${c.corrected_answer}` : ""}`).join("\n\n") : "(nenhuma)";
     const baseP = (cfg.system_prompt || "Você é Bruno, do suporte da GVSI.").replace(/\{saudacao\}/g, saud).replace(/\{hora_atual\}/g, horaStr).replace(/\{nome\}/g, firstName || "").replace(/\{context\}/g, "");
     const agora = "\n\n## AGORA — DATA, HORA, SAUDAÇÃO E NOME (OBRIGATÓRIO)\n- Agora em Brasília é " + (diaSemana || "?") + ", " + (dataStr || "") + ", " + (horaStr || "") + "h. A ÚNICA saudação correta agora é \"" + saud + "\" (nunca outra; ignore a hora que aparece nos prints do aluno, o que vale é esta)." + "\n- SALA AO VIVO HOJE: " + (isSalaDay ? "hoje (" + diaSemana + ") É dia de sala ao vivo (10h30). Se agora ja passou das 10h30, a de hoje ja aconteceu/esta rolando; se ainda nao, o link costuma sair perto do horario no topico Sala ao vivo, aqui na comunidade (nao existe mais grupo de WhatsApp da sala)." : "hoje (" + diaSemana + ") NAO tem sala ao vivo. A sala e SO segunda, quarta e sexta as 10h30.") + " Responda perguntas sobre a sala de HOJE com base nisso. NUNCA diga que o link de hoje foi enviado num dia que nao tem sala; nesse caso, avise que hoje nao tem e diga o proximo dia." + "\n- USE tambem o dia da semana e a hora pra qualquer outra pergunta que dependa disso, em vez de dar resposta generica." + (firstName ? "\n- O aluno se chama " + firstName + ". Ao cumprimentar, use o primeiro nome logo na primeira frase, assim: \"" + saud + ", " + firstName + ", tudo bem?\" e só depois vá ao assunto. Escreva o nome EXATAMENTE assim, letra por letra, sem trocar nenhuma letra: " + firstName + ". Se a conversa já estiver em andamento e não fizer sentido cumprimentar de novo, pode ir direto." : "\n- Se cumprimentar, use só \"" + saud + "\" SEM nome (não invente nem chute o nome do aluno).");
+    // o e-mail aparece como autor das mensagens dele (a tela de login pede o e-mail)
+    let visitanteNota = "";
+    if (visitante) {
+      let mail = "";
+      for (let i = msgs.length - 1; i >= 0; i--) {
+        const n = String(msgs[i].author_name || "");
+        if (msgs[i].author_id === tk.user_id && n.indexOf("@") > 0) { mail = n.trim(); break; }
+      }
+      visitanteNota = [
+        "",
+        "## QUEM ESTA FALANDO (TELA DE LOGIN)",
+        "Esta pessoa escreveu da TELA DE LOGIN, entao ainda NAO conseguiu entrar." + (mail ? " O e-mail que ela informou e " + mail + "." : " Ela ainda nao informou o e-mail; peca o e-mail da compra."),
+        "- NUNCA a chame de 'Visitante': use o primeiro nome se ela disser, ou nao use nome nenhum.",
+        "- O assunto e SEMPRE o acesso aos NOSSOS sistemas (area de membros e comunidade). NUNCA mande falar com a corretora (Global Prime) por senha, codigo ou login: a corretora nao tem nada a ver com isso.",
+        "- Senha da area de membros: a pessoa usa 'Esqueci minha senha' / 'Criar minha senha' com o e-mail da compra e recebe um codigo por e-mail, que vale 1 hora. Se nao chegar, mande conferir spam e confirmar se e o mesmo e-mail da compra. O suporte tambem gera esse codigo pelo painel."
+      ].join("\n");
+    }
     const sys = [
       baseP,
+      visitanteNota,
       agora,
       "\n\n## CONHECIMENTO RECUPERADO (use se ajudar; não invente além disso)\n" + kblock,
       "\n\n## CORRECOES — NAO REPITA ESTES ERROS\n" + cblock,
