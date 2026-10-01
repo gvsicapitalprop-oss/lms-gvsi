@@ -98,6 +98,69 @@ const ok = (o)=>new Response(JSON.stringify(o), {
       "Content-Type": "application/json"
     }
   });
+
+// ---------------------------------------------------------------------------
+// Triagem com o Jev (TypeSafe). Devolve decisões curtas e CALIBRADAS em ~0,3s:
+// assunto da mensagem, se é só cortesia e se o caso precisa de gente.
+// Usamos isso para dois fins: responder cortesia na hora e, no resto, só anotar
+// o veredito no rascunho (modo sombra) para o dono comparar antes de ligar mais.
+// Nunca derruba o fluxo: se falhar ou demorar, devolve null e tudo segue como antes.
+const JEV_KEY = Deno.env.get("JEV_API_KEY") ?? "";
+const JEV_CATS = {
+  cortesia: "Só agradecimento, saudação, despedida ou confirmação curta ('obrigado', 'bom dia', 'ok', 'entendi'). Não pede nada nem faz pergunta nova.",
+  acesso: "Acesso, liberação, assinatura, Sala ao Vivo, login, senha, área de membros, link da aula.",
+  plataforma: "Dúvida técnica do MetaTrader 5: instalação, configuração, gráfico, indicadores, conta demo.",
+  financeiro: "Pagamento, boleto, cartão, reembolso, cobrança, renovação.",
+  conteudo: "Dúvida sobre as aulas, estratégia, operação ou mercado.",
+  outro: "Qualquer coisa que não caiba nas anteriores."
+};
+async function jevTriagem(pergunta) {
+  if (!JEV_KEY || !pergunta) return null;
+  try {
+    const r = await fetch("https://api.typesafe.ai/v1/systemone", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${JEV_KEY}`, "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(6000),
+      body: JSON.stringify({
+        state: String(pergunta).slice(0, 1500),
+        model: "jev-latest",
+        questions: {
+          categoria: { type: "choice", instructions: "Em que assunto se encaixa a mensagem do aluno para o suporte?", criteria: JEV_CATS },
+          so_cortesia: { type: "noul", instructions: "A mensagem é apenas cortesia (agradecimento, saudação, 'ok', 'entendi'), sem nenhum pedido ou pergunta nova?" },
+          precisa_humano: { type: "noul", instructions: "Para responder isto é preciso consultar dados da conta do aluno (acesso, pagamento, datas) ou executar uma ação que só a equipe pode fazer?" },
+          tipo_cortesia: { type: "choice", instructions: "Se for cortesia, de que tipo é?", criteria: {
+            agradecimento: "Agradece ou encerra ('obrigado', 'valeu', 'era isso mesmo').",
+            saudacao: "Só cumprimenta, abrindo conversa ('bom dia', 'boa noite, tudo bem?').",
+            confirmacao: "Confirma que entendeu ou que vai testar ('ok', 'entendi', 'vou testar').",
+            nao_cortesia: "Não é cortesia."
+          } }
+        }
+      })
+    });
+    if (!r.ok) return null;
+    const d = await r.json();
+    const a = (d && d.answers) || d || {};
+    const pega = (x)=>x && (x.choice ?? x.value ?? x.noul);
+    return {
+      categoria: pega(a.categoria),
+      categoria_conf: a.categoria && a.categoria.confidence,
+      so_cortesia: pega(a.so_cortesia),
+      precisa_humano: pega(a.precisa_humano),
+      tipo_cortesia: pega(a.tipo_cortesia),
+      em: new Date().toISOString()
+    };
+  } catch (_e) {
+    return null;
+  }
+}
+// Respostas curtas de cortesia. Texto fixo: não passa por modelo nenhum, não inventa nada.
+function respostaCortesia(tipo, saud, nome) {
+  const quem = nome ? ", " + nome : "";
+  if (tipo === "saudacao") return `${saud}${quem}! Pode mandar sua dúvida por aqui que já te ajudo.`;
+  if (tipo === "confirmacao") return `Combinado${quem}! Fico à disposição.`;
+  return `Imagina${quem}! Qualquer coisa é só chamar por aqui.`;
+}
+
 serve(async (req)=>{
   try {
     if (req.headers.get("x-mod-secret") !== MOD_SECRET) return new Response("forbidden", {
@@ -274,6 +337,55 @@ serve(async (req)=>{
       else q.unshift((m.body || "").trim());
     }
     const member_question = q.join("\n").trim().slice(0, 1500) || "(o aluno enviou mídia)";
+
+    // ---- Triagem (Jev) + resposta automática de cortesia -------------------
+    // O veredito é guardado no rascunho mesmo quando não enviamos nada: é o modo
+    // sombra, que deixa comparar o que a triagem TERIA feito antes de ligar mais.
+    const jev = cfg.jev_enabled === false ? null : await jevTriagem(member_question);
+    if (jev && cfg.auto_cortesia_enabled === true) {
+      const limite = Number(cfg.auto_cortesia_limite ?? 0.8);
+      const doTicket = msgs.filter((m)=>m.ticket_id === ticket_id);
+      const equipeJaFalou = doTicket.some((m)=>m.author_id !== tk.user_id);
+      const tipo = jev.tipo_cortesia;
+      // abertura ("bom dia") só no começo do atendimento; agradecimento/confirmação
+      // só depois que a equipe falou — senão responderíamos "imagina" a quem ainda espera.
+      const momentoOk = tipo === "saudacao" ? !equipeJaFalou : (tipo === "agradecimento" || tipo === "confirmacao") && equipeJaFalou;
+      let jaAuto = 0;
+      try {
+        jaAuto = await rest(`rpc/comu_ai_auto_no_ticket`, { method: "POST", body: JSON.stringify({ p_ticket: ticket_id }) }) ?? 0;
+      } catch (_e) {
+        jaAuto = 99; // sem saber o teto, não arrisca
+      }
+      const pode = momentoOk && last.kind === "text" && member_question.length <= 160 && jaAuto < Number(cfg.auto_max_por_ticket ?? 2) && jev.categoria === "cortesia" && Number(jev.categoria_conf ?? 0) >= 0.8 && Number(jev.so_cortesia ?? 0) >= limite && Number(jev.precisa_humano ?? 1) < 0.5;
+      if (pode) {
+        const texto = respostaCortesia(tipo, saud, firstName);
+        try {
+          const ins0 = await rest(`comu_ai_drafts`, {
+            method: "POST",
+            headers: { Prefer: "return=representation" },
+            body: JSON.stringify({
+              ticket_id,
+              member_id: tk.user_id,
+              trigger_message_id: trigger_message_id || null,
+              member_question,
+              draft_body: texto,
+              suggest_handoff: false,
+              model: "jev-cortesia",
+              knowledge_used: [],
+              jev
+            })
+          });
+          const id0 = ins0 && ins0[0] && ins0[0].id;
+          if (id0) {
+            await rest(`rpc/comu_ai_draft_auto_enviar`, { method: "POST", body: JSON.stringify({ p_draft_id: id0 }) });
+            return ok({ ok: true, auto: "cortesia", draft_id: id0 });
+          }
+        } catch (e) {
+          console.error("[support-draft] auto cortesia:", String(e).slice(0, 200));
+        // cai no fluxo normal: vira sugestão para revisão humana
+        }
+      }
+    }
     // status do aluno no desafio ativo (a IA precisa saber quem já está participando)
     let challengeNote = "";
     try {
@@ -390,6 +502,7 @@ serve(async (req)=>{
         suggest_handoff: needs_human || !answer,
         handoff_reason: reason || null,
         model: cfg.draft_model || "gpt-4o-mini",
+        jev,
         knowledge_used: knowledge.map((k)=>({
             id: k.id,
             sim: k.similarity
