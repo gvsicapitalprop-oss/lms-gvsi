@@ -11,6 +11,13 @@
 //   {email}   uma pessoa: os avulsos dela e as assinaturas do Hub com acesso
 //             ligado (access_enabled). Chamado quando a conta nasce (gatilho
 //             em lms_students) e pelo hub-accesses depois de Liberar/Bloquear.
+//   {conferencia: true}
+//             cron a cada 10 min (05/10/2026, "precisamos garantir que todas
+//             liberem automaticamente"): toda assinatura do Hub ativa, paga e
+//             com acesso ligado, de produto com curso aqui, tem que estar
+//             aberta na área de membros. O que faltar (aviso do Hub que não
+//             chegou) é aberto como o aviso abriria. Resumo em
+//             lms_settings.hub_conferencia; migracao/hub-conferencia.sql.
 //   dry_run   true: só diz o que faria. Com {desde}, simula o cron a partir
 //             dessa data (não mexe no cursor).
 //
@@ -306,6 +313,141 @@ async function porCursor(ctx: Ctx, desdeEnsaio: string | null) {
   return { ok: erros.length === 0, modo: "cursor", desde, ate, lidos: lista.length, resultado: res, erros };
 }
 
+// Tudo de uma consulta, de 1000 em 1000 (o PostgREST do Hub corta em 1000).
+async function hubGetTodos(path: string): Promise<any[]> {
+  const todos: any[] = [];
+  for (let de = 0; de < 20000; de += 1000) {
+    const parte = await hubGet(`${path}&order=id.asc&limit=1000&offset=${de}`);
+    todos.push(...parte);
+    if (parte.length < 1000) break;
+  }
+  return todos;
+}
+
+// Teto por rodada: se algo sair do lugar (mapa errado, por exemplo), a
+// conferência não abre centenas de acessos de uma vez; o resto fica para as
+// próximas rodadas e aparece como "adiado" no resumo.
+const LIMITE_CORRECOES = 60;
+
+// Rede de segurança das compras: a liberação é o aviso do Hub; isto pega o
+// aviso que não chegou (queda, produto sem endereço, erro na hora). Só abre,
+// nunca fecha: retirada é do Hub (atraso, cancelamento).
+async function conferencia(ctx: Ctx) {
+  const slugs = [...ctx.mapa.keys()];
+  if (!slugs.length) return { ok: false, modo: "conferencia", error: "mapa de produtos vazio" };
+
+  // O Hub atende outras empresas: vale só o cliente cujos produtos mandam
+  // para cá.
+  const donos = await hubGet("products?select=client_id&access_webhook_url=ilike.*giovannipaganini*&limit=1");
+  const cliente = donos[0]?.client_id;
+  if (!cliente) return { ok: false, modo: "conferencia", error: "cliente do Hub nao encontrado" };
+
+  const subs = await hubGetTodos(
+    "subscriptions?select=id,starts_at,expires_at,created_at," +
+      "product:product_id!inner(slug,access_duration_days,client_id),contact:contact_id(email,full_name)" +
+      "&status=eq.active&access_enabled=eq.true&payment_status=eq.up_to_date" +
+      `&product.slug=in.(${slugs.map(enc).join(",")})&product.client_id=eq.${cliente}`,
+  );
+
+  const porId = new Map<string, any>();
+  const lista: { sub: string; email: string; curso: string }[] = [];
+  for (const s of subs) {
+    const curso = cursoDo(ctx, s?.product?.slug);
+    const email = String(s?.contact?.email ?? "").trim().toLowerCase();
+    if (!curso || !email.includes("@")) continue;
+    porId.set(s.id, s);
+    lista.push({ sub: s.id, email, curso: curso.id });
+  }
+
+  // A comparação é no banco: devolve só o que NÃO está aberto aqui.
+  const faltando: any[] = lista.length ? await lms("POST", "rpc/lms_hub_conferir", { p: lista }) : [];
+  const ign = await lmsGet("lms_settings?key=eq.hub_conferencia_ignorar&select=value");
+  const ignorar = new Set<string>((ign[0]?.value?.subs ?? []).map(String));
+
+  const res: Record<string, number> = {};
+  const erros: string[] = [];
+  const corrigidas: Record<string, unknown>[] = [];
+  for (const f of faltando) {
+    // Removido de propósito no painel: fica como a equipe deixou.
+    if (ignorar.has(String(f.sub_id))) {
+      contar(res, "ignorado");
+      continue;
+    }
+    if (corrigidas.length >= LIMITE_CORRECOES) {
+      contar(res, "adiado");
+      continue;
+    }
+    const s = porId.get(f.sub_id);
+    const curso = cursoDo(ctx, s?.product?.slug);
+    if (!s || !curso) continue;
+    try {
+      let alunoId: string | null = f.aluno_id ?? null;
+      let criou = false;
+      if (!alunoId) {
+        if (!ctx.criar) {
+          contar(res, "sem-aluno");
+          continue;
+        }
+        if (ctx.ensaio) {
+          ctx.feito.push(`criaria conta e liberaria ${curso.slug} (assinatura ${s.id})`);
+          contar(res, "liberado");
+          continue;
+        }
+        alunoId = await criarAluno(f.email, s?.contact?.full_name ?? null);
+        criou = !!alunoId;
+        if (!alunoId) {
+          contar(res, "sem-aluno");
+          continue;
+        }
+      }
+      const dias = s.product.access_duration_days;
+      const fim =
+        s.expires_at ??
+        (s.starts_at && dias ? new Date(Date.parse(s.starts_at) + dias * 864e5).toISOString() : null);
+      const r = await abrir(ctx, alunoId, curso.id, s.id, {
+        inicio: s.starts_at ?? s.created_at ?? ctx.agoraIso,
+        fim,
+        raw: `${s.product.slug}:active`,
+      });
+      contar(res, r);
+      if (r === "liberado") {
+        ctx.feito.push(`liberou ${curso.slug} (assinatura ${s.id}${criou ? ", conta nova" : ""})`);
+        corrigidas.push({ quando: ctx.agoraIso, curso: curso.slug, hub: s.id, conta_nova: criou });
+        if (!ctx.ensaio) {
+          await diario("hub_grant", alunoId, { curso: curso.slug, hub: s.id, origem: "conferencia", criou_conta: criou });
+        }
+      }
+    } catch (e) {
+      erros.push(`${f.sub_id}: ${String(e).slice(0, 160)}`);
+    }
+  }
+
+  // Resumo para o painel: quando rodou, quanto conferiu e as últimas
+  // correções (cada correção é um aviso do Hub que não chegou).
+  if (!ctx.ensaio) {
+    const ant = await lmsGet("lms_settings?key=eq.hub_conferencia&select=value");
+    const ultimas = [...corrigidas, ...((ant[0]?.value?.ultimas ?? []) as unknown[])].slice(0, 30);
+    await lms(
+      "POST",
+      "lms_settings?on_conflict=key",
+      {
+        key: "hub_conferencia",
+        value: {
+          rodou_em: ctx.agoraIso,
+          conferidas: lista.length,
+          faltando: faltando.length,
+          corrigidas_agora: corrigidas.length,
+          erros: erros.slice(0, 5),
+          ultimas,
+        },
+        updated_at: ctx.agoraIso,
+      },
+      "resolution=merge-duplicates,return=minimal",
+    );
+  }
+  return { ok: erros.length === 0, modo: "conferencia", conferidas: lista.length, faltando: faltando.length, resultado: res, erros };
+}
+
 async function porEmail(ctx: Ctx, email: string) {
   const e = email.trim().toLowerCase();
   // ilike acha o e-mail com maiúsculas no Hub; o filtro exato tira os falsos
@@ -349,9 +491,11 @@ Deno.serve(async (req: Request) => {
   try {
     const body = await req.json().catch(() => ({} as any));
     const ctx = await contexto(body.dry_run === true);
-    const saida = body.email
-      ? await porEmail(ctx, String(body.email))
-      : await porCursor(ctx, body.dry_run === true && body.desde ? String(body.desde) : null);
+    const saida = body.conferencia === true
+      ? await conferencia(ctx)
+      : body.email
+        ? await porEmail(ctx, String(body.email))
+        : await porCursor(ctx, body.dry_run === true && body.desde ? String(body.desde) : null);
     return J({ ...saida, ensaio: ctx.ensaio, feito: ctx.feito.slice(0, 50) });
   } catch (err) {
     console.error("[hub-avulsos]", err);
