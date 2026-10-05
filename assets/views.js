@@ -1807,10 +1807,11 @@
             panel.querySelectorAll('.pe-close').forEach(function (b) { b.onclick = function () { overlay.remove(); }; });
             var cp = panel.querySelector('#pe-copy'); if (cp) cp.onclick = function () { try { navigator.clipboard.writeText(u.email); G.toast('E-mail copiado.'); } catch (e) { G.toast(u.email); } };
             // Código de senha: o jeito seguro, chega só no e-mail da pessoa. É o
-            // mesmo do "Primeiro acesso" da área de membros (vale 1 hora).
+            // mesmo do "Primeiro acesso" da área de membros: o e-mail traz o botão
+            // "Criar minha senha" e o código, que valem 24 horas (desde 05/10/2026).
             panel.querySelector('#pe-code').onclick = async function () {
               if (!u.email) { G.toast('Este cadastro não tem e-mail.'); return; }
-              var ok = await confirmarPorCima({ title: 'Enviar código de senha?', text: 'O código vai para ' + u.email + ' e vale por 1 hora. A pessoa cria a senha nova em www.giovannipaganini.com/primeiro-acesso, no botão "Já recebi o código".', ok: 'Enviar' });
+              var ok = await confirmarPorCima({ title: 'Enviar código de senha?', text: 'O e-mail vai para ' + u.email + ' com o botão "Criar minha senha" e um código, que valem 24 horas. O botão já leva a pessoa para a tela de criar a senha.', ok: 'Enviar' });
               if (!ok) return;
               var btn = this; btn.disabled = true;
               var rc = await sb.auth.resetPasswordForEmail(u.email);
