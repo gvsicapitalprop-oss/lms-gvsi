@@ -13,11 +13,12 @@
 //             em lms_students) e pelo hub-accesses depois de Liberar/Bloquear.
 //   {conferencia: true}
 //             cron a cada 10 min (05/10/2026, "precisamos garantir que todas
-//             liberem automaticamente"): toda assinatura do Hub ativa, paga e
-//             com acesso ligado, de produto com curso aqui, tem que estar
-//             aberta na área de membros. O que faltar (aviso do Hub que não
-//             chegou) é aberto como o aviso abriria. Resumo em
-//             lms_settings.hub_conferencia; migracao/hub-conferencia.sql.
+//             liberem automaticamente"): toda assinatura do Hub ativa, paga
+//             (com prova de pagamento, ver conferencia()) e com acesso ligado,
+//             de produto com curso aqui, tem que estar aberta na área de
+//             membros. O que faltar (aviso do Hub que não chegou) é aberto como
+//             o aviso abriria. Resumo em lms_settings.hub_conferencia;
+//             migracao/hub-conferencia.sql.
 //   dry_run   true: só diz o que faria. Com {desde}, simula o cron a partir
 //             dessa data (não mexe no cursor).
 //
@@ -342,10 +343,21 @@ async function conferencia(ctx: Ctx) {
   const cliente = donos[0]?.client_id;
   if (!cliente) return { ok: false, modo: "conferencia", error: "cliente do Hub nao encontrado" };
 
+  // Quem tem direito, pela leitura do código do Hub (hub-central-main, 05/10/2026):
+  //  - ativa e com o controle de acesso ligado (nulo vale como ligado, igual ao
+  //    subscription-access-trigger.ts);
+  //  - paga DE FATO: "up_to_date" com last_renewal_date (cartão, link pago e
+  //    matrícula já nascem com a data; o boleto/PIX parcelado nasce
+  //    "up_to_date" ANTES de pagar e só ganha a data na 1ª parcela paga) ou
+  //    que o próprio Hub já liberou uma vez (synced); ou em teste grátis
+  //    ("trial", o Hub libera no início do teste);
+  //  - sem o carimbo de inadimplência do plano do restante (acesso suspenso).
   const subs = await hubGetTodos(
     "subscriptions?select=id,starts_at,expires_at,created_at," +
       "product:product_id!inner(slug,access_duration_days,client_id),contact:contact_id(email,full_name)" +
-      "&status=eq.active&access_enabled=eq.true&payment_status=eq.up_to_date" +
+      "&status=eq.active&access_enabled=not.is.false" +
+      "&or=(and(payment_status.eq.up_to_date,or(last_renewal_date.not.is.null,access_status.eq.synced)),payment_status.eq.trial)" +
+      "&metadata->>inadimplente_plano_restante=is.null" +
       `&product.slug=in.(${slugs.map(enc).join(",")})&product.client_id=eq.${cliente}`,
   );
 
