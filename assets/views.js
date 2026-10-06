@@ -2192,7 +2192,7 @@
             '<span class="flex-grow"></span>' +
             '<button type="button" id="ai-draft-refresh" class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high" title="Recarregar"><span class="material-symbols-outlined text-[18px]">refresh</span></button>' +
             '<button type="button" id="ai-draft-min" class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high" title="Minimizar"><span class="material-symbols-outlined text-[18px]">remove</span></button></div>' +
-            '<div class="bg-surface-container-low border border-outline-variant/40 rounded-xl p-md text-body-md text-on-surface whitespace-pre-wrap break-words">' + G.fmt((d.draft_body || '').replace(/\s*\[MSG\]\s*/g, '\n'), true) + '</div>' + hand +
+            '<div class="bg-surface-container-low border border-outline-variant/40 rounded-xl p-md text-body-md text-on-surface whitespace-pre-wrap break-words">' + G.fmt((d.draft_body || '').replace(/\s*\[MSG\]\s*/g, '\n'), true) + '</div>' + hand + G.aulaIndicadaHtml(d.aula_indicada) +
             '<div class="flex flex-wrap gap-sm mt-sm"><button type="button" id="ai-draft-approve" class="h-11 px-4 bg-primary text-on-primary rounded-xl flex items-center gap-xs font-bold active:scale-95 transition"><span class="material-symbols-outlined text-[20px]">check_circle</span>Aprovar e enviar</button>' +
             '<button type="button" id="ai-draft-edit" class="h-11 px-4 rounded-xl border border-outline-variant text-on-surface flex items-center gap-xs"><span class="material-symbols-outlined text-[20px]">edit</span>Editar antes</button>' +
             '<button type="button" id="ai-draft-reject" class="h-11 px-4 rounded-xl border border-error/50 text-error flex items-center gap-xs"><span class="material-symbols-outlined text-[20px]">cancel</span>Reprovar</button>' +
@@ -2798,7 +2798,7 @@
       function recount() { var left = document.querySelectorAll('#ia-list > .ia-card').length; setCount(left); if (!left) emptyState(); }
       async function load() {
         var list = document.getElementById('ia-list'); if (!list) return;
-        var r = await sb.from('comu_ai_drafts').select('id,ticket_id,member_question,draft_body,suggest_handoff,handoff_reason,created_at').eq('status', 'pending').order('created_at', { ascending: true });
+        var r = await sb.from('comu_ai_drafts').select('id,ticket_id,member_question,draft_body,suggest_handoff,handoff_reason,created_at,aula_indicada').eq('status', 'pending').order('created_at', { ascending: true });
         if (st.destroyed) return;
         if (r.error) { list.innerHTML = '<p class="p-lg text-error text-body-sm">' + esc(r.error.message) + '</p>'; return; }
         var rows = r.data || [];
@@ -2817,7 +2817,7 @@
             '<div class="p-md border-b border-outline-variant/20 flex items-center justify-between gap-sm"><span class="text-[12px] text-on-surface-variant">' + esc(protos[d.ticket_id] || 'ticket') + ' · ' + fmtWhen(d.created_at) + '</span>' + (handoff ? '<span class="text-[11px] font-bold text-error bg-error/10 rounded-full px-2 py-[1px] leading-none">IA sugere humano</span>' : '') + '</div>' +
             '<div class="p-md space-y-sm">' +
               '<div><p class="text-[11px] font-label-md text-on-surface-variant mb-xs">DÚVIDA DO ALUNO</p><p class="text-body-md text-on-surface whitespace-pre-wrap break-words">' + esc(d.member_question || '') + '</p></div>' +
-              '<div><p class="text-[11px] font-label-md text-on-surface-variant mb-xs">RESPOSTA DA IA</p>' + (body ? '<p class="text-body-md text-on-surface whitespace-pre-wrap break-words">' + esc(body) + '</p>' : '<p class="text-body-sm italic text-on-surface-variant">A IA não propôs resposta' + (d.handoff_reason ? ' (' + esc(d.handoff_reason) + ')' : '') + '. Recomenda um humano.</p>') + '</div>' +
+              '<div><p class="text-[11px] font-label-md text-on-surface-variant mb-xs">RESPOSTA DA IA</p>' + (body ? '<p class="text-body-md text-on-surface whitespace-pre-wrap break-words">' + esc(body) + '</p>' : '<p class="text-body-sm italic text-on-surface-variant">A IA não propôs resposta' + (d.handoff_reason ? ' (' + esc(d.handoff_reason) + ')' : '') + '. Recomenda um humano.</p>') + G.aulaIndicadaHtml(d.aula_indicada) + '</div>' +
             '</div>' +
             '<div class="ia-reject hidden p-md border-t border-outline-variant/20 space-y-sm"><textarea class="ia-reason w-full bg-surface-container-low border border-outline-variant rounded-xl py-2 px-3 text-body-md text-on-surface resize-none" rows="2" placeholder="Por que está recusando? (a IA aprende com isso)"></textarea><div class="flex gap-sm justify-end"><button type="button" class="ia-reject-cancel h-9 px-3 rounded-full border border-outline-variant text-on-surface text-label-md">Cancelar</button><button type="button" class="ia-reject-go h-9 px-4 rounded-full bg-error text-white text-label-md">Confirmar recusa</button></div></div>' +
             '<div class="ia-actions p-md border-t border-outline-variant/20 flex flex-wrap gap-sm justify-end">' +

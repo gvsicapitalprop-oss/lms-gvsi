@@ -2,6 +2,7 @@
 // MULTIMODAL: lê texto, IMAGEM (visão gpt-4o-mini) e ÁUDIO (transcrição Whisper) do histórico do ticket.
 // NÃO envia nada ao aluno: só cria um rascunho pendente em comu_ai_drafts.
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+import { aplicarLink, montarAula, notaDaAula } from "./aula-indicada.ts";
 const OPENAI_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
 const MOD_SECRET = Deno.env.get("MOD_SECRET") ?? "";
 const SB_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -129,6 +130,7 @@ async function jevTriagem(pergunta) {
           so_cortesia: { type: "noul", instructions: "A mensagem é apenas cortesia (agradecimento, saudação, 'ok', 'entendi'), sem nenhum pedido ou pergunta nova?" },
           precisa_humano: { type: "noul", instructions: "Para responder isto é preciso consultar dados da conta do aluno (acesso, pagamento, datas) ou executar uma ação que só a equipe pode fazer?" },
           mesa: { type: "noul", instructions: "O aluno está pedindo acesso, ativação ou instruções da MESA PROPRIETÁRIA que comprou (conta de avaliação/teste), ou dizendo que comprou a mesa e não recebeu nada?" },
+          quer_aula: { type: "noul", instructions: "O aluno tem uma dúvida de conteúdo (estratégia, operação, leitura do gráfico, mercado, gestão de risco, psicologia, ferramentas do método) ou pede uma aula ou explicação sobre um assunto que pode estar ensinado nas aulas dos cursos?" },
           tipo_cortesia: { type: "choice", instructions: "Se for cortesia, de que tipo é?", criteria: {
             agradecimento: "Agradece ou encerra ('obrigado', 'valeu', 'era isso mesmo').",
             saudacao: "Só cumprimenta, abrindo conversa ('bom dia', 'boa noite, tudo bem?').",
@@ -147,10 +149,45 @@ async function jevTriagem(pergunta) {
       categoria_conf: a.categoria && a.categoria.confidence,
       so_cortesia: pega(a.so_cortesia),
       mesa: pega(a.mesa),
+      quer_aula: pega(a.quer_aula),
       precisa_humano: pega(a.precisa_humano),
       tipo_cortesia: pega(a.tipo_cortesia),
       em: new Date().toISOString()
     };
+  } catch (_e) {
+    return null;
+  }
+}
+// ---------------------------------------------------------------------------
+// Aula indicada (migração 20261006000032, pedido do dono em 06/10/2026): a busca nas
+// transcrições traz as aulas mais próximas da dúvida (lms_buscar_aulas) e o Jev escolhe qual
+// explica o assunto, ou nenhuma. O link (com o minuto) é montado em aula-indicada.ts: a IA nunca
+// escreve link.
+async function jevEscolheAula(pergunta, candidatas) {
+  if (!JEV_KEY || !candidatas.length) return null;
+  const criteria = {};
+  candidatas.forEach((c, i)=>{
+    criteria["aula_" + (i + 1)] = `${c.curso}${c.modulo ? " > " + c.modulo : ""} > ${c.aula}: ${String(c.trecho || "").replace(/\s+/g, " ").slice(0, 300)}`;
+  });
+  criteria.nenhuma = "Nenhuma dessas aulas explica o assunto da dúvida do aluno.";
+  try {
+    const r = await fetch("https://api.typesafe.ai/v1/systemone", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${JEV_KEY}`, "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(6000),
+      body: JSON.stringify({
+        state: String(pergunta).slice(0, 1500),
+        model: "jev-latest",
+        questions: { aula: { type: "choice", instructions: "Qual destas aulas explica o assunto da dúvida do aluno, a ponto de valer indicar a aula para ele assistir? Escolha 'nenhuma' se nenhuma trata desse assunto.", criteria } }
+      })
+    });
+    if (!r.ok) return null;
+    const d = await r.json();
+    const a = (d && d.answers && d.answers.aula) || {};
+    const escolha = a.choice ?? a.value;
+    const confianca = Number(a.confidence);
+    if (!escolha || escolha === "nenhuma") return { escolha: null, confianca };
+    return { escolha: candidatas[Number(String(escolha).replace("aula_", "")) - 1] || null, confianca };
   } catch (_e) {
     return null;
   }
@@ -445,12 +482,14 @@ serve(async (req)=>{
     } catch (_e) {}
     // conhecimento (RAG)
     let knowledge = [];
+    let vecAulas = null; // a busca das aulas usa sempre text-embedding-3-small (coluna vector(1536))
     try {
       const emb = await openai("embeddings", {
         model: cfg.embed_model || "text-embedding-3-small",
         input: member_question
       });
       const vec = "[" + emb.data[0].embedding.join(",") + "]";
+      if ((cfg.embed_model || "text-embedding-3-small") === "text-embedding-3-small") vecAulas = vec;
       knowledge = await rest(`rpc/comu_match_support_knowledge`, {
         method: "POST",
         body: JSON.stringify({
@@ -460,6 +499,27 @@ serve(async (req)=>{
       }) || [];
     } catch (_e) {
       knowledge = [];
+    }
+    // ---- Aula indicada --------------------------------------------------------
+    // Só em dúvida de conteúdo, só para aluno identificado (o visitante da tela de login é uma
+    // conta compartilhada: não dá para saber o que ele tem).
+    let aula = null;
+    const querAula = !visitante && !!jev && (jev.categoria === "conteudo" || Number(jev.quer_aula ?? 0) >= 0.6);
+    if (querAula && cfg.aulas_enabled !== false) {
+      try {
+        if (!vecAulas) {
+          const e2 = await openai("embeddings", { model: "text-embedding-3-small", input: member_question });
+          vecAulas = "[" + e2.data[0].embedding.join(",") + "]";
+        }
+        const candidatas = (await rest(`rpc/lms_buscar_aulas`, {
+          method: "POST",
+          body: JSON.stringify({ p_embedding: vecAulas, p_aluno: tk.user_id, p_limite: 5 })
+        }) || []).filter((c)=>Number(c.similaridade) >= Number(cfg.aulas_similaridade_min ?? 0.3));
+        const ev = candidatas.length ? await jevEscolheAula(member_question, candidatas) : null;
+        if (ev && ev.escolha && ev.confianca >= Number(cfg.aulas_limiar ?? 0.7)) aula = montarAula(ev.escolha, ev.confianca);
+      } catch (e) {
+        console.error("[support-draft] aula indicada:", String(e).slice(0, 200));
+      }
     }
     const kblock = knowledge.length ? knowledge.map((k, i)=>`(${i + 1}) P: ${k.question || ""}\nR: ${k.answer}`).join("\n\n") : "(sem base ainda — responda pelos FATOS FIXOS do seu prompt)";
     const corr = await rest(`comu_ai_corrections?inject_enabled=eq.true&select=member_question,reason,corrected_answer&order=created_at.desc&limit=${cfg.corrections_limit || 12}`) || [];
@@ -540,6 +600,7 @@ serve(async (req)=>{
       mesaNota,
       agora,
       "\n\n## CONHECIMENTO RECUPERADO (use se ajudar; não invente além disso)\n" + kblock,
+      notaDaAula(aula),
       "\n\n## CORRECOES — NAO REPITA ESTES ERROS\n" + cblock,
       challengeNote,
       "\n\n## NÃO INVENTE O CONTEXTO\nO histórico acima pode incluir conversas anteriores deste mesmo aluno. Se ele continua um assunto antigo (ex.: 'a lógica é essa, né?', 'consegui', 'e aí?') e você NÃO encontra no histórico do que ele fala, NÃO invente um tópico nem aplique um conhecimento só porque parece parecido. Nesse caso, confirme de forma geral ou pergunte a que ele se refere. Só afirme algo específico (módulo, prazo, passo, número) se estiver claramente na conversa ou no conhecimento recuperado.",
@@ -615,6 +676,7 @@ serve(async (req)=>{
       needs_human = true;
       reason = reason || "Pergunta de acesso e o Hub nao tem nada no nome desta pessoa; confira o cadastro.";
     }
+    answer = aplicarLink(answer, aula);
     const ins = await rest(`comu_ai_drafts`, {
       method: "POST",
       headers: {
@@ -626,6 +688,7 @@ serve(async (req)=>{
         trigger_message_id: trigger_message_id || null,
         member_question,
         draft_body: answer,
+        aula_indicada: aula,
         suggest_handoff: needs_human || !answer,
         handoff_reason: reason || null,
         model: modelo,

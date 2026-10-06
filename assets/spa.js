@@ -38,8 +38,24 @@ GVSI.views = GVSI.views || {};
     });
     out = out.replace(/(^|\s)@([A-Za-zÀ-ÿ0-9][A-Za-zÀ-ÿ0-9_.]*)/g, '$1<span class="text-primary font-medium">@$2</span>');
     if (linkify) out = out.replace(/(https?:\/\/[^\s<]+|www\.[^\s<]+)/gi, function (u) { var tail = ''; var mm = u.match(/[.,;:!?)\]]+$/); if (mm) { tail = mm[0]; u = u.slice(0, -tail.length); } var href = /^https?:/i.test(u) ? u : 'https://' + u; return '<a href="' + href + '" target="_blank" rel="noopener noreferrer" class="text-primary underline break-all">' + u + '</a>' + tail; });
+    // Links das NOSSAS páginas (aula na área de membros, comunidade) ficam clicáveis em qualquer
+    // mensagem: é o que a IA do suporte manda quando indica uma aula (06/10/2026). O domínio tem
+    // de terminar ali (giovannipaganini.com.outra-coisa não passa).
+    else out = out.replace(/https?:\/\/(?:www\.)?(?:giovannipaganini|suportepaganini)\.com(?:\/[^\s<]*)?(?=[\s<]|$)/gi, function (u) { var tail = ''; var mm = u.match(/[.,;:!?)\]]+$/); if (mm) { tail = mm[0]; u = u.slice(0, -tail.length); } return '<a href="' + u + '" target="_blank" rel="noopener noreferrer" class="text-primary underline break-all">' + u + '</a>' + tail; });
     out = out.replace(/\u0001(\d+)\u0002/g, function (_m, i) { return codes[+i] || ''; });
     return out;
+  };
+  // Linha "Aula indicada" do rascunho da IA (comu_ai_drafts.aula_indicada, 06/10/2026): quem aprova
+  // vê qual aula a IA vai indicar, de onde, a partir de que minuto e se o aluno consegue abrir.
+  G.aulaIndicadaHtml = function (a) {
+    if (!a || !a.aula) return '';
+    var t = Math.max(0, Math.floor(Number(a.inicio_s) || 0));
+    var data = a.libera_em ? String(a.libera_em).slice(0, 10).split('-').reverse().join('/') : '';
+    var situ = a.situacao === 'liberada' ? 'liberada para o aluno' : (a.situacao === 'bloqueada' ? 'ainda bloqueada para o aluno' + (data ? ', libera em ' + data : '') : 'de um curso que o aluno não tem (' + G.esc(a.curso || '') + ')');
+    return '<div class="flex items-start gap-xs mt-xs text-[13px] text-on-surface-variant"><span class="material-symbols-outlined text-[16px] shrink-0">school</span><span>Aula indicada: <b class="text-on-surface">' + G.esc(a.aula) + '</b>' +
+      (a.modulo ? ' · ' + G.esc(a.modulo) : '') + (t >= 20 ? ' · a partir de ' + Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0') : '') +
+      ' · ' + situ + ' · certeza ' + Math.round((Number(a.confianca) || 0) * 100) + '%' +
+      (a.link && a.situacao === 'liberada' ? ' · <a href="' + G.esc(a.link) + '" target="_blank" rel="noopener noreferrer" class="text-primary underline">abrir a aula</a>' : '') + '</span></div>';
   };
   // Exibição: só os 2 primeiros nomes (o nome completo continua no banco).
   G.shortName = function (name) { var s = String(name || '').trim(); if (/^Suporte\b/i.test(s)) return s; var p = s.split(/\s+/).filter(Boolean); return p.slice(0, 2).join(' '); };
