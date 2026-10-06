@@ -163,6 +163,34 @@ function respostaCortesia(tipo, saud, nome) {
   return `Imagina${quem}! Qualquer coisa é só chamar por aqui.`;
 }
 
+// Acessos da pessoa no Hub Central: produtos, situação e até quando valem.
+// Sem isto o Bruno respondia no escuro justamente no assunto mais comum do suporte
+// (acesso: 28% das mensagens). Usa a hub-accesses pelo atalho de serviço.
+async function acessosDoHub(email) {
+  if (!email || email.indexOf("@") < 0) return null;
+  try {
+    const r = await fetch(`${SB_URL}/functions/v1/hub-accesses`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-mod-secret": MOD_SECRET },
+      body: JSON.stringify({ email }),
+      signal: AbortSignal.timeout(8000)
+    });
+    if (!r.ok) return null;
+    const d = await r.json();
+    return d && d.ok ? d : null;
+  } catch (_e) {
+    return null;
+  }
+}
+function dataBR(iso) {
+  if (!iso) return "";
+  try {
+    return new Date(iso).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+  } catch (_e) {
+    return "";
+  }
+}
+
 serve(async (req)=>{
   try {
     if (req.headers.get("x-mod-secret") !== MOD_SECRET) return new Response("forbidden", {
@@ -250,9 +278,11 @@ serve(async (req)=>{
     // login cai nela. Sem isto o Bruno lia a conversa de outra pessoa como se fosse do mesmo
     // aluno (chegou a chamar um aluno pelo nome de outro) e ainda vazava assunto alheio.
     let visitante = false;
+    let emailAluno = "";
     try {
       const st = await rest(`lms_students?id=eq.${tk.user_id}&select=full_name,email`);
-      visitante = String((st && st[0] && st[0].email) || "").toLowerCase().indexOf("visitante-suporte@") === 0;
+      emailAluno = String((st && st[0] && st[0].email) || "").trim().toLowerCase();
+      visitante = emailAluno.indexOf("visitante-suporte@") === 0;
       const fn = st && st[0] && st[0].full_name;
       if (fn && String(fn).indexOf("@") < 0) {
         const p = String(fn).trim().split(/\s+/)[0];
@@ -474,9 +504,39 @@ serve(async (req)=>{
         });
       } catch (_e) {}
     }
+    // acessos reais no Hub (produtos e datas) — entra como FATO, acima do que o modelo "acha"
+    let hubNota = "";
+    let hubTemDados = false;
+    try {
+      const hub = visitante ? null : await acessosDoHub(emailAluno);
+      if (hub) {
+        const ac = (hub.acessos || []).map((a) => {
+          const nome = a.produto || a.produto_id || "produto";
+          const ate = dataBR(a.ate || a.ends_at || a.expires_at);
+          const sit = a.status === "active" ? "ativo" : (a.status || "");
+          return "- " + nome + ": " + sit + (ate ? " ate " + ate : " (sem data de fim)");
+        });
+        hubTemDados = ac.length > 0;
+        hubNota = [
+          "",
+          "## O QUE ESTE ALUNO TEM (HUB CENTRAL - DADO REAL, NAO INVENTE)",
+          ac.length
+            ? ac.join("\n")
+            : "- NENHUM acesso encontrado no Hub para " + emailAluno + ". NAO EXISTE DATA PARA INFORMAR.",
+          ac.length ? "" : "- PROIBIDO inventar ou estimar validade, e PROIBIDO dizer que esta ativo: aqui nao consta nada.",
+          ac.length ? "" : "- Responda exatamente nesta linha: 'Deixa eu conferir seu cadastro aqui e ja te falo certinho ate quando vai.' Nada alem disso sobre acesso.",
+          hub.bloqueado ? "- ATENCAO: o acesso desta pessoa esta BLOQUEADO." : "",
+          "Use isto para responder sobre acesso, validade e liberacao. So escreva uma data se ela estiver NA LISTA ACIMA, copiada igual.",
+          "E PROIBIDO deduzir data a partir da data de hoje, do tempo de curso ou de qualquer outra coisa.",
+          "Se ela diz que nao consegue entrar em algo que esta ATIVO aqui, trate como problema tecnico (senha, navegador, app), nao como falta de acesso.",
+          "Se o que ela pede NAO aparece acima, diga que vai verificar com a equipe; nunca afirme que ela tem."
+        ].filter(Boolean).join("\n");
+      }
+    } catch (_e) {}
     const sys = [
       baseP,
       visitanteNota,
+      hubNota,
       mesaNota,
       agora,
       "\n\n## CONHECIMENTO RECUPERADO (use se ajudar; não invente além disso)\n" + kblock,
@@ -510,8 +570,12 @@ serve(async (req)=>{
       type: "text",
       text: "Escreva agora a resposta do suporte para a última mensagem do aluno."
     });
+    // nano e barato mas desobedece "nao invente"; nos assuntos de acesso e dinheiro
+    // o erro sai caro, entao esses vao no modelo melhor.
+    const assuntoSensivel = !!jev && (jev.categoria === "acesso" || jev.categoria === "financeiro");
+    const modelo = assuntoSensivel ? (cfg.draft_model_sensivel || "gpt-4.1-mini") : (cfg.draft_model || "gpt-4o-mini");
     const ai = await openai("chat/completions", {
-      model: cfg.draft_model || "gpt-4o-mini",
+      model: modelo,
       temperature: 0.3,
       max_tokens: 500,
       response_format: {
@@ -529,6 +593,8 @@ serve(async (req)=>{
       ]
     });
     let answer = "", needs_human = false, reason = "";
+    // acesso sem dado no Hub e o caso classico de resposta inventada: vai para uma pessoa.
+    const acessoSemDados = !!jev && jev.categoria === "acesso" && !hubTemDados;
     try {
       const j = JSON.parse(ai.choices[0].message.content);
       answer = (j.answer || "").trim();
@@ -545,6 +611,10 @@ serve(async (req)=>{
       // nome omitido: se o modelo insistiu num nome, remove
       answer = answer.replace(new RegExp("^(\\s*" + GREET + ")[,!]?\\s+[A-ZÀ-Ý][a-zà-ÿ]+(?=\\s*[,!])"), "$1");
     }
+    if (acessoSemDados && !needs_human) {
+      needs_human = true;
+      reason = reason || "Pergunta de acesso e o Hub nao tem nada no nome desta pessoa; confira o cadastro.";
+    }
     const ins = await rest(`comu_ai_drafts`, {
       method: "POST",
       headers: {
@@ -558,7 +628,7 @@ serve(async (req)=>{
         draft_body: answer,
         suggest_handoff: needs_human || !answer,
         handoff_reason: reason || null,
-        model: cfg.draft_model || "gpt-4o-mini",
+        model: modelo,
         jev,
         knowledge_used: knowledge.map((k)=>({
             id: k.id,
