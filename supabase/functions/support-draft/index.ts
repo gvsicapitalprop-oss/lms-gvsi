@@ -250,6 +250,32 @@ function dataBR(iso) {
   }
 }
 
+// A triagem (Jev) e a busca na base so leem TEXTO. Quando o aluno manda um print
+// e escreve "minha tela esta assim", o assunto some: virava "outro" e a resposta
+// nunca saia sozinha. Aqui a imagem ganha uma legenda curta, guardada na propria
+// mensagem para nao pagar duas vezes.
+async function descreverImagem(url) {
+  if (!url) return "";
+  try {
+    const r = await openai("chat/completions", {
+      model: "gpt-4o-mini",
+      max_tokens: 90,
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: "Descreva em UMA frase curta o que aparece nesta imagem, em portugues. Se for tela de computador ou celular, diga qual programa/tela e qual erro ou problema aparece. Sem rodeios, so a frase." },
+            { type: "image_url", image_url: { url, detail: "low" } }
+          ]
+        }
+      ]
+    });
+    return String((r.choices[0].message.content || "")).trim().slice(0, 220);
+  } catch (_e) {
+    return "";
+  }
+}
+
 serve(async (req)=>{
   try {
     if (req.headers.get("x-mod-secret") !== MOD_SECRET) return new Response("forbidden", {
@@ -409,6 +435,25 @@ serve(async (req)=>{
         } catch (_e) {}
       }
     }));
+    // legenda das imagens recentes do aluno (no maximo 2, por custo)
+    const descr = {};
+    const imgIdx = [];
+    for(let i = msgs.length - 1; i >= 0 && imgIdx.length < 2; i--){
+      if (msgs[i].kind === "image" && msgs[i].media_url && msgs[i].author_id === tk.user_id) imgIdx.push(i);
+    }
+    await Promise.all(imgIdx.map(async (i)=>{
+      const m = msgs[i];
+      const guardada = m.media_meta && typeof m.media_meta.descricao === "string" ? m.media_meta.descricao : null;
+      if (guardada !== null) { descr[i] = guardada; return; }
+      const d = await descreverImagem(m.media_url);
+      descr[i] = d;
+      if (d && m.id) {
+        try {
+          const meta = Object.assign({}, m.media_meta || {}, { descricao: d, descricao_em: new Date().toISOString() });
+          await rest(`comu_messages?id=eq.${m.id}`, { method: "PATCH", body: JSON.stringify({ media_meta: meta }) });
+        } catch (_e) {}
+      }
+    }));
     const whoOf = (m)=>m.author_id === tk.user_id ? "Aluno" : "Bruno";
     function lineText(m, i) {
       const who = whoOf(m);
@@ -420,7 +465,7 @@ serve(async (req)=>{
         const t = trans[i];
         return `${who} enviou um VÍDEO (gravação de tela)${m.body ? ' com a legenda: "' + String(m.body).trim() + '"' : ""}.` + (t ? ` Narração do vídeo: ${t}` : " (sem narração falada; você não consegue assistir o vídeo).");
       }
-      if (m.kind === "image") return `${who} enviou uma imagem${m.body ? ' com a legenda: "' + String(m.body).trim() + '"' : ""}.`;
+      if (m.kind === "image") return `${who} enviou uma imagem${m.body ? ' com a legenda: "' + String(m.body).trim() + '"' : ""}.` + (descr[i] ? ` Na imagem: ${descr[i]}` : "");
       return `${who}: ${(m.body || "").trim()}`;
     }
     // pergunta = últimas mensagens consecutivas do membro NO TICKET ATUAL (não cola o fim de uma conversa anterior)
@@ -429,7 +474,7 @@ serve(async (req)=>{
       const m = msgs[i];
       if (m.kind === "audio") q.unshift(trans[i] || "");
       else if (m.kind === "video") q.unshift(((m.body ? String(m.body).trim() + " " : "") + (trans[i] ? trans[i] + " " : "") + "[vídeo]").trim());
-      else if (m.kind === "image") q.unshift(((m.body ? String(m.body).trim() + " " : "") + "[imagem]").trim());
+      else if (m.kind === "image") q.unshift(((m.body ? String(m.body).trim() + " " : "") + (descr[i] ? "[imagem: " + descr[i] + "]" : "[imagem]")).trim());
       else q.unshift((m.body || "").trim());
     }
     const member_question = q.join("\n").trim().slice(0, 1500) || "(o aluno enviou mídia)";
