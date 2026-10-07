@@ -1943,6 +1943,19 @@
           var ra = await sb.from('comu_messages').select('ticket_id').in('media_meta->>auto', ['cortesia', 'resposta', 'aviso_equipe']).limit(5000);
           if (self.destroyed) return;
           (ra.data || []).forEach(function (x) { if (x.ticket_id) autoSet[x.ticket_id] = true; });
+          // Aviso automatico de "ja deixei com a equipe": ele e da equipe, mas NAO responde o aluno.
+          // Sem isto a conversa saia de "Aguardando voce" e sumia da fila com a duvida em aberto.
+          var avisoEm = Object.create(null);
+          var desde30 = new Date(Date.now() - 30 * 86400000).toISOString();
+          var rv = await sb.from('comu_messages').select('ticket_id,created_at').eq('media_meta->>auto', 'aviso_equipe').gte('created_at', desde30).order('created_at', { ascending: false }).limit(3000);
+          if (self.destroyed) return;
+          (rv.data || []).forEach(function (x) { if (x.ticket_id && !avisoEm[x.ticket_id]) avisoEm[x.ticket_id] = x.created_at; });
+          // so conta se o aviso for a ULTIMA mensagem: depois que alguem responde de verdade, acaba
+          function paradoNoAviso(t) {
+            var a = avisoEm[t.id];
+            if (!a || !t.last_message_at) return false;
+            return new Date(t.last_message_at).getTime() - new Date(a).getTime() <= 2000;
+          }
           var pendSet = Object.create(null);
           // handoffSet: a propria IA disse que o caso precisa de gente (alimenta a aba URGENTE)
           var handoffSet = Object.create(null);
@@ -1953,11 +1966,11 @@
           if (self.currentTicket) { var _cur = (r.data || []).filter(function (x) { return x.id === self.currentTicket.id; })[0]; if (_cur) { self.currentTicket.rating = _cur.rating; self.currentTicket.solved = _cur.solved; self.currentTicket.status = _cur.status; renderConvoRating(); } }
           var rows = r.data; var query = G.deburr((self.search || '').trim());
           if (self.filter === 'ia') rows = (rows || []).filter(function (t) { return autoSet[t.id]; });
-          function urgente(t) { return !!(t.assigned_to || t.tarefa || handoffSet[t.id]); }
+          function urgente(t) { return !!(t.assigned_to || t.tarefa || handoffSet[t.id] || paradoNoAviso(t)); }
           if (self.filter === 'urgente') rows = (rows || []).filter(urgente);
           // separa os abertos: "voce" = cliente aguardando a gente (ultima msg do cliente); "cliente" = a gente respondeu por ultimo
-          if (self.filter === 'voce') rows = rows.filter(function (tk) { return tk.last_sender !== 'team'; });
-          else if (self.filter === 'cliente') rows = rows.filter(function (tk) { return tk.last_sender === 'team'; });
+          if (self.filter === 'voce') rows = rows.filter(function (tk) { return tk.last_sender !== 'team' || paradoNoAviso(tk); });
+          else if (self.filter === 'cliente') rows = rows.filter(function (tk) { return tk.last_sender === 'team' && !paradoNoAviso(tk); });
           if (query) rows = rows.filter(function (tk) { var m = tk.member || {}; return [m.full_name, m.email, m.phone, tk.protocol].some(function (v) { return v && G.deburr(v).indexOf(query) >= 0; }); });
           // premium no topo só em Pendentes (em Resolvidos mantém a ordem normal por data)
           if (self.filter !== 'resolvidos') rows = rows.slice().sort(function (a, b) { return ((b.member && b.member.premium) ? 1 : 0) - ((a.member && a.member.premium) ? 1 : 0); });
@@ -1965,14 +1978,14 @@
           rows.forEach(function (tk) {
             var m = tk.member || {}; var el = document.createElement('button');
             var premium = !!m.premium;
-            var _waiting = (tk.status === 'aberto' || tk.status === 'aguardando') && tk.last_sender !== 'team'; // última mensagem foi do cliente: aguardando a gente
+            var _waiting = (tk.status === 'aberto' || tk.status === 'aguardando') && (tk.last_sender !== 'team' || paradoNoAviso(tk)); // última mensagem foi do cliente: aguardando a gente
             var _wtag = _waiting ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-error/20 text-error font-bold inline-flex items-center gap-[2px]"><span class="material-symbols-outlined text-[12px]">schedule</span>Aguardando você</span>' : '';
             var premChip = premium ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-400/25 text-amber-700 dark:text-amber-300 font-bold inline-flex items-center gap-[2px]"><span class="material-symbols-outlined text-[12px]">workspace_premium</span>Premium</span>' : '';
             var aiChip = pendSet[tk.id] ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-primary/20 text-primary font-bold inline-flex items-center gap-[2px]"><span class="material-symbols-outlined text-[12px]">smart_toy</span>IA aguardando</span>' : '';
             var autoChip = autoSet[tk.id] ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold inline-flex items-center gap-[2px]" title="O Bruno respondeu sozinho nesta conversa"><span class="material-symbols-outlined text-[12px]">smart_toy</span>IA respondeu</span>' : '';
             var TAREFAS = { ativar_mesa: 'Ativar mesa' };
             var tarefaChip = tk.tarefa ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold inline-flex items-center gap-[2px]" title="Tarefa manual pendente da equipe"><span class="material-symbols-outlined text-[12px]">assignment</span>' + esc(TAREFAS[tk.tarefa] || tk.tarefa) + '</span>' : '';
-            var urgChip = urgente(tk) ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-error/20 text-error font-bold inline-flex items-center gap-[2px]" title="' + (tk.assigned_to ? 'Delegado para um atendente' : (tk.tarefa ? 'Tem tarefa manual da equipe' : 'A IA disse que precisa de uma pessoa')) + '"><span class="material-symbols-outlined text-[12px]">priority_high</span>Urgente</span>' : '';
+            var urgChip = urgente(tk) ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-error/20 text-error font-bold inline-flex items-center gap-[2px]" title="' + (tk.assigned_to ? 'Delegado para um atendente' : (tk.tarefa ? 'Tem tarefa manual da equipe' : (paradoNoAviso(tk) ? 'A IA avisou o aluno que a equipe responde: ninguem respondeu ainda' : 'A IA disse que precisa de uma pessoa'))) + '"><span class="material-symbols-outlined text-[12px]">priority_high</span>Urgente</span>' : '';
             var extra = tarefaChip + urgChip + premChip + aiChip + autoChip + _wtag;
             el.className = 'w-full text-left flex items-center gap-md p-md transition-colors border-b border-outline-variant/30 ' + (premium ? 'border-l-4 border-l-amber-400 bg-amber-400/5 hover:bg-amber-400/10 ' : 'hover:bg-surface-container-low ') + (self.currentTicket && self.currentTicket.id === tk.id ? 'bg-surface-container-high' : '');
             el.innerHTML = '<span class="w-11 h-11 rounded-full ' + (premium ? 'ring-2 ring-amber-400 ' : '') + 'bg-surface-container-high flex items-center justify-center text-outline overflow-hidden shrink-0">' + (m.avatar_url ? '<img src="' + esc(m.avatar_url) + '" class="w-full h-full object-cover">' : '<span class="material-symbols-outlined">person</span>') + '</span><span class="flex-1 min-w-0"><span class="flex items-center justify-between gap-xs"><span class="font-bold text-on-surface truncate">' + esc(m.full_name || 'Membro') + (premium ? ' <span class="material-symbols-outlined text-[15px] text-amber-500 align-middle">workspace_premium</span>' : '') + '</span><span class="text-[13px] text-on-surface-variant shrink-0">' + timeShort(tk.last_message_at) + '</span></span><span class="flex items-center justify-between gap-xs mt-0.5"><span class="text-body-sm text-outline truncate">' + esc(tk.protocol) + '</span><span class="text-[10px] px-2 py-0.5 rounded-full ' + statusClass(tk.status) + '">' + statusLabel(tk.status) + '</span></span>' + (extra ? '<span class="flex flex-wrap gap-1 mt-1">' + extra + '</span>' : '') + '<span data-pres="' + tk.id + '" class="flex flex-wrap gap-1 mt-1 empty:hidden"></span></span>';
