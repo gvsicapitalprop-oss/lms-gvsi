@@ -217,9 +217,27 @@ async function jevEscolheAula(pergunta, candidatas) {
 // Respostas curtas de cortesia. Texto fixo: não passa por modelo nenhum, não inventa nada.
 function respostaCortesia(tipo, saud, nome) {
   const quem = nome ? ", " + nome : "";
-  if (tipo === "saudacao") return `${saud}${quem}! Pode mandar sua dúvida por aqui que já te ajudo.`;
-  if (tipo === "confirmacao") return `Combinado${quem}! Fico à disposição.`;
-  return `Imagina${quem}! Qualquer coisa é só chamar por aqui.`;
+  // Sempre a mesma frase entrega que é robô: o aluno repete o "obrigado" e recebe
+  // a resposta idêntica. Cada tipo tem variações; sorteia uma.
+  const OPCOES = {
+    saudacao: [
+      `${saud}${quem}! Pode mandar sua dúvida por aqui que já te ajudo.`,
+      `${saud}${quem}! Me conta o que você precisa que eu te ajudo.`,
+      `${saud}${quem}! Pode falar, tô por aqui.`
+    ],
+    confirmacao: [
+      `Combinado${quem}! Fico à disposição.`,
+      `Show${quem}! Qualquer coisa me chama.`,
+      `Perfeito${quem}! Se precisar, é só falar.`
+    ],
+    agradecimento: [
+      `Imagina${quem}! Qualquer coisa é só chamar por aqui.`,
+      `Que isso${quem}, tamo junto! Precisando, me chama.`,
+      `Por nada${quem}! Qualquer dúvida, estou por aqui.`
+    ]
+  };
+  const lista = OPCOES[tipo] || OPCOES.agradecimento;
+  return lista[Math.floor(Math.random() * lista.length)];
 }
 
 // Acessos da pessoa no Hub Central: produtos, situação e até quando valem.
@@ -833,7 +851,11 @@ serve(async (req)=>{
     // Não conseguiu ajudar: UM aviso de que a equipe vai responder, e o atendimento vai para
     // URGENTE. Nunca de novo nas próximas 12 h (o banco também recusa o segundo).
     let aviso = false;
-    if (decisao.aviso) {
+    // 07/10/2026 — dono: "se a IA nao conseguir responder, ela nao deve dizer isso. Jamais".
+    // O aviso automatico some: quando nao da para responder, o atendimento vai calado para a
+    // equipe (needs_human) e aparece em URGENTE. Silencio e melhor que parecer robo.
+    const AVISO_LIGADO = false;
+    if (AVISO_LIGADO && decisao.aviso) {
       try {
         const desde = new Date(agoraMs - 12 * 3600 * 1000).toISOString();
         const jaAvisou = await rest(`comu_messages?ticket_id=eq.${ticket_id}&media_meta->>auto=eq.aviso_equipe&created_at=gte.${desde}&select=id&limit=1`);
