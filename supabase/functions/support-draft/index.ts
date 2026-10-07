@@ -110,8 +110,8 @@ const ok = (o)=>new Response(JSON.stringify(o), {
 const JEV_KEY = Deno.env.get("JEV_API_KEY") ?? "";
 const JEV_CATS = {
   cortesia: "Só agradecimento, saudação, despedida ou confirmação curta ('obrigado', 'bom dia', 'ok', 'entendi'). Não pede nada nem faz pergunta nova.",
-  acesso: "Acesso, liberação, assinatura, Sala ao Vivo, login, senha, área de membros, link da aula.",
-  plataforma: "Dúvida técnica do MetaTrader 5: instalação, configuração, gráfico, indicadores, conta demo.",
+  acesso: "DIREITO de acesso: liberação, assinatura, validade, Sala ao Vivo, login e senha da área de membros, link da aula. É sobre o que a pessoa pode ou não acessar.",
+  plataforma: "FUNCIONAMENTO de um sistema nosso ou do MetaTrader 5: instalação, configuração, gráfico, indicadores, conta demo, e também sistema/site/plataforma da mesa fora do ar, em manutenção, lento, travando ou dando erro na tela.",
   financeiro: "Pagamento, boleto, cartão, reembolso, cobrança, renovação.",
   conteudo: "Dúvida sobre as aulas, estratégia, operação ou mercado.",
   outro: "Qualquer coisa que não caiba nas anteriores."
@@ -129,8 +129,8 @@ async function jevTriagem(pergunta) {
         questions: {
           categoria: { type: "choice", instructions: "Em que assunto se encaixa a mensagem do aluno para o suporte?", criteria: JEV_CATS },
           so_cortesia: { type: "noul", instructions: "A mensagem é apenas cortesia (agradecimento, saudação, 'ok', 'entendi'), sem nenhum pedido ou pergunta nova?" },
-          insatisfeito: { type: "noul", instructions: "O aluno diz que a resposta anterior não resolveu, repete a mesma dúvida, reclama do atendimento automático ou pede para falar com uma pessoa?" },
-          precisa_humano: { type: "noul", instructions: "Para responder isto é preciso consultar dados da conta do aluno (acesso, pagamento, datas) ou executar uma ação que só a equipe pode fazer?" },
+          insatisfeito: { type: "noul", instructions: "O aluno reclama do ATENDIMENTO: diz que a resposta anterior não resolveu, repete uma dúvida que já respondemos, reclama de falar com robô ou pede para falar com uma pessoa. Atenção: só estar preocupado, apressado, escrever em letras maiúsculas ou relatar que algo está com problema NÃO conta aqui." },
+          precisa_humano: { type: "noul", instructions: "Para responder isto é preciso consultar os DADOS DA CONTA desta pessoa (o que ela comprou, pagamentos, datas, liberar acesso) ou executar uma ação que só a equipe faz? Atenção: explicar como usar a plataforma, dizer o que significa uma tela ou um erro, orientar a tentar de novo ou indicar uma aula NÃO exigem dados da conta e NÃO contam aqui." },
           mesa: { type: "noul", instructions: "O aluno está pedindo acesso, ativação ou instruções da MESA PROPRIETÁRIA que comprou (conta de avaliação/teste), ou dizendo que comprou a mesa e não recebeu nada?" },
           quer_aula: { type: "noul", instructions: "O aluno tem uma dúvida de conteúdo (estratégia, operação, leitura do gráfico, mercado, gestão de risco, psicologia, ferramentas do método) ou pede uma aula ou explicação sobre um assunto que pode estar ensinado nas aulas dos cursos?" },
           tipo_cortesia: { type: "choice", instructions: "Se for cortesia, de que tipo é?", criteria: {
