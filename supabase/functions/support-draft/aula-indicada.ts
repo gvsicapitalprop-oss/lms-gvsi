@@ -11,6 +11,21 @@ export function dataBR(iso) {
   const m = String(iso || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
   return m ? `${m[3]}/${m[2]}/${m[1]}` : "";
 }
+// Os trechos falados que mais combinam com a dúvida, na ordem da aula e com o minuto de cada um
+// (lms_trechos_da_aula). É o que a IA usa para explicar e o que o Jev confere.
+export function juntarTrechos(trechos, maximo = 3600) {
+  const linhas = [];
+  let total = 0;
+  for (const t of trechos || []) {
+    const texto = String(t.texto || "").replace(/\s+/g, " ").trim();
+    if (!texto) continue;
+    const linha = `[${minuto(t.inicio_s)}] ${texto}`;
+    if (total + linha.length > maximo) break;
+    linhas.push(linha);
+    total += linha.length;
+  }
+  return linhas.join("\n");
+}
 export function montarAula(c, confianca) {
   const t = Math.max(0, Math.floor(Number(c.inicio_s) || 0));
   return {
@@ -22,6 +37,8 @@ export function montarAula(c, confianca) {
     link: `${SITE}/curso/${c.curso_slug}/aula/${c.aula_slug}` + (t >= 20 ? `?t=${t}` : ""),
     situacao: c.situacao,
     libera_em: c.libera_em,
+    // o trecho da transcrição que mais combina com a dúvida: é com ele que a IA explica
+    trecho: c.trecho ? String(c.trecho).replace(/\s+/g, " ").slice(0, 3600) : null,
     confianca: Math.round(confianca * 100) / 100,
     similaridade: Math.round(Number(c.similaridade) * 1000) / 1000
   };
@@ -36,6 +53,12 @@ export function notaDaAula(aula) {
     "## AULA PARA INDICAR (escolhida pela transcrição das aulas)",
     `A aula ${onde}${quando} explica o assunto desta dúvida.`
   ];
+  if (aula.situacao === "liberada" && aula.trecho) {
+    // A explicação do próprio Giovanni (06/10/2026: sem isto a resposta saía genérica, de cabeça).
+    // Só de aula que o aluno já abre: conteúdo de curso que ele não tem não é entregue aqui.
+    linhas.push("", "## O QUE O GIOVANNI EXPLICA NESTA AULA (transcrição do trecho)", aula.trecho, "",
+      "- Responda a dúvida a partir deste trecho, com as ideias e o jeito do Giovanni. Não acrescente regra, número ou passo que não esteja aqui; se o trecho não basta para responder, diga o que ele cobre e indique a aula.");
+  }
   if (aula.situacao === "liberada") {
     linhas.push(`- Responda a dúvida e indique esta aula numa frase natural (ex.: "isso está explicado na aula ${aula.aula}${aula.inicio_s >= 20 ? ", a partir de " + minuto(aula.inicio_s) : ""}"). Logo depois dessa frase, numa linha sozinha, escreva exatamente ${MARCADOR_LINK}. NUNCA escreva um link: o sistema troca o marcador pelo link certo.`);
   } else if (aula.situacao === "bloqueada") {

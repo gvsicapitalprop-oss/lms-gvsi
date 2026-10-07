@@ -45,6 +45,31 @@ GVSI.views = GVSI.views || {};
     out = out.replace(/\u0001(\d+)\u0002/g, function (_m, i) { return codes[+i] || ''; });
     return out;
   };
+  // Por que a IA respondeu (ou nao) sozinha (comu_ai_drafts.auto_decisao, 06/10/2026). Quem aprova
+  // ve o motivo em portugues e, se a conferencia barrou, o que ela achou sem base.
+  var MOTIVOS_AUTO = {
+    ok: 'a IA envia sozinha em instantes',
+    desligado: 'o envio sozinho está desligado',
+    visitante: 'pessoa da tela de login',
+    fora_dos_assuntos: 'assunto fora de conteúdo e plataforma',
+    equipe_conversando: 'alguém da equipe já está na conversa',
+    aluno_insatisfeito: 'o aluno está insatisfeito ou pediu uma pessoa',
+    precisa_da_equipe: 'precisa de dado da conta ou de uma ação da equipe',
+    ia_pediu_equipe: 'a IA não soube responder',
+    resposta_de_espera: 'a resposta era de espera',
+    teto_do_dia: 'já respondeu sozinha 3 vezes hoje neste atendimento',
+    incerto: 'pode precisar da equipe',
+    sem_base: 'nenhuma aula ou resposta aprovada sustenta a resposta',
+    juiz_recusou: 'a conferência achou afirmação sem base'
+  };
+  G.decisaoAutoHtml = function (dec) {
+    if (!dec || !dec.motivo || dec.motivo === 'desligado') return '';
+    var txt = MOTIVOS_AUTO[dec.motivo] || dec.motivo;
+    var sem = (dec.sem_base || []).slice(0, 3).map(function (x) { return G.esc(String(x)); }).join('; ');
+    var aviso = dec.aviso ? ' O aluno recebeu (uma vez) o aviso de que a equipe vai responder.' : '';
+    return '<div class="flex items-start gap-xs mt-xs text-[13px] text-on-surface-variant"><span class="material-symbols-outlined text-[16px] shrink-0">' + (dec.auto ? 'bolt' : 'front_hand') + '</span><span>' +
+      (dec.auto ? 'Resposta automática: ' : 'Não saiu sozinha: ') + G.esc(txt) + (sem ? ' (' + sem + ')' : '') + '.' + aviso + '</span></div>';
+  };
   // Linha "Aula indicada" do rascunho da IA (comu_ai_drafts.aula_indicada, 06/10/2026): quem aprova
   // vê qual aula a IA vai indicar, de onde, a partir de que minuto e se o aluno consegue abrir.
   G.aulaIndicadaHtml = function (a) {

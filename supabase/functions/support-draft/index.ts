@@ -2,7 +2,8 @@
 // MULTIMODAL: lê texto, IMAGEM (visão gpt-4o-mini) e ÁUDIO (transcrição Whisper) do histórico do ticket.
 // NÃO envia nada ao aluno: só cria um rascunho pendente em comu_ai_drafts.
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { aplicarLink, montarAula, notaDaAula } from "./aula-indicada.ts";
+import { aplicarLink, juntarTrechos, montarAula, notaDaAula } from "./aula-indicada.ts";
+import { AVISO_PADRAO, decidirAuto, estadoDoJuiz, INSTRUCAO_CONFERENCIA, lerConferencia } from "./autonomia.ts";
 const OPENAI_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
 const MOD_SECRET = Deno.env.get("MOD_SECRET") ?? "";
 const SB_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -128,6 +129,7 @@ async function jevTriagem(pergunta) {
         questions: {
           categoria: { type: "choice", instructions: "Em que assunto se encaixa a mensagem do aluno para o suporte?", criteria: JEV_CATS },
           so_cortesia: { type: "noul", instructions: "A mensagem é apenas cortesia (agradecimento, saudação, 'ok', 'entendi'), sem nenhum pedido ou pergunta nova?" },
+          insatisfeito: { type: "noul", instructions: "O aluno diz que a resposta anterior não resolveu, repete a mesma dúvida, reclama do atendimento automático ou pede para falar com uma pessoa?" },
           precisa_humano: { type: "noul", instructions: "Para responder isto é preciso consultar dados da conta do aluno (acesso, pagamento, datas) ou executar uma ação que só a equipe pode fazer?" },
           mesa: { type: "noul", instructions: "O aluno está pedindo acesso, ativação ou instruções da MESA PROPRIETÁRIA que comprou (conta de avaliação/teste), ou dizendo que comprou a mesa e não recebeu nada?" },
           quer_aula: { type: "noul", instructions: "O aluno tem uma dúvida de conteúdo (estratégia, operação, leitura do gráfico, mercado, gestão de risco, psicologia, ferramentas do método) ou pede uma aula ou explicação sobre um assunto que pode estar ensinado nas aulas dos cursos?" },
@@ -149,6 +151,7 @@ async function jevTriagem(pergunta) {
       categoria_conf: a.categoria && a.categoria.confidence,
       so_cortesia: pega(a.so_cortesia),
       mesa: pega(a.mesa),
+      insatisfeito: pega(a.insatisfeito),
       quer_aula: pega(a.quer_aula),
       precisa_humano: pega(a.precisa_humano),
       tipo_cortesia: pega(a.tipo_cortesia),
@@ -163,6 +166,25 @@ async function jevTriagem(pergunta) {
 // transcrições traz as aulas mais próximas da dúvida (lms_buscar_aulas) e o Jev escolhe qual
 // explica o assunto, ou nenhuma. O link (com o minuto) é montado em aula-indicada.ts: a IA nunca
 // escreve link.
+// Antes de sair sozinha, a resposta é conferida afirmação por afirmação contra os trechos da aula
+// e a base aprovada (autonomia.ts). Falhou ou demorou: nota null, e a resposta não sai sozinha.
+async function conferirResposta(estado) {
+  try {
+    const r = await openai("chat/completions", {
+      model: "gpt-4.1-mini",
+      temperature: 0,
+      max_tokens: 300,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: INSTRUCAO_CONFERENCIA },
+        { role: "user", content: String(estado).slice(0, 9000) }
+      ]
+    });
+    return lerConferencia(r.choices[0].message.content);
+  } catch (_e) {
+    return { nota: null, sem_base: [] };
+  }
+}
 async function jevEscolheAula(pergunta, candidatas) {
   if (!JEV_KEY || !candidatas.length) return null;
   const criteria = {};
@@ -504,7 +526,7 @@ serve(async (req)=>{
     // Só em dúvida de conteúdo, só para aluno identificado (o visitante da tela de login é uma
     // conta compartilhada: não dá para saber o que ele tem).
     let aula = null;
-    const querAula = !visitante && !!jev && (jev.categoria === "conteudo" || Number(jev.quer_aula ?? 0) >= 0.6);
+    const querAula = !visitante && !!jev && (["conteudo", "plataforma", "outro"].includes(jev.categoria) || Number(jev.quer_aula ?? 0) >= 0.4);
     if (querAula && cfg.aulas_enabled !== false) {
       try {
         if (!vecAulas) {
@@ -513,10 +535,19 @@ serve(async (req)=>{
         }
         const candidatas = (await rest(`rpc/lms_buscar_aulas`, {
           method: "POST",
-          body: JSON.stringify({ p_embedding: vecAulas, p_aluno: tk.user_id, p_limite: 5 })
+          body: JSON.stringify({ p_embedding: vecAulas, p_aluno: tk.user_id, p_limite: 5, p_texto: member_question })
         }) || []).filter((c)=>Number(c.similaridade) >= Number(cfg.aulas_similaridade_min ?? 0.3));
         const ev = candidatas.length ? await jevEscolheAula(member_question, candidatas) : null;
         if (ev && ev.escolha && ev.confianca >= Number(cfg.aulas_limiar ?? 0.7)) aula = montarAula(ev.escolha, ev.confianca);
+        if (aula && aula.situacao === "liberada") {
+          // a explicação do Giovanni: os 3 trechos falados mais próximos da dúvida (20261007000035)
+          const trechos = await rest(`rpc/lms_trechos_da_aula`, {
+            method: "POST",
+            body: JSON.stringify({ p_embedding: vecAulas, p_aula: aula.lesson_id, p_limite: 3 })
+          }) || [];
+          const junto = juntarTrechos(trechos);
+          if (junto) aula.trecho = junto;
+        }
       } catch (e) {
         console.error("[support-draft] aula indicada:", String(e).slice(0, 200));
       }
@@ -605,6 +636,7 @@ serve(async (req)=>{
       challengeNote,
       "\n\n## NÃO INVENTE O CONTEXTO\nO histórico acima pode incluir conversas anteriores deste mesmo aluno. Se ele continua um assunto antigo (ex.: 'a lógica é essa, né?', 'consegui', 'e aí?') e você NÃO encontra no histórico do que ele fala, NÃO invente um tópico nem aplique um conhecimento só porque parece parecido. Nesse caso, confirme de forma geral ou pergunte a que ele se refere. Só afirme algo específico (módulo, prazo, passo, número) se estiver claramente na conversa ou no conhecimento recuperado.",
       "\n\n## O ALUNO PODE MANDAR IMAGEM, ÁUDIO OU VÍDEO\nAs imagens do aluno vêm anexadas nesta conversa; olhe o conteúdo delas (prints de tela, gráficos, mensagens de erro, QR codes) e responda com base no que realmente aparece. Os áudios já vêm transcritos no histórico como 'Aluno (áudio): ...'. VÍDEOS: você NÃO consegue assistir vídeo; ele aparece no histórico como 'Aluno enviou um VÍDEO...'. REGRA IMPORTANTE: se o aluno JÁ enviou uma imagem, áudio ou vídeo, NUNCA peça pra ele enviar de novo — ele já enviou. Se a dúvida depende do que aparece num VÍDEO e a narração transcrita não deixa claro, NÃO invente a causa: diga que vai olhar o vídeo dele e deixe um humano assumir (needs_human=true).",
+      "\n\n## NUNCA RESPONDA COM MENSAGEM DE ESPERA\nNão escreva 'vou chamar alguém da equipe', 'só um momento', 'vou verificar e já te retorno' nem nada parecido. Se não der para responder com segurança, deixe answer vazio e needs_human=true: o sistema avisa o aluno, uma vez só, que a equipe vai responder.",
       "\n\n## FORMATO DE SAIDA (OBRIGATORIO)\nResponda SOMENTE com um JSON: {\"answer\": \"<resposta pro aluno>\", \"needs_human\": <true|false>, \"reason\": \"<se needs_human=true, o motivo curto>\"}. No campo answer, escreva em PARAGRAFOS CURTOS separados por uma linha em branco: use \\n\\n entre os paragrafos (duas quebras de linha de verdade no texto). Nada de bloco unico gigante; sem marcadores. Deixe answer vazio se precisar de humano. needs_human=true quando a dúvida exige uma ACAO que só a equipe executa, é intencao de compra, ou você nao sabe."
     ].join("");
     // conteúdo multimodal: cada linha do histórico + as imagens recentes anexadas
@@ -634,7 +666,9 @@ serve(async (req)=>{
     // nano e barato mas desobedece "nao invente"; nos assuntos de acesso e dinheiro
     // o erro sai caro, entao esses vao no modelo melhor.
     const assuntoSensivel = !!jev && (jev.categoria === "acesso" || jev.categoria === "financeiro");
-    const modelo = assuntoSensivel ? (cfg.draft_model_sensivel || "gpt-4.1-mini") : (cfg.draft_model || "gpt-4o-mini");
+    const categoriasAuto = Array.isArray(cfg.auto_resposta_categorias) ? cfg.auto_resposta_categorias : ["conteudo", "plataforma"];
+    const podeSairSozinha = cfg.auto_resposta_enabled === true && !!jev && categoriasAuto.includes(jev.categoria);
+    const modelo = assuntoSensivel ? (cfg.draft_model_sensivel || "gpt-4.1-mini") : podeSairSozinha ? (cfg.draft_model_auto || "gpt-4.1-mini") : (cfg.draft_model || "gpt-4o-mini");
     const ai = await openai("chat/completions", {
       model: modelo,
       temperature: 0.3,
@@ -677,6 +711,42 @@ serve(async (req)=>{
       reason = reason || "Pergunta de acesso e o Hub nao tem nada no nome desta pessoa; confira o cadastro.";
     }
     answer = aplicarLink(answer, aula);
+    // ---- Responde sozinha? (20261007000033) ------------------------------------------
+    const agoraMs = Date.now();
+    const humanoRecente = msgs.some((m)=>m.ticket_id === ticket_id && m.author_id !== tk.user_id && m.author_id !== cfg.bot_user_id && agoraMs - new Date(m.created_at).getTime() < 12 * 3600 * 1000);
+    let autoHoje = 99; // sem saber quantas já saíram, não arrisca
+    try {
+      const ja = await rest(`comu_messages?ticket_id=eq.${ticket_id}&media_meta->>auto=eq.resposta&created_at=gte.${new Date(agoraMs - 24 * 3600 * 1000).toISOString()}&select=id`);
+      autoHoje = (ja || []).length;
+    } catch (_e) {}
+    const kTop = knowledge.reduce((mx, k)=>Math.max(mx, Number(k.similarity) || 0), 0);
+    const temBase = !!(aula && aula.situacao === "liberada" && aula.trecho) || kTop >= Number(cfg.auto_base_min ?? 0.55);
+    const entradaAuto = {
+      ligado: cfg.auto_resposta_enabled === true,
+      categorias: categoriasAuto,
+      categoria: jev && jev.categoria,
+      categoriaConf: Number((jev && jev.categoria_conf) ?? 0),
+      precisaHumano: Number((jev && jev.precisa_humano) ?? 1),
+      insatisfeito: Number((jev && jev.insatisfeito) ?? 0),
+      needsHuman: needs_human,
+      resposta: answer,
+      visitante,
+      temBase,
+      humanoRecente,
+      autoHoje,
+      maxDia: Number(cfg.auto_resposta_max_dia ?? 3),
+      juiz: 1
+    };
+    let juiz = null;
+    let semBase = [];
+    // a conferência só roda se todas as outras travas deixarem
+    if (decidirAuto(entradaAuto).auto) {
+      const c = await conferirResposta(estadoDoJuiz({ pergunta: member_question, resposta: answer, aula, conhecimento: knowledge }));
+      juiz = c.nota;
+      semBase = c.sem_base;
+    }
+    const decisao = decidirAuto({ ...entradaAuto, juiz });
+    const autoDecisao = { ...decisao, juiz, sem_base: semBase, base: temBase, k_top: Math.round(kTop * 1000) / 1000, auto_hoje: autoHoje, modelo_ia: modelo };
     const ins = await rest(`comu_ai_drafts`, {
       method: "POST",
       headers: {
@@ -689,9 +759,13 @@ serve(async (req)=>{
         member_question,
         draft_body: answer,
         aula_indicada: aula,
-        suggest_handoff: needs_human || !answer,
+        suggest_handoff: !decisao.auto && (needs_human || !answer || decisao.aviso),
         handoff_reason: reason || null,
-        model: modelo,
+        // a resposta que passou pelas travas sai sozinha pelo mesmo caminho da cortesia
+        // (comu-cortesia-tick), com atraso de pessoa digitando e cancelada se a conversa andar
+        model: decisao.auto ? "auto-resposta" : modelo,
+        auto_enviar_em: decisao.auto ? new Date(agoraMs + (30 + Math.floor(Math.random() * 30)) * 1000).toISOString() : null,
+        auto_decisao: autoDecisao,
         jev,
         knowledge_used: knowledge.map((k)=>({
             id: k.id,
@@ -711,10 +785,50 @@ serve(async (req)=>{
         status: "superseded"
       })
     });
+    // Não conseguiu ajudar: UM aviso de que a equipe vai responder, e o atendimento vai para
+    // URGENTE. Nunca de novo nas próximas 12 h (o banco também recusa o segundo).
+    let aviso = false;
+    if (decisao.aviso) {
+      try {
+        const desde = new Date(agoraMs - 12 * 3600 * 1000).toISOString();
+        const jaAvisou = await rest(`comu_messages?ticket_id=eq.${ticket_id}&media_meta->>auto=eq.aviso_equipe&created_at=gte.${desde}&select=id&limit=1`);
+        const avisoNaFila = await rest(`comu_ai_drafts?ticket_id=eq.${ticket_id}&model=eq.aviso-equipe&status=eq.pending&select=id&limit=1`);
+        if (!(jaAvisou && jaAvisou.length) && !(avisoNaFila && avisoNaFila.length)) {
+          await rest(`comu_ai_drafts`, {
+            method: "POST",
+            headers: { Prefer: "return=minimal" },
+            body: JSON.stringify({
+              ticket_id,
+              member_id: tk.user_id,
+              trigger_message_id: trigger_message_id || null,
+              member_question,
+              draft_body: cfg.hold_message || AVISO_PADRAO,
+              suggest_handoff: false,
+              model: "aviso-equipe",
+              auto_enviar_em: new Date(agoraMs + 20 * 1000).toISOString(),
+              auto_decisao: { motivo: decisao.motivo },
+              knowledge_used: [],
+              jev
+            })
+          });
+          aviso = true;
+        }
+        await rest(`comu_support_tickets?id=eq.${ticket_id}`, {
+          method: "PATCH",
+          headers: { Prefer: "return=minimal" },
+          body: JSON.stringify({ needs_human: true })
+        });
+      } catch (e) {
+        console.error("[support-draft] aviso de equipe:", String(e).slice(0, 200));
+      }
+    }
     return ok({
       ok: true,
       draft_id: newId,
-      needs_human
+      needs_human,
+      auto: decisao.auto,
+      motivo: decisao.motivo,
+      aviso
     });
   } catch (e) {
     return ok({
