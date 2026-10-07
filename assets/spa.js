@@ -63,12 +63,24 @@ GVSI.views = GVSI.views || {};
     juiz_recusou: 'a conferência achou afirmação sem base'
   };
   G.decisaoAutoHtml = function (dec) {
-    if (!dec || !dec.motivo || dec.motivo === 'desligado') return '';
+    if (!dec || !dec.motivo) return '';
     var txt = MOTIVOS_AUTO[dec.motivo] || dec.motivo;
     var sem = (dec.sem_base || []).slice(0, 3).map(function (x) { return G.esc(String(x)); }).join('; ');
     var aviso = dec.aviso ? ' O aluno recebeu (uma vez) o aviso de que a equipe vai responder.' : '';
     return '<div class="flex items-start gap-xs mt-xs text-[13px] text-on-surface-variant"><span class="material-symbols-outlined text-[16px] shrink-0">' + (dec.auto ? 'bolt' : 'front_hand') + '</span><span>' +
       (dec.auto ? 'Resposta automática: ' : 'Não saiu sozinha: ') + G.esc(txt) + (sem ? ' (' + sem + ')' : '') + '.' + aviso + '</span></div>';
+  };
+  // Selo das mensagens que a IA mandou sozinha (comu_messages.media_meta.auto, pedido do dono em
+  // 07/10/2026): no atendimento, quem lê a conversa sabe na hora o que foi a IA e o que foi uma pessoa.
+  var SELO_IA = {
+    cortesia: 'A IA enviou sozinha (cumprimento)',
+    resposta: 'A IA respondeu sozinha',
+    aviso_equipe: 'A IA avisou sozinha que a equipe vai responder'
+  };
+  G.seloIaHtml = function (msg) {
+    var tipo = msg && msg.media_meta && msg.media_meta.auto;
+    if (!tipo || !SELO_IA[tipo]) return '';
+    return '<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold inline-flex items-center gap-[2px] shrink-0" title="' + SELO_IA[tipo] + '"><span class="material-symbols-outlined text-[12px]">smart_toy</span>IA</span>';
   };
   // Linha "Aula indicada" do rascunho da IA (comu_ai_drafts.aula_indicada, 06/10/2026): quem aprova
   // vê qual aula a IA vai indicar, de onde, a partir de que minuto e se o aluno consegue abrir.
