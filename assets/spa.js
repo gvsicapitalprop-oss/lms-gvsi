@@ -531,8 +531,32 @@ GVSI.views = GVSI.views || {};
     return G._heicP;
   };
   // Devolve um arquivo que o navegador consegue exibir (converte só quando é HEIC).
+  // Formato que o navegador nao sabe desenhar (TIFF do Mac, HEIC, variantes): tenta
+  // decodificar por outro caminho e converte para JPEG. Se nem assim der, quem chamou
+  // avisa dizendo QUAL formato e, para a pessoa saber o que fazer.
+  G.extensaoDe = function (file) {
+    var n = String((file && file.name) || "");
+    var i = n.lastIndexOf(".");
+    return i > 0 ? n.slice(i + 1).toUpperCase() : "";
+  };
+  G.converterParaJpeg = async function (file) {
+    var bmp = await createImageBitmap(file);
+    var cv = document.createElement("canvas");
+    cv.width = bmp.width; cv.height = bmp.height;
+    cv.getContext("2d").drawImage(bmp, 0, 0);
+    try { bmp.close(); } catch (e) {}
+    var blob = await new Promise(function (ok, fail) {
+      cv.toBlob(function (b) { b ? ok(b) : fail(new Error("canvas")); }, "image/jpeg", 0.92);
+    });
+    var nome = String((file && file.name) || "foto").replace(/\.[^.]+$/, "") + ".jpg";
+    try { return new File([blob], nome, { type: "image/jpeg" }); } catch (e) { blob.name = nome; return blob; }
+  };
   G.imagemExibivel = function (file) {
-    if (!G.ehHeic(file)) return Promise.resolve(file);
+    if (!G.ehHeic(file)) {
+      // o <img> so reclama depois; aqui testamos antes e ja convertemos se precisar
+      return createImageBitmap(file).then(function (bmp) { try { bmp.close(); } catch (e) {} return file; },
+        function () { return G.converterParaJpeg(file); });
+    }
     if (G.toast) G.toast('Convertendo a foto…');
     return G.carregarConversorHeic().then(function (conv) {
       return conv({ blob: file, toType: 'image/jpeg', quality: 0.92 });
@@ -575,12 +599,12 @@ GVSI.views = GVSI.views || {};
       function closeC() { cancelled = true; try { if (cropper) cropper.destroy(); } catch (e) {} try { URL.revokeObjectURL(src); } catch (e) {} ov.remove(); try { if (focoAnterior && focoAnterior.focus) focoAnterior.focus(); } catch (e) {} }
       function applyZoom() { if (cropper) { try { cropper.zoomTo(baseRatio * (parseInt(zoomEl.value, 10) || 100) / 100); } catch (e) {} } }
       imgEl.onload = function () { try { cropper = new Cropper(imgEl, { viewMode: 1, autoCropArea: 0.95, background: false, dragMode: 'crop', zoomOnWheel: false, ready: function () { var cd = cropper.getCanvasData(); baseRatio = (cd && cd.naturalWidth) ? (cd.width / cd.naturalWidth) : 1; if (zoomEl) zoomEl.value = 100; } }); } catch (e) {} };
-      imgEl.onerror = function () { if (G.toast) G.toast('Não foi possível abrir a imagem. Se for foto do iPhone (HEIC), salve como JPEG e tente de novo.'); closeC(); };
+      imgEl.onerror = function () { if (G.toast) G.toast('Não consegui abrir essa imagem' + (G.extensaoDe(file) ? ' (.' + G.extensaoDe(file).toLowerCase() + ')' : '') + '. Exporte como JPEG ou PNG e tente de novo.'); closeC(); };
       G.imagemExibivel(file).then(function (f) {
         if (cancelled) return;
         if (f !== file) { try { URL.revokeObjectURL(src); } catch (e) {} src = URL.createObjectURL(f); }
         imgEl.src = src;
-      }, function () { if (G.toast) G.toast('Não foi possível abrir a imagem. Se for foto do iPhone (HEIC), salve como JPEG e tente de novo.'); closeC(); });
+      }, function () { if (G.toast) G.toast('Não consegui abrir essa imagem' + (G.extensaoDe(file) ? ' (.' + G.extensaoDe(file).toLowerCase() + ')' : '') + '. Exporte como JPEG ou PNG e tente de novo.'); closeC(); });
       if (zoomEl) zoomEl.addEventListener('input', applyZoom);
       ov.querySelector('#ic-zin').onclick = function () { zoomEl.value = Math.min(300, (parseInt(zoomEl.value, 10) || 100) + 15); applyZoom(); };
       ov.querySelector('#ic-zout').onclick = function () { zoomEl.value = Math.max(50, (parseInt(zoomEl.value, 10) || 100) - 15); applyZoom(); };
