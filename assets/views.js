@@ -1972,7 +1972,11 @@
             var c = t.member && t.member.created_at;
             return !!c && new Date(c).getTime() >= UMA_SEMANA;
           }
-          if (self.filter === 'novos') rows = (rows || []).filter(alunoNovo);
+          // Novos e fila de prioridade: quem ja foi respondido esta com a bola do lado do aluno
+          // e nao precisa aparecer aqui (mesmo criterio de 'Aguardando voce').
+          if (self.filter === 'novos') rows = (rows || []).filter(function (t) {
+            return alunoNovo(t) && (t.last_sender !== 'team' || paradoNoAviso(t));
+          });
           function urgente(t) { return !!(t.assigned_to || t.tarefa || handoffSet[t.id] || paradoNoAviso(t)); }
           if (self.filter === 'urgente') rows = (rows || []).filter(urgente);
           // separa os abertos: "voce" = cliente aguardando a gente (ultima msg do cliente); "cliente" = a gente respondeu por ultimo
