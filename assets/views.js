@@ -1965,7 +1965,10 @@
           // se a conversa aberta recebeu avaliação/mudou status, reflete no cabeçalho
           if (self.currentTicket) { var _cur = (r.data || []).filter(function (x) { return x.id === self.currentTicket.id; })[0]; if (_cur) { self.currentTicket.rating = _cur.rating; self.currentTicket.solved = _cur.solved; self.currentTicket.status = _cur.status; renderConvoRating(); } }
           var rows = r.data; var query = G.deburr((self.search || '').trim());
-          if (self.filter === 'ia') rows = (rows || []).filter(function (t) { return autoSet[t.id]; });
+          // Fila de trabalho mostra so o que espera resposta NOSSA. Se o aluno e quem precisa
+          // responder, a conversa nao e tarefa de ninguem agora (pedido do dono, 08/10/2026).
+          function esperaNos(t) { return t.last_sender !== 'team' || paradoNoAviso(t); }
+          if (self.filter === 'ia') rows = (rows || []).filter(function (t) { return autoSet[t.id] && esperaNos(t); });
           // Aluno novo = cadastro criado na ultima semana. O dono quer atender esses primeiro.
           var UMA_SEMANA = Date.now() - 7 * 86400000;
           function alunoNovo(t) {
@@ -1974,11 +1977,9 @@
           }
           // Novos e fila de prioridade: quem ja foi respondido esta com a bola do lado do aluno
           // e nao precisa aparecer aqui (mesmo criterio de 'Aguardando voce').
-          if (self.filter === 'novos') rows = (rows || []).filter(function (t) {
-            return alunoNovo(t) && (t.last_sender !== 'team' || paradoNoAviso(t));
-          });
+          if (self.filter === 'novos') rows = (rows || []).filter(function (t) { return alunoNovo(t) && esperaNos(t); });
           function urgente(t) { return !!(t.assigned_to || t.tarefa || handoffSet[t.id] || paradoNoAviso(t)); }
-          if (self.filter === 'urgente') rows = (rows || []).filter(urgente);
+          if (self.filter === 'urgente') rows = (rows || []).filter(function (t) { return urgente(t) && esperaNos(t); });
           // separa os abertos: "voce" = cliente aguardando a gente (ultima msg do cliente); "cliente" = a gente respondeu por ultimo
           if (self.filter === 'voce') rows = rows.filter(function (tk) { return tk.last_sender !== 'team' || paradoNoAviso(tk); });
           else if (self.filter === 'cliente') rows = rows.filter(function (tk) { return tk.last_sender === 'team' && !paradoNoAviso(tk); });
