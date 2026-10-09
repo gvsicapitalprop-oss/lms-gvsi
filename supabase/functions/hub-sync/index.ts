@@ -21,16 +21,11 @@ const TOPIC_CR = "43451d98-5eb8-4f8d-a710-4d2d374d56db"; // Construindo Riqueza
 const TOPIC_SALA = "7acf1d70-316b-4958-a037-3d39b0eda7c2"; // Sala Ao Vivo
 const PROD_CR = new Set(["1267657e-570e-43bd-802c-045ffba79232", "7d32bbe8-1aac-482b-b5d1-6ddb0fbfe79e"]); // Construindo Riqueza + combo
 const PROD_SALA = new Set(["75bca71b-d9fb-41fe-a36d-d5eb4f8e7892", "7d32bbe8-1aac-482b-b5d1-6ddb0fbfe79e"]); // Sala Ao Vivo + combo
-// Bônus: quem comprou o Master Trader a partir da abertura das vendas (12/08/2026) ganha a Sala Ao Vivo
-// por 6 meses contados da compra (Master + Bônus), enquanto o Master estiver ativo.
-const PROD_MASTER = "61b9d5b6-76ed-46df-8e43-fb4c0812ce1d"; // Programa Master Trader
-const MASTER_BONUS_DESDE = "2026-08-12";
-const MASTER_BONUS_MESES = 6;
-function masterBonusValido(createdAt: string | null | undefined): boolean {
-  if (!createdAt || createdAt.slice(0, 10) < MASTER_BONUS_DESDE) return false;
-  const fim = new Date(createdAt); fim.setMonth(fim.getMonth() + MASTER_BONUS_MESES);
-  return fim.getTime() >= Date.now();
-}
+// Regra da Sala Ao Vivo (pedido do dono em 08/10/2026): acabou o bônus automático de quem comprou o
+// Master. Agora a Sala é só para: quem tem o produto Sala ATIVO, OU quem concluiu o módulo 8
+// ("ACESSO A SALA AO VIVO") e SOLICITOU o acesso (lms_sala_solicitacoes). Em todos os casos, só com
+// acesso ATIVO (comDireito): não libera para quem já expirou. Admin nunca é removido do tópico.
+const TABELA_SOLICITACOES = "lms_sala_solicitacoes";
 
 function clean(s: string): string {
   s = (s || "").replace(/[|_-]/g, " ").replace(/[^A-Za-zÀ-ÿ ]/g, "");
@@ -85,11 +80,11 @@ async function commWrite(method: string, path: string, body: unknown): Promise<v
 }
 
 // Reconcilia a allowlist de UM tópico: adiciona quem deve ver e tira quem não deve mais. (dry = só conta.)
-async function syncTopicAccess(topicId: string, wantIds: Set<string>, dry: boolean): Promise<{ add: number; del: number }> {
+async function syncTopicAccess(topicId: string, wantIds: Set<string>, dry: boolean, keepIds?: Set<string>): Promise<{ add: number; del: number }> {
   const curRows = await commGet(`comu_topic_access?topic_id=eq.${topicId}&select=user_id`);
   const cur = new Set(curRows.map((r) => String(r.user_id)));
   const toAdd = [...wantIds].filter((id) => !cur.has(id));
-  const toDel = [...cur].filter((id) => !wantIds.has(id));
+  const toDel = [...cur].filter((id) => !wantIds.has(id) && !(keepIds && keepIds.has(id)));
   if (!dry) {
     if (toAdd.length) await commWrite("POST", "comu_topic_access", toAdd.map((id) => ({ topic_id: topicId, user_id: id })));
     if (toDel.length) await commWrite("DELETE", `comu_topic_access?topic_id=eq.${topicId}&user_id=in.(${toDel.join(",")})`, null);
@@ -123,7 +118,6 @@ Deno.serve(async (req: Request) => {
         if (!active.has(e)) active.set(e, clean(c.full_name || "") || clean(e.split("@")[0]));
         if (PROD_CR.has(s.product_id)) crEmails.add(e);
         if (PROD_SALA.has(s.product_id)) salaEmails.add(e);
-        if (s.product_id === PROD_MASTER && masterBonusValido(s.created_at)) salaEmails.add(e); // bônus Master
       }
     }
 
@@ -138,7 +132,6 @@ Deno.serve(async (req: Request) => {
         if (!active.has(e)) active.set(e, clean(c.full_name || "") || clean(e.split("@")[0]));
         if (PROD_CR.has(g.product_id)) crEmails.add(e);
         if (PROD_SALA.has(g.product_id)) salaEmails.add(e);
-        if (g.product_id === PROD_MASTER && masterBonusValido(g.created_at)) salaEmails.add(e); // bônus Master
       }
     }
 
@@ -150,6 +143,14 @@ Deno.serve(async (req: Request) => {
     const memberRows = await commGet("lms_students?select=id,email,role");
     const existing = new Set(memberRows.map((r) => String(r.email || "").trim().toLowerCase()));
     const emailToId = new Map<string, string>(memberRows.map((m) => [String(m.email || "").trim().toLowerCase(), String(m.id)]));
+    const idToEmail = new Map<string, string>(memberRows.map((m) => [String(m.id), String(m.email || "").trim().toLowerCase()]));
+    const adminIds = new Set<string>(memberRows.filter((m) => m.role === "admin").map((m) => String(m.id)));
+    // Sala por SOLICITAÇÃO: concluiu o módulo 8 e pediu (lms_sala_solicitacoes), só com acesso ATIVO.
+    const solicitou = await commGet(`${TABELA_SOLICITACOES}?select=student_id`);
+    for (const r of solicitou) {
+      const e = idToEmail.get(String(r.student_id));
+      if (e && comDireito.has(e)) salaEmails.add(e);
+    }
     const idsFor = (emails: Set<string>) => { const s = new Set<string>(); for (const e of emails) { const id = emailToId.get(e); if (id) s.add(id); } return s; };
     const crIds = idsFor(crEmails); const salaIds = idsFor(salaEmails);
     const blockRows = await commGet("comu_onboard_blocklist?select=email");
@@ -176,7 +177,7 @@ Deno.serve(async (req: Request) => {
 
     if (dry) {
       const tCr = await syncTopicAccess(TOPIC_CR, crIds, true);
-      const tSala = await syncTopicAccess(TOPIC_SALA, salaIds, true);
+      const tSala = await syncTopicAccess(TOPIC_SALA, salaIds, true, adminIds);
       return new Response(JSON.stringify({
         dry: true, hub_active: active.size, hub_grants: grants.length, avulso_pessoas: grantPeople.size,
         comunidade: existing.size, vistos_ativos: seen.size, ja_bloqueados: blockedNow.size,
@@ -247,7 +248,7 @@ Deno.serve(async (req: Request) => {
 
     // 8) TÓPICOS restritos por produto: reconcilia a allowlist (aparece/some sozinho pela RLS).
     const tCr = await syncTopicAccess(TOPIC_CR, crIds, false);
-    const tSala = await syncTopicAccess(TOPIC_SALA, salaIds, false);
+    const tSala = await syncTopicAccess(TOPIC_SALA, salaIds, false, adminIds);
 
     return new Response(JSON.stringify({ ok: true, hub_active: active.size, hub_grants: grants.length, criados: created, bloqueados: banned, desbloqueados: unbanned, topico_cr: tCr, topico_sala: tSala, erros: errs }), { headers: { "Content-Type": "application/json" } });
   } catch (e) {
