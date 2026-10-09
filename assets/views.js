@@ -1968,6 +1968,11 @@
           // Fila de trabalho mostra so o que espera resposta NOSSA. Se o aluno e quem precisa
           // responder, a conversa nao e tarefa de ninguem agora (pedido do dono, 08/10/2026).
           function esperaNos(t) { return t.last_sender !== 'team' || paradoNoAviso(t); }
+          // atendimento sem nenhuma mensagem (botao "Nova conversa" que ninguem usou) nao e fila:
+          // some da lista, menos o que estiver aberto agora na tela.
+          rows = (rows || []).filter(function (t) {
+            return t.last_sender || (self.currentTicket && self.currentTicket.id === t.id);
+          });
           if (self.filter === 'ia') rows = (rows || []).filter(function (t) { return autoSet[t.id] && esperaNos(t); });
           // Aluno novo = cadastro criado na ultima semana. O dono quer atender esses primeiro.
           var UMA_SEMANA = Date.now() - 7 * 86400000;
@@ -2306,7 +2311,16 @@
           // Com a lista visível dá para clicar em outra conversa antes desta carregar: a resposta
           // atrasada não pode despejar as mensagens desta na conversa que está aberta agora.
           if (self.currentTicket !== tk) return;
-          (r.data || []).forEach(addMsg); loadReactSup((r.data || []).map(function (m) { return m.id; })); scrollConvo(); subscribeConvo(tk.id); updateConvoComposer(); loadAiDraft(tk.id); loadTickets();
+          (r.data || []).forEach(addMsg); loadReactSup((r.data || []).map(function (m) { return m.id; })); scrollConvo();
+          // "Nova conversa" cria o atendimento antes de qualquer mensagem. Sem isto a tela
+          // ficava preta e parecia que as mensagens tinham sumido (08/10/2026).
+          if (!(r.data || []).length) {
+            var vazio = document.createElement('div');
+            vazio.className = 'w-full text-center text-body-sm text-on-surface-variant py-xl';
+            vazio.innerHTML = '<span class="material-symbols-outlined text-[32px] block mb-xs opacity-60">forum</span>' +
+              'Nenhuma mensagem ainda.<br>Escreva abaixo para iniciar este atendimento.';
+            document.getElementById('convo-messages').appendChild(vazio);
+          } subscribeConvo(tk.id); updateConvoComposer(); loadAiDraft(tk.id); loadTickets();
           self.imTyping = false; if (self.updateMyPresence) self.updateMyPresence();
         }
         function closeConvo() {
