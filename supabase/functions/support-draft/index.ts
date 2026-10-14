@@ -117,7 +117,8 @@ const JEV_CATS = {
   outro: "Qualquer coisa que não caiba nas anteriores."
 };
 async function jevTriagem(pergunta) {
-  if (!JEV_KEY || !pergunta) return null;
+  if (!pergunta) return null;
+  if (!JEV_KEY) return await triagemReserva(pergunta);
   try {
     const r = await fetch("https://api.typesafe.ai/v1/systemone", {
       method: "POST",
@@ -142,7 +143,7 @@ async function jevTriagem(pergunta) {
         }
       })
     });
-    if (!r.ok) return null;
+    if (!r.ok) return await triagemReserva(pergunta);
     const d = await r.json();
     const a = (d && d.answers) || d || {};
     const pega = (x)=>x && (x.choice ?? x.value ?? x.noul);
@@ -155,6 +156,51 @@ async function jevTriagem(pergunta) {
       quer_aula: pega(a.quer_aula),
       precisa_humano: pega(a.precisa_humano),
       tipo_cortesia: pega(a.tipo_cortesia),
+      em: new Date().toISOString()
+    };
+  } catch (_e) {
+    return await triagemReserva(pergunta);
+  }
+}
+// Reserva da triagem (14/10/2026): sem créditos na TypeSafe a triagem voltou vazia o dia
+// inteiro e nada saía sozinho, nem cortesia. Se o Jev falhar (crédito, fora do ar, demora),
+// a mesma pergunta vai para a OpenAI com as mesmas categorias. Marca fonte "openai" para auditar.
+async function triagemReserva(pergunta) {
+  try {
+    const cats = Object.entries(JEV_CATS).map(([k, v]) => `- ${k}: ${v}`).join("\n");
+    const r = await openai("chat/completions", {
+      model: "gpt-4.1-mini",
+      temperature: 0,
+      max_tokens: 200,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: "Você classifica a mensagem de um aluno para o suporte de uma escola de trading (MetaTrader 5, aulas, mesa proprietária). Responda só com JSON.\n\n" +
+          "categoria: uma destas chaves\n" + cats + "\n" +
+          "categoria_conf: de 0 a 1, o quanto você tem certeza da categoria.\n" +
+          "Para os campos abaixo, de 0 (não) a 1 (sim):\n" +
+          "so_cortesia: é só cortesia (agradecimento, saudação, 'ok', 'entendi'), sem pedido nem pergunta nova?\n" +
+          "insatisfeito: diz que a resposta anterior não resolveu, repete a dúvida, reclama do atendimento automático ou pede uma pessoa?\n" +
+          "precisa_humano: para responder é preciso consultar dados da conta do aluno (acesso, pagamento, datas) ou fazer algo que só a equipe faz?\n" +
+          "mesa: pede acesso, ativação ou instruções da mesa proprietária que comprou, ou diz que comprou e não recebeu?\n" +
+          "quer_aula: tem dúvida de conteúdo (estratégia, operação, gráfico, mercado, risco, psicologia, ferramentas do método) ou pede uma aula?\n" +
+          "tipo_cortesia: agradecimento | saudacao | confirmacao | nao_cortesia\n\n" +
+          'Formato: {"categoria":"...","categoria_conf":0.0,"so_cortesia":0.0,"insatisfeito":0.0,"precisa_humano":0.0,"mesa":0.0,"quer_aula":0.0,"tipo_cortesia":"..."}' },
+        { role: "user", content: String(pergunta).slice(0, 1500) }
+      ]
+    });
+    const j = JSON.parse(r.choices[0].message.content);
+    if (!j || !Object.prototype.hasOwnProperty.call(JEV_CATS, j.categoria)) return null;
+    const num = (x) => Math.max(0, Math.min(1, Number(x) || 0));
+    return {
+      categoria: j.categoria,
+      categoria_conf: num(j.categoria_conf),
+      so_cortesia: num(j.so_cortesia),
+      mesa: num(j.mesa),
+      insatisfeito: num(j.insatisfeito),
+      quer_aula: num(j.quer_aula),
+      precisa_humano: num(j.precisa_humano),
+      tipo_cortesia: ["agradecimento", "saudacao", "confirmacao", "nao_cortesia"].includes(j.tipo_cortesia) ? j.tipo_cortesia : "nao_cortesia",
+      fonte: "openai",
       em: new Date().toISOString()
     };
   } catch (_e) {
@@ -766,7 +812,9 @@ serve(async (req)=>{
     answer = aplicarLink(answer, aula);
     // ---- Responde sozinha? (20261007000033) ------------------------------------------
     const agoraMs = Date.now();
-    const humanoRecente = msgs.some((m)=>m.ticket_id === ticket_id && m.author_id !== tk.user_id && m.author_id !== cfg.bot_user_id && agoraMs - new Date(m.created_at).getTime() < 12 * 3600 * 1000);
+    // equipe falou nas últimas 2 h: a IA não atropela (era 12 h até 14/10/2026; no ensaio, quem
+    // a equipe tinha deixado havia mais de 2 h recebeu resposta certa e alinhada com a dela)
+    const humanoRecente = msgs.some((m)=>m.ticket_id === ticket_id && m.author_id !== tk.user_id && m.author_id !== cfg.bot_user_id && agoraMs - new Date(m.created_at).getTime() < 2 * 3600 * 1000);
     let autoHoje = 99; // sem saber quantas já saíram, não arrisca
     try {
       const ja = await rest(`comu_messages?ticket_id=eq.${ticket_id}&media_meta->>auto=eq.resposta&created_at=gte.${new Date(agoraMs - 24 * 3600 * 1000).toISOString()}&select=id`);

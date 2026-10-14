@@ -47,7 +47,9 @@ export interface DecisaoAuto {
   motivo: string;
 }
 
-export const LIMIAR_CATEGORIA = 0.8;
+// 0,8 -> 0,6 em 14/10/2026: no ensaio com 56 casos reais da semana barrados só por isso, as
+// respostas que passaram pelas outras travas e pela conferência estavam certas.
+export const LIMIAR_CATEGORIA = 0.6;
 export const LIMIAR_JUIZ = 0.8;
 
 export function decidirAuto(e: EntradaAuto): DecisaoAuto {

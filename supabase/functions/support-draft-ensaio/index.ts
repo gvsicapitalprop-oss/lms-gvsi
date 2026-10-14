@@ -274,10 +274,25 @@ serve(async (req)=>{
     // modo só transcrever (14/10/2026): o mesmo transcritor do suporte (VPS, OpenAI de reserva)
     // para áudios que a equipe manda fora do chat, como soluções para a base da IA.
     const pedidoTranscricao = await req.clone().json().catch(() => ({}));
+    // diagnóstico da triagem (14/10/2026): o support-draft engole o erro do Jev e segue sem
+    // categoria; aqui a resposta crua aparece (status e começo do corpo, sem a chave).
+    if (pedidoTranscricao && pedidoTranscricao.diag_jev) {
+      try {
+        const r = await fetch("https://api.typesafe.ai/v1/systemone", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${JEV_KEY}`, "Content-Type": "application/json" },
+          signal: AbortSignal.timeout(15000),
+          body: JSON.stringify({ state: "Bom dia, como instalo o MT5?", model: "jev-latest", questions: { categoria: { type: "choice", instructions: "Assunto?", criteria: { plataforma: "MT5", outro: "outro" } } } })
+        });
+        return ok({ ok: true, tem_chave: !!JEV_KEY, status: r.status, corpo: (await r.text()).slice(0, 400) });
+      } catch (e) {
+        return ok({ ok: false, tem_chave: !!JEV_KEY, erro: String(e).slice(0, 300) });
+      }
+    }
     if (pedidoTranscricao && pedidoTranscricao.transcrever_url) {
       return ok({ ok: true, texto: await transcribe(String(pedidoTranscricao.transcrever_url)) });
     }
-    const { ticket_id, trigger_message_id, ate, modelo: modeloForcado } = await req.json();
+    const { ticket_id, trigger_message_id, ate, modelo: modeloForcado, jev: jevForcado, limiar_categoria: limiarForcado, janela_equipe_h: janelaForcada } = await req.json();
     const force = true;
     CAPTURADO.length = 0;
     const ATE = ate ? new Date(ate).toISOString() : new Date().toISOString();
@@ -462,7 +477,8 @@ serve(async (req)=>{
     // ---- Triagem (Jev) + resposta automática de cortesia -------------------
     // O veredito é guardado no rascunho mesmo quando não enviamos nada: é o modo
     // sombra, que deixa comparar o que a triagem TERIA feito antes de ligar mais.
-    const jev = cfg.jev_enabled === false ? null : await jevTriagem(member_question);
+    // ensaio: a triagem gravada no caso original (confiança calibrada da TypeSafe), se vier
+    const jev = jevForcado || (cfg.jev_enabled === false ? null : await jevTriagem(member_question));
     // pendente continua valendo se nada novo foi perguntado, ou se a última mensagem é
     // só cortesia (um "obrigado" no meio não invalida a resposta que já está pronta).
     if (pendente) {
@@ -738,7 +754,7 @@ serve(async (req)=>{
     answer = aplicarLink(answer, aula);
     // ---- Responde sozinha? (20261007000033) ------------------------------------------
     const agoraMs = new Date(ATE).getTime();
-    const humanoRecente = msgs.some((m)=>m.ticket_id === ticket_id && m.author_id !== tk.user_id && m.author_id !== cfg.bot_user_id && agoraMs - new Date(m.created_at).getTime() < 12 * 3600 * 1000);
+    const humanoRecente = msgs.some((m)=>m.ticket_id === ticket_id && m.author_id !== tk.user_id && m.author_id !== cfg.bot_user_id && agoraMs - new Date(m.created_at).getTime() < Number(janelaForcada ?? 12) * 3600 * 1000);
     let autoHoje = 99; // sem saber quantas já saíram, não arrisca
     try {
       const ja = await rest(`comu_messages?ticket_id=eq.${ticket_id}&media_meta->>auto=eq.resposta&created_at=gte.${new Date(agoraMs - 24 * 3600 * 1000).toISOString()}&select=id`);
@@ -750,7 +766,8 @@ serve(async (req)=>{
       ligado: cfg.auto_resposta_enabled === true,
       categorias: categoriasAuto,
       categoria: jev && jev.categoria,
-      categoriaConf: Number((jev && jev.categoria_conf) ?? 0),
+      // ensaio: limiar de confiança alternativo (o de produção mora em autonomia.ts)
+      categoriaConf: limiarForcado != null && Number((jev && jev.categoria_conf) ?? 0) >= Number(limiarForcado) ? 1 : Number((jev && jev.categoria_conf) ?? 0),
       precisaHumano: Number((jev && jev.precisa_humano) ?? 1),
       insatisfeito: Number((jev && jev.insatisfeito) ?? 0),
       needsHuman: needs_human,

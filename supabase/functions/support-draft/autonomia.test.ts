@@ -36,7 +36,8 @@ eq("conteúdo com base e juiz ok sai sozinha", d({}), { auto: true, aviso: false
 eq("plataforma também", d({ categoria: "plataforma" }).auto, true);
 eq("acesso passa pela equipe", d({ categoria: "acesso" }), { auto: false, aviso: false, motivo: "fora_dos_assuntos" });
 eq("financeiro passa pela equipe", d({ categoria: "financeiro" }).motivo, "fora_dos_assuntos");
-eq("categoria sem certeza", d({ categoriaConf: 0.7 }).motivo, "fora_dos_assuntos");
+eq("categoria sem certeza", d({ categoriaConf: 0.5 }).motivo, "fora_dos_assuntos");
+eq("categoria com certeza média já passa", d({ categoriaConf: 0.7 }).auto, true);
 eq("desligado", d({ ligado: false }).motivo, "desligado");
 eq("visitante da tela de login", d({ visitante: true }).auto, false);
 
