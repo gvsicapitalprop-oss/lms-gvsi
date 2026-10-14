@@ -949,15 +949,37 @@ GVSI.views = GVSI.views || {};
   function groupHeaderHtml(title) {
     return '<div class="topic-group-header px-md pt-md pb-xs text-label-md font-label-md text-on-surface-variant/80 uppercase tracking-wide">' + G.esc(title) + '</div>';
   }
+  // Sala ao Vivo por solicitação (14/10/2026): quem ainda não vê o tópico enxerga em "Exclusivos"
+  // o caminho para liberar. Concluiu o módulo 8: libera com um toque (comu_solicitar_sala).
+  // Tem o Master mas não concluiu: diz o que falta e leva para a aula na área de membros.
+  G.salaSit = null;
+  var URL_MODULO_SALA = 'https://giovannipaganini.com/curso/programa-master-trader';
+  function salaPedidoHtml() {
+    var s = G.salaSit;
+    if (!s || s.tem_sala || G.hasSala()) return '';
+    var tone = TONES.gold;
+    var icone = '<div class="w-12 h-12 rounded-full ' + tone.bg + ' flex items-center justify-center ' + tone.fg + ' shrink-0"><span class="material-symbols-outlined text-[24px]">' + (s.concluiu_modulo8 ? 'videocam' : 'lock') + '</span></div>';
+    if (s.concluiu_modulo8) {
+      return '<button type="button" class="sala-pedir w-full text-left flex items-center gap-md p-md rounded-xl transition-colors cursor-pointer hover:bg-surface-container-low">' + icone +
+        '<div class="flex-1 min-w-0"><h3 class="font-bold text-on-surface truncate">Sala Ao Vivo</h3><p class="text-body-sm text-on-surface-variant truncate">Você já pode liberar seu acesso</p></div>' +
+        '<span class="sala-pedir-rotulo shrink-0 ml-1 rounded-full bg-amber-400 text-[#1a1205] text-[13px] font-bold px-3 py-1.5">Liberar</span></button>';
+    }
+    if (s.tem_master) {
+      return '<a href="' + URL_MODULO_SALA + '" target="_blank" rel="noopener noreferrer" class="flex items-center gap-md p-md rounded-xl transition-colors cursor-pointer hover:bg-surface-container-low">' + icone +
+        '<div class="flex-1 min-w-0"><h3 class="font-bold text-on-surface truncate">Sala Ao Vivo</h3><p class="text-body-sm text-on-surface-variant">Libera quando você concluir o módulo 8 (Acesso à Sala ao Vivo) na área de membros</p></div></a>';
+    }
+    return '';
+  }
   G.renderTopicList = function (container, activeId) {
     if (!container) return;
     var byId = {}; G.topics.forEach(function (t) { byId[t.id] = t; });
     var used = {}, html = '';
     TOPIC_GROUPS.forEach(function (g) {
       var items = g.slugs.map(function (s) { return byId[s]; }).filter(Boolean);
-      if (!items.length) return;
+      var extra = g.slugs.indexOf('sala-ao-vivo') >= 0 ? salaPedidoHtml() : '';
+      if (!items.length && !extra) return;
       items.forEach(function (t) { used[t.id] = 1; });
-      html += groupHeaderHtml(g.title) + items.map(function (t) { return topicItemHtml(t, activeId); }).join('');
+      html += groupHeaderHtml(g.title) + items.map(function (t) { return topicItemHtml(t, activeId); }).join('') + extra;
     });
     var rest = G.topics.filter(function (t) { return !used[t.id]; });
     if (rest.length) html += (Object.keys(used).length ? groupHeaderHtml('Outros') : '') + rest.map(function (t) { return topicItemHtml(t, activeId); }).join('');
@@ -1016,6 +1038,49 @@ GVSI.views = GVSI.views || {};
   // tópico Sala ao Vivo (G.topics vem filtrado por RLS: se não tem acesso, não está lá).
   // Assim o banner nunca promete um menu que ainda não chegou.
   G.hasSala = function () { return (G.topics || []).some(function (t) { return t.id === 'sala-ao-vivo'; }); };
+  function marcarExclusivos() {
+    G.topics.forEach(function (t) { if (t.id === 'construindo-riqueza' || t.id === 'sala-ao-vivo') { t.tone = 'gold'; t.premium = true; } });
+  }
+  function redesenharListas() {
+    G.renderTopicList(document.getElementById('side-topics'), '');
+    G.renderTopicList(document.getElementById('topic-list'), '');
+    G.applyUnread();
+    G.applyTopicPreviews();
+  }
+  G.loadSalaSituacao = async function () {
+    if (!G.sb || G.hasSala()) return;
+    try {
+      var r = await G.sb.rpc('comu_sala_situacao');
+      if (r.error || !r.data) return;
+      G.salaSit = r.data;
+      if (!G.salaSit.tem_sala && (G.salaSit.concluiu_modulo8 || G.salaSit.tem_master)) redesenharListas();
+    } catch (e) {}
+  };
+  G.pedirSala = async function (btn) {
+    if (!G.sb || (btn && btn.disabled)) return;
+    var rotulo = btn && btn.querySelector('.sala-pedir-rotulo');
+    if (btn) btn.disabled = true;
+    if (rotulo) rotulo.textContent = 'Liberando…';
+    var r;
+    try { r = await G.sb.rpc('comu_solicitar_sala'); } catch (e) { r = { error: e }; }
+    var res = r && !r.error ? r.data : null;
+    if (res === 'liberada' || res === 'ja_tinha') {
+      G.topics = await loadTopics();
+      marcarExclusivos();
+      if (G.salaSit) G.salaSit.tem_sala = true;
+      redesenharListas();
+      G.toast('Pronto! Sua Sala ao Vivo foi liberada.');
+      if (G.hasSala()) G.navigate('/chat/sala-ao-vivo');
+      return;
+    }
+    if (btn) btn.disabled = false;
+    if (rotulo) rotulo.textContent = 'Liberar';
+    G.toast(res === 'modulo8_incompleto' ? 'Conclua o módulo 8 na área de membros para liberar a Sala.' : 'Não consegui liberar agora. Tente de novo ou fale com o suporte.');
+  };
+  document.addEventListener('click', function (e) {
+    var b = e.target && e.target.closest && e.target.closest('.sala-pedir');
+    if (b) { e.preventDefault(); G.pedirSala(b); }
+  });
   // Balão flutuante do Desafio (aparece em qualquer tela, só para participantes)
   G.CHALLENGE_ON = false; // Desafio encerrado: esconde balão e aviso de vencedores
   G.setupChallengeFab = async function () {
@@ -1332,10 +1397,11 @@ GVSI.views = GVSI.views || {};
     G.updateSidebarProfile();
     G.topics = await loadTopics();
     if (G.me && G.me.premium) { var _sup = G.topics.filter(function (t) { return t.id === 'suporte'; })[0]; if (_sup) { _sup.name = 'Suporte Premium'; _sup.tone = 'gold'; _sup.desc = 'Atendimento prioritário da mentoria.'; _sup.premium = true; } }
-    G.topics.forEach(function (t) { if (t.id === 'construindo-riqueza' || t.id === 'sala-ao-vivo') { t.tone = 'gold'; t.premium = true; } });
+    marcarExclusivos();
     G.renderTopicList(document.getElementById('side-topics'), '');
     G.applyUnread();
     G.loadLastMessages();
+    G.loadSalaSituacao();
     setTimeout(function () { try { G.showNews(); } catch (e) {} }, 800);
     setTimeout(function () { try { G.setupChallengeFab(); } catch (e) {} }, 1000);
     // Badges/preview da sidebar: por POLL leve (15s) + ao voltar o foco — NÃO

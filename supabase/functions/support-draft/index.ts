@@ -438,6 +438,58 @@ serve(async (req)=>{
     // O veredito é guardado no rascunho mesmo quando não enviamos nada: é o modo
     // sombra, que deixa comparar o que a triagem TERIA feito antes de ligar mais.
     const jev = cfg.jev_enabled === false ? null : await jevTriagem(member_question);
+    // ---- Sala ao Vivo pelo chat (pedido do dono em 14/10/2026) -------------
+    // Pediu acesso à Sala e já concluiu o módulo 8: a mesma regra do botão da área de membros
+    // e da Comunidade (comu_sala_liberar) libera na hora, e a confirmação sai sozinha.
+    // Já tinha ou ainda não concluiu: a resposta segue o fluxo normal, com isso no contexto.
+    let salaNota = "";
+    const pedeSala = !visitante && /\bsala\b/i.test(member_question) &&
+      /(acess|libera|solicit|ativ|entrar|particip|aparec|sumiu|n[aã]o (vejo|tenho|acho|encontro))/i.test(member_question);
+    if (pedeSala) {
+      let sala = "";
+      try {
+        sala = await rest(`rpc/comu_sala_liberar`, { method: "POST", body: JSON.stringify({ p_aluno: tk.user_id, p_origem: "ia_suporte" }) }) ?? "";
+      } catch (e) {
+        console.error("[support-draft] sala:", String(e).slice(0, 200));
+      }
+      if (sala === "liberada") {
+        const texto = `${saud}${firstName ? ", " + firstName : ""}! Liberei sua Sala ao Vivo.\n\n` +
+          "Ela já aparece aqui na Comunidade, no tópico Sala Ao Vivo, em Exclusivos. É por lá que saem os links das aulas, segunda, quarta e sexta às 10h30, pelo Zoom.";
+        try {
+          const insSala = await rest(`comu_ai_drafts`, {
+            method: "POST",
+            headers: { Prefer: "return=representation" },
+            body: JSON.stringify({
+              ticket_id,
+              member_id: tk.user_id,
+              trigger_message_id: trigger_message_id || null,
+              member_question,
+              draft_body: texto,
+              suggest_handoff: false,
+              model: "sala-liberada",
+              auto_enviar_em: new Date(Date.now() + 8000).toISOString(),
+              knowledge_used: [],
+              jev
+            })
+          });
+          const idSala = insSala && insSala[0] && insSala[0].id;
+          if (idSala) {
+            await rest(`comu_ai_drafts?ticket_id=eq.${ticket_id}&status=eq.pending&id=neq.${idSala}`, {
+              method: "PATCH",
+              headers: { Prefer: "return=minimal" },
+              body: JSON.stringify({ status: "superseded" })
+            });
+            return ok({ ok: true, auto: "sala liberada", draft_id: idSala });
+          }
+        } catch (e) {
+          console.error("[support-draft] sala liberada:", String(e).slice(0, 200));
+        }
+      } else if (sala === "ja_tinha") {
+        salaNota = "\n\n## SALA AO VIVO DESTE ALUNO (DADO REAL)\nEle JÁ tem a Sala ao Vivo liberada: o tópico Sala Ao Vivo aparece na lista de tópicos da Comunidade, em Exclusivos. Se não aparecer para ele, é recarregar o app ou sair e entrar de novo. É lá que saem os links das aulas.";
+      } else if (sala === "modulo8_incompleto") {
+        salaNota = "\n\n## SALA AO VIVO DESTE ALUNO (DADO REAL)\nEle AINDA NÃO concluiu o módulo 8 (ACESSO A SALA AO VIVO) do Programa Master Trader na área de membros. A Sala libera na hora quando ele concluir a aula desse módulo e pedir, pela Comunidade (item Sala Ao Vivo em Exclusivos) ou aqui no chat. Explique isso; não diga que vai liberar nem que já está liberada.";
+      }
+    }
     // pendente continua valendo se nada novo foi perguntado, ou se a última mensagem é
     // só cortesia (um "obrigado" no meio não invalida a resposta que já está pronta).
     if (pendente) {
@@ -628,6 +680,7 @@ serve(async (req)=>{
       baseP,
       visitanteNota,
       hubNota,
+      salaNota,
       mesaNota,
       agora,
       "\n\n## CONHECIMENTO RECUPERADO (use se ajudar; não invente além disso)\n" + kblock,
