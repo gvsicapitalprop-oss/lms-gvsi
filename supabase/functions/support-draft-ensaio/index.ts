@@ -271,6 +271,12 @@ serve(async (req)=>{
     if (req.headers.get("x-mod-secret") !== MOD_SECRET) return new Response("forbidden", {
       status: 403
     });
+    // modo só transcrever (14/10/2026): o mesmo transcritor do suporte (VPS, OpenAI de reserva)
+    // para áudios que a equipe manda fora do chat, como soluções para a base da IA.
+    const pedidoTranscricao = await req.clone().json().catch(() => ({}));
+    if (pedidoTranscricao && pedidoTranscricao.transcrever_url) {
+      return ok({ ok: true, texto: await transcribe(String(pedidoTranscricao.transcrever_url)) });
+    }
     const { ticket_id, trigger_message_id, ate, modelo: modeloForcado } = await req.json();
     const force = true;
     CAPTURADO.length = 0;
