@@ -21,6 +21,13 @@ const TOPIC_CR = "43451d98-5eb8-4f8d-a710-4d2d374d56db"; // Construindo Riqueza
 const TOPIC_SALA = "7acf1d70-316b-4958-a037-3d39b0eda7c2"; // Sala Ao Vivo
 const PROD_CR = new Set(["1267657e-570e-43bd-802c-045ffba79232", "7d32bbe8-1aac-482b-b5d1-6ddb0fbfe79e"]); // Construindo Riqueza + combo
 const PROD_SALA = new Set(["75bca71b-d9fb-41fe-a36d-d5eb4f8e7892", "7d32bbe8-1aac-482b-b5d1-6ddb0fbfe79e"]); // Sala Ao Vivo + combo
+// Suporte Premium (pedido do dono, 15/10/2026): quem comprou uma das duas ofertas de R$ 5.964 com
+// mentoria ganha lms_students.premium. So LIGA, nunca desliga: o premium dado a mao continua.
+// Assinatura cancelada (estorno) nao conta.
+const OFERTAS_PREMIUM = new Set([
+  "0f0948e9-947f-4ee0-a9c8-dbb43992a655", // Combo Completo: Especializacao na Abertura + Teste 200k + Mentoria com Samuel
+  "fa8fc516-d8b1-43e6-838c-8d64ee484e92", // Especializacao na Abertura + Mesa 200k + Mentoria de Aprovacao
+]);
 // Regra da Sala Ao Vivo (pedido do dono em 08/10/2026): acabou o bônus automático de quem comprou o
 // Master. Agora a Sala é só para: quem tem o produto Sala ATIVO, OU quem concluiu o módulo 8
 // ("ACESSO A SALA AO VIVO") e SOLICITOU o acesso (lms_sala_solicitacoes). Em todos os casos, só com
@@ -99,7 +106,7 @@ Deno.serve(async (req: Request) => {
     const today = new Date().toISOString().slice(0, 10) + "T00:00:00";
 
     // 1) assinaturas do hub -> e-mails com acesso ATIVO (status=active, access_enabled!=false, não expirada)
-    const subs = await hubGet("subscriptions?select=status,access_enabled,expires_at,created_at,product_id,contact:contact_id(email,full_name)");
+    const subs = await hubGet("subscriptions?select=status,access_enabled,expires_at,created_at,product_id,offer_id,contact:contact_id(email,full_name)");
     const active = new Map<string, string>(); // email -> nome
     const crEmails = new Set<string>(); const salaEmails = new Set<string>(); // acesso ATIVO por produto (para os tópicos restritos)
     // Quem tem direito de verdade, para BLOQUEAR/DESBLOQUEAR: assinatura ativa e não
@@ -109,9 +116,11 @@ Deno.serve(async (req: Request) => {
     // Trader ativo quando o bônus da Sala acabou (corrigido em 25/09/2026, ok do dono).
     // A CRIAÇÃO de contas continua só com access_enabled != false.
     const comDireito = new Set<string>();
+    const premiumEmails = new Set<string>();
     for (const s of subs) {
       const c = s.contact || {}; const e = String(c.email || "").trim().toLowerCase();
       if (!e || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) continue;
+      if (OFERTAS_PREMIUM.has(s.offer_id) && s.status !== "canceled") premiumEmails.add(e);
       const valid = !s.expires_at || s.expires_at >= today;
       if (s.status === "active" && valid) comDireito.add(e);
       if (s.status === "active" && s.access_enabled !== false && valid) {
@@ -140,7 +149,7 @@ Deno.serve(async (req: Request) => {
     const grantPeople = new Set(allGrants.map((g) => String((g.contact || {}).email || "").trim().toLowerCase()).filter(Boolean));
 
     // 2) comunidade: membros (id/email/role) + blocklist + estado (ledger de vistos-ativos + já-bloqueados)
-    const memberRows = await commGet("lms_students?select=id,email,role");
+    const memberRows = await commGet("lms_students?select=id,email,role,premium");
     const existing = new Set(memberRows.map((r) => String(r.email || "").trim().toLowerCase()));
     const emailToId = new Map<string, string>(memberRows.map((m) => [String(m.email || "").trim().toLowerCase(), String(m.id)]));
     const idToEmail = new Map<string, string>(memberRows.map((m) => [String(m.id), String(m.email || "").trim().toLowerCase()]));
@@ -175,6 +184,12 @@ Deno.serve(async (req: Request) => {
       return e && comDireito.has(e) && blockedNow.has(e);
     });
 
+    // 3d) quem GANHA o Suporte Premium (comprou a oferta da mentoria e ainda nao tem).
+    const toPremium = memberRows.filter((m) => {
+      const e = String(m.email || "").trim().toLowerCase();
+      return e && premiumEmails.has(e) && m.premium !== true;
+    });
+
     if (dry) {
       const tCr = await syncTopicAccess(TOPIC_CR, crIds, true);
       const tSala = await syncTopicAccess(TOPIC_SALA, salaIds, true, adminIds);
@@ -184,6 +199,7 @@ Deno.serve(async (req: Request) => {
         criaria: toCreate.length, amostra: toCreate.slice(0, 5).map((x) => x[0]),
         bloquearia: toBlock.length, amostra_bloqueio: toBlock.slice(0, 8).map((m) => m.email),
         desbloquearia: toUnblock.length,
+        premium: { compradores: premiumEmails.size, ganharia: toPremium.length, amostra: toPremium.slice(0, 8).map((m) => m.email) },
         topico_cr: { tem: crIds.size, adiciona: tCr.add, remove: tCr.del },
         topico_sala: { tem: salaIds.size, adiciona: tSala.add, remove: tSala.del },
       }), { headers: { "Content-Type": "application/json" } });
@@ -246,11 +262,23 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    // 7b) SUPORTE PREMIUM para quem comprou a oferta da mentoria (so liga).
+    let premiumNovos = 0;
+    if (toPremium.length) {
+      const r = await fetch(`${SB_URL}/rest/v1/lms_students?id=in.(${toPremium.map((m) => m.id).join(",")})`, {
+        method: "PATCH",
+        headers: { apikey: SVC, Authorization: `Bearer ${SVC}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+        body: JSON.stringify({ premium: true }),
+      });
+      if (r.ok) premiumNovos = toPremium.length;
+      else if (errs.length < 5) errs.push("premium: " + r.status);
+    }
+
     // 8) TÓPICOS restritos por produto: reconcilia a allowlist (aparece/some sozinho pela RLS).
     const tCr = await syncTopicAccess(TOPIC_CR, crIds, false);
     const tSala = await syncTopicAccess(TOPIC_SALA, salaIds, false, adminIds);
 
-    return new Response(JSON.stringify({ ok: true, hub_active: active.size, hub_grants: grants.length, criados: created, bloqueados: banned, desbloqueados: unbanned, topico_cr: tCr, topico_sala: tSala, erros: errs }), { headers: { "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ ok: true, hub_active: active.size, hub_grants: grants.length, criados: created, bloqueados: banned, desbloqueados: unbanned, premium: premiumNovos, topico_cr: tCr, topico_sala: tSala, erros: errs }), { headers: { "Content-Type": "application/json" } });
   } catch (e) {
     return new Response(JSON.stringify({ ok: false, error: String(e) }), { status: 200, headers: { "Content-Type": "application/json" } });
   }
