@@ -21,6 +21,7 @@ const H = {
 };
 const CAPTURADO = [];
 let ULTIMA_NOTA_MESA = "";
+let ULTIMA_NOTA_DIARIO = "";
 async function rest(path, init) {
   const metodo = String((init && init.method) || "GET").toUpperCase();
   if (String(path).startsWith("rpc/") && !RPC_LIVRES.some((p)=>String(path).startsWith(p))) throw new Error("ensaio: rpc nao liberada " + path);
@@ -111,7 +112,7 @@ async function transcribe(url) {
   }
   return await transcribeOpenAI(url);
 }
-const ok = (o)=>new Response(JSON.stringify({ ...o, ensaio: true, capturado: CAPTURADO, nota_mesa: ULTIMA_NOTA_MESA }), {
+const ok = (o)=>new Response(JSON.stringify({ ...o, ensaio: true, capturado: CAPTURADO, nota_mesa: ULTIMA_NOTA_MESA, nota_diario: ULTIMA_NOTA_DIARIO }), {
     status: 200,
     headers: {
       "Content-Type": "application/json"
@@ -305,6 +306,66 @@ function notaDaMesa(d) {
   ].join("\n");
 }
 
+// Situação da pessoa no DIÁRIO DE TRADING (21/10/2026): o projeto do Diário tem a função
+// suporte-consulta (só leitura), mesma ideia da mesa. Falhou ou demorou: segue sem o dado.
+const DIARIO_URL = Deno.env.get("DIARIO_CONSULTA_URL") ?? "";
+const DIARIO_SECRET = Deno.env.get("DIARIO_CONSULTA_SECRET") ?? "";
+async function dadosDoDiario(email) {
+  if (!DIARIO_URL || !DIARIO_SECRET || !email || email.indexOf("@") < 0) return null;
+  try {
+    const r = await fetch(DIARIO_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-suporte-secret": DIARIO_SECRET },
+      body: JSON.stringify({ email }),
+      signal: AbortSignal.timeout(6000)
+    });
+    if (!r.ok) return null;
+    const d = await r.json();
+    return d && d.ok ? d : null;
+  } catch (_e) {
+    return null;
+  }
+}
+function notaDoDiario(d, pergunta) {
+  if (!d) return "";
+  const falaDoDiario = /di[aá]rio/i.test(String(pergunta || ""));
+  // sem conta no Diário: só vale dizer se o assunto é o Diário (não enche o prompt à toa)
+  if (!d.encontrado && !falaDoDiario) return "";
+  const dia = (iso) => {
+    if (!iso) return "";
+    try {
+      return new Date(iso).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+    } catch (_e) {
+      return "";
+    }
+  };
+  let linha;
+  if (!d.encontrado) linha = "- NÃO existe conta no Diário de Trading com o e-mail deste aluno.";
+  else {
+    const SIT = { active: "ATIVO", trial: "ATIVO (período de teste)", expired: "EXPIRADO" };
+    const partes = [`- Diário de Trading: ${SIT[d.status] || String(d.status || "").toUpperCase()}`];
+    if (d.plano) partes.push(`plano ${d.plano}`);
+    if (d.ate) partes.push(`${d.ativo ? "vale até" : "venceu em"} ${dia(d.ate)}`);
+    else if (d.ativo) partes.push("sem data de fim");
+    partes.push(d.ultima_operacao_registrada ? `última operação registrada em ${dia(d.ultima_operacao_registrada)}` : "nenhuma operação registrada ainda");
+    linha = partes.join("; ") + ".";
+  }
+  return [
+    "",
+    "## DIÁRIO DE TRADING DESTE ALUNO (DADO REAL DO SISTEMA DO DIÁRIO; NÃO INVENTE)",
+    linha,
+    "Como usar: só fale do Diário se o aluno perguntar dele. Nunca informe senha. Não prometa liberar nem estender o acesso.",
+    d.encontrado && d.ativo
+      ? "Está ATIVO: o Diário é acessado em diariodetrade.com com o MESMO e-mail. Se ele diz que não consegue entrar, trate como problema de login (e-mail digitado certo, 'esqueci minha senha' na tela do Diário)."
+      : "NÃO está ativo" + (d.encontrado ? " (expirado)" : " (sem conta)") + ". ESTA REGRA VALE MAIS QUE O CONHECIMENTO RECUPERADO: mesmo que o conhecimento ensine a entrar no site, " +
+        "NÃO mande ele entrar em diariodetrade.com nem fazer login, porque com este e-mail não vai funcionar. " +
+        "Se no Hub o Diário de Trading aparece como agendado (scheduled), diga que o acesso dele ao Diário ainda não começou. " +
+        "NÃO diga que precisa renovar, comprar ou pagar, e não diga por que expirou: você não sabe. " +
+        "Se o Hub (bloco O QUE ESTE ALUNO TEM) mostra o Diário de Trading ativo, diga que o acesso dele consta como liberado e que vai pedir para a equipe acertar no Diário. " +
+        "Em qualquer caso, diga só que vai conferir com a equipe e já retorna (needs_human=true)."
+  ].join("\n");
+}
+
 // Acessos da pessoa no Hub Central: produtos, situação e até quando valem.
 // Sem isto o Bruno respondia no escuro justamente no assunto mais comum do suporte
 // (acesso: 28% das mensagens). Usa a hub-accesses pelo atalho de serviço.
@@ -376,6 +437,7 @@ serve(async (req)=>{
     const force = true;
     CAPTURADO.length = 0;
     ULTIMA_NOTA_MESA = "";
+    ULTIMA_NOTA_DIARIO = "";
     const ATE = ate ? new Date(ate).toISOString() : new Date().toISOString();
     if (!ticket_id) return ok({
       ok: false,
@@ -753,8 +815,12 @@ serve(async (req)=>{
       } catch (_e) {}
     }
     // situação real na mesa proprietária (projeto da mesa, suporte-consulta)
-    const mesaDadosNota = visitante ? "" : notaDaMesa(await dadosDaMesa(emailAluno));
+    // situação real no Diário de Trading (projeto do Diário, suporte-consulta), junto com a da mesa
+    const [dMesa, dDiario] = visitante ? [null, null] : await Promise.all([dadosDaMesa(emailAluno), dadosDoDiario(emailAluno)]);
+    const mesaDadosNota = visitante ? "" : notaDaMesa(dMesa);
+    const diarioDadosNota = visitante ? "" : notaDoDiario(dDiario, member_question);
     ULTIMA_NOTA_MESA = mesaDadosNota;
+    ULTIMA_NOTA_DIARIO = diarioDadosNota;
     // acessos reais no Hub (produtos e datas) — entra como FATO, acima do que o modelo "acha"
     let hubNota = "";
     let hubTemDados = false;
@@ -823,6 +889,7 @@ serve(async (req)=>{
       hubNota,
       mesaNota,
       mesaDadosNota,
+      diarioDadosNota,
       agora,
       "\n\n## CONHECIMENTO RECUPERADO (use se ajudar; não invente além disso)\n" + kblock,
       notaDaAula(aula),
