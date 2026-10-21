@@ -540,8 +540,42 @@ serve(async (req)=>{
       }
     } catch (_e) {}
     const inList = "(" + tids.join(",") + ")";
-    const raw = await rest(`comu_messages?ticket_id=in.${inList}&kind=in.(text,image,audio,video)&status=neq.deleted&select=id,author_id,body,kind,media_url,media_meta,ticket_id,created_at&order=created_at.desc&limit=22`);
-    const msgs = (raw || []).slice().reverse();
+    // cfg.contexto_v3=false volta para a janela antiga (22 mensagens misturadas, sem resumo)
+    const contextoV3 = cfg.contexto_v3 !== false;
+    const ATE = new Date().toISOString();
+    const SEL = "select=id,author_id,body,kind,media_url,media_meta,ticket_id,created_at";
+    const infoTicket = {};
+    let msgs;
+    if (contextoV3) {
+      // contexto v3 (ensaio 14/10/2026, venceu o anterior por 8 a 4; produção em 21/10/2026): o atendimento atual inteiro (até 80 mensagens) e até 3
+      // atendimentos anteriores dos últimos 30 dias (10 mensagens cada), separados e com data.
+      const atual = await rest(`comu_messages?ticket_id=eq.${ticket_id}&kind=in.(text,image,audio,video)&status=neq.deleted&${SEL}&order=created_at.desc&limit=80`) || [];
+      let anteriores = [];
+      if (!visitante) {
+        const desde = new Date(new Date(ATE).getTime() - 30 * 86400000).toISOString();
+        const tks = await rest(`comu_support_tickets?user_id=eq.${tk.user_id}&id=neq.${ticket_id}&created_at=gte.${encodeURIComponent(desde)}&select=id,protocol,status,created_at,resolved_at&order=created_at.desc&limit=3`) || [];
+        for (const t of tks) {
+          infoTicket[t.id] = t;
+          const ms = await rest(`comu_messages?ticket_id=eq.${t.id}&kind=in.(text,image,audio,video)&status=neq.deleted&${SEL}&order=created_at.desc&limit=10`) || [];
+          anteriores = ms.slice().reverse().concat(anteriores);
+        }
+      }
+      try {
+        const ta = await rest(`comu_support_tickets?id=eq.${ticket_id}&select=id,protocol,created_at`);
+        if (ta && ta[0]) infoTicket[ticket_id] = ta[0];
+      } catch (_e) {}
+      msgs = anteriores.concat(atual.slice().reverse());
+    } else {
+      const raw = await rest(`comu_messages?ticket_id=in.${inList}&kind=in.(text,image,audio,video)&status=neq.deleted&${SEL}&order=created_at.desc&limit=22`);
+      msgs = (raw || []).slice().reverse();
+    }
+    const dataHora = (iso) => {
+      try {
+        return new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+      } catch (_e) {
+        return "";
+      }
+    };
     if (!msgs.length) return ok({
       ok: true,
       skipped: "sem mensagens"
@@ -555,6 +589,7 @@ serve(async (req)=>{
     const audioIdx = [];
     for(let i = msgs.length - 1; i >= 0 && audioIdx.length < 4; i--)if ((msgs[i].kind === "audio" || msgs[i].kind === "video") && msgs[i].media_url) audioIdx.push(i);
     const trans = {};
+    if (contextoV3) for (let i = 0; i < msgs.length; i++) { const mm = msgs[i]; if (mm.media_meta && typeof mm.media_meta.transcript === "string") trans[i] = mm.media_meta.transcript; }
     await Promise.all(audioIdx.map(async (i)=>{
       const m = msgs[i];
       // cache: reusa a transcrição já salva em media_meta (evita re-chamar o transcritor)
@@ -853,6 +888,39 @@ serve(async (req)=>{
         ].filter(Boolean).join("\n");
       }
     } catch (_e) {}
+    // v3 (ensaio 14/10/2026): antes de responder, lê o histórico inteiro e resume EM QUE PÉ está o
+    // atendimento. No teste de 22 casos, dar mais mensagens não bastou: a IA recebia o histórico mas
+    // repetia o que já tinha falhado e esquecia o que a equipe já tinha feito ou prometido.
+    let estadoAtendimento = "";
+    if (contextoV3) {
+      try {
+        const linhasHist = [];
+        let blocoHist = null;
+        for (let i = 0; i < msgs.length; i++) {
+          const m = msgs[i];
+          if (m.ticket_id !== blocoHist) {
+            blocoHist = m.ticket_id;
+            const it = infoTicket[m.ticket_id] || {};
+            const enc = it.resolved_at && it.resolved_at < ATE ? ", encerrado em " + dataHora(it.resolved_at) : "";
+            linhasHist.push(m.ticket_id === ticket_id ? `=== ATENDIMENTO ATUAL (aberto em ${dataHora(it.created_at)}) ===` : `=== ATENDIMENTO ANTERIOR (aberto em ${dataHora(it.created_at)}${enc}) ===`);
+          }
+          linhasHist.push(`[${dataHora(m.created_at)}] ${lineText(m, i)}`);
+        }
+        const historicoTexto = linhasHist.join("\n").slice(-24000);
+        const rr = await openai("chat/completions", {
+          model: "gpt-4.1-mini",
+          temperature: 0,
+          max_tokens: 600,
+          messages: [
+            { role: "system", content: "Você lê o histórico de um atendimento de suporte (escola de trading GVSI: MetaTrader 5, aulas, mesa proprietária, comunidade) e resume EM QUE PÉ ele está, para quem vai responder agora. Use só o que está no histórico; não invente; não escreva a resposta ao aluno. Responda exatamente nestes tópicos, curtos (escreva 'nada' quando não houver):\nASSUNTO ATUAL: o que o aluno quer agora (a última mensagem dele, no contexto do atendimento atual).\nJÁ INFORMADO PELO ALUNO: dados e fatos que ele já deu (e-mail, conta, aparelho, o que aparece na tela, o que já fez).\nJÁ TENTADO E NÃO RESOLVEU: instruções ou soluções já dadas que ele disse que não funcionaram.\nJÁ FEITO PELA EQUIPE: ações feitas (acesso remoto, reenvio de e-mail, liberação, configuração).\nPROMETIDO OU PENDENTE: o que a equipe prometeu ou deixou para depois, com a data; e há quanto tempo o aluno espera, se estiver esperando.\nASSUNTOS ENCERRADOS: assuntos resolvidos que não devem ser retomados." },
+            { role: "user", content: `Agora: ${dataHora(ATE)}\n\n${historicoTexto}` }
+          ]
+        });
+        estadoAtendimento = String(rr.choices[0].message.content || "").trim();
+      } catch (e) {
+        console.error("[support-draft] estado do atendimento:", String(e).slice(0, 200));
+      }
+    }
     const sys = [
       baseP,
       visitanteNota,
@@ -867,6 +935,8 @@ serve(async (req)=>{
       "\n\n## CORRECOES — NAO REPITA ESTES ERROS\n" + cblock,
       challengeNote,
       "\n\n## NÃO INVENTE O CONTEXTO\nO histórico acima pode incluir conversas anteriores deste mesmo aluno. Se ele continua um assunto antigo (ex.: 'a lógica é essa, né?', 'consegui', 'e aí?') e você NÃO encontra no histórico do que ele fala, NÃO invente um tópico nem aplique um conhecimento só porque parece parecido. Nesse caso, confirme de forma geral ou pergunte a que ele se refere. Só afirme algo específico (módulo, prazo, passo, número) se estiver claramente na conversa ou no conhecimento recuperado.",
+      contextoV3 ? "\n\n## CONVERSA E ASSUNTO ATUAL\n- O histórico vem separado por atendimento, cada mensagem com data e hora. Responda ao ASSUNTO ATUAL: a última mensagem do aluno, lida junto com o que veio antes NESTE atendimento.\n- Use o que o aluno já disse, mesmo muitas mensagens atrás ou num atendimento anterior: dados que ele informou, o que já tentou, o que já foi explicado. Nunca peça de novo o que ele já disse e nunca repita uma instrução que já foi dada e não funcionou: avance para o próximo passo ou passe para a equipe.\n- Assunto encerrado (o aluno agradeceu, disse que resolveu ou confirmou, ou está num atendimento anterior encerrado) NÃO é retomado, repetido nem reexplicado, a menos que o aluno volte a ele.\n- Se a última mensagem for só agradecimento ou confirmação de algo resolvido, responda curto, sem retomar o assunto." : "",
+      estadoAtendimento ? "\n\n## ESTADO DO ATENDIMENTO (resumo da conversa inteira; use)\n" + estadoAtendimento + "\n\nComo usar: responda ao ASSUNTO ATUAL. Não repita nada que está em JÁ TENTADO E NÃO RESOLVEU: avance para o próximo passo ou passe para a equipe (needs_human). Não peça de novo o que está em JÁ INFORMADO. Leve em conta o que está em JÁ FEITO PELA EQUIPE. Se há PROMETIDO OU PENDENTE da equipe e o aluno está esperando, reconheça a espera sem prometer prazo. Não retome ASSUNTOS ENCERRADOS." : "",
       "\n\n## O ALUNO PODE MANDAR IMAGEM, ÁUDIO OU VÍDEO\nAs imagens do aluno vêm anexadas nesta conversa; olhe o conteúdo delas (prints de tela, gráficos, mensagens de erro, QR codes) e responda com base no que realmente aparece. Os áudios já vêm transcritos no histórico como 'Aluno (áudio): ...'. VÍDEOS: você NÃO consegue assistir vídeo; ele aparece no histórico como 'Aluno enviou um VÍDEO...'. REGRA IMPORTANTE: se o aluno JÁ enviou uma imagem, áudio ou vídeo, NUNCA peça pra ele enviar de novo — ele já enviou. Se a dúvida depende do que aparece num VÍDEO e a narração transcrita não deixa claro, NÃO invente a causa: diga que vai olhar o vídeo dele e deixe um humano assumir (needs_human=true).",
       "\n\n## NUNCA RESPONDA COM MENSAGEM DE ESPERA\nNão escreva 'vou chamar alguém da equipe', 'só um momento', 'vou verificar e já te retorno' nem nada parecido. Se não der para responder com segurança, deixe answer vazio e needs_human=true: o sistema avisa o aluno, uma vez só, que a equipe vai responder.",
       "\n\n## FORMATO DE SAIDA (OBRIGATORIO)\nResponda SOMENTE com um JSON: {\"answer\": \"<resposta pro aluno>\", \"needs_human\": <true|false>, \"reason\": \"<se needs_human=true, o motivo curto>\"}. No campo answer, escreva em PARAGRAFOS CURTOS separados por uma linha em branco: use \\n\\n entre os paragrafos (duas quebras de linha de verdade no texto). Nada de bloco unico gigante; sem marcadores. Deixe answer vazio se precisar de humano. needs_human=true quando a dúvida exige uma ACAO que só a equipe executa, é intencao de compra, ou você nao sabe."
@@ -874,13 +944,29 @@ serve(async (req)=>{
     // conteúdo multimodal: cada linha do histórico + as imagens recentes anexadas
     const content = [];
     let imgCount = 0;
+    let ticketDoBloco = null;
+    // v2: as 4 imagens MAIS RECENTES (a versão de hoje anexa as 4 primeiras da janela, as mais antigas)
+    const imgRecentes = new Set();
+    if (contextoV3) for (let i = msgs.length - 1; i >= 0 && imgRecentes.size < 4; i--) if (msgs[i].kind === "image" && msgs[i].media_url) imgRecentes.add(i);
     for(let i = 0; i < msgs.length; i++){
       const m = msgs[i];
+      if (contextoV3 && m.ticket_id !== ticketDoBloco) {
+        ticketDoBloco = m.ticket_id;
+        const it = infoTicket[m.ticket_id] || {};
+        const aberto = it.created_at ? dataHora(it.created_at) : "";
+        const encerrado = it.resolved_at && it.resolved_at < ATE ? ", encerrado em " + dataHora(it.resolved_at) : "";
+        content.push({
+          type: "text",
+          text: m.ticket_id === ticket_id
+            ? `=== ATENDIMENTO ATUAL ${it.protocol || ""} (aberto em ${aberto}) ===`
+            : `=== ATENDIMENTO ANTERIOR ${it.protocol || ""} (aberto em ${aberto}${encerrado}). Assunto já tratado: só use se o aluno voltar a ele. ===`
+        });
+      }
       content.push({
         type: "text",
-        text: lineText(m, i)
+        text: contextoV3 ? `[${dataHora(m.created_at)}] ${lineText(m, i)}` : lineText(m, i)
       });
-      if (m.kind === "image" && m.media_url && imgCount < 4) {
+      if (m.kind === "image" && m.media_url && (contextoV3 ? imgRecentes.has(i) : imgCount < 4)) {
         content.push({
           type: "image_url",
           image_url: {
