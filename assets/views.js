@@ -109,6 +109,7 @@
       if (S.onPasteDoc) document.removeEventListener('paste', S.onPasteDoc);
       if (S.onMsgMenuDoc) document.removeEventListener('click', S.onMsgMenuDoc);
       if (S.onMsgMenuScroll) window.removeEventListener('scroll', S.onMsgMenuScroll, true);
+      if (S.salaParar) { try { S.salaParar(); } catch (e) {} }
       S = null;
     }
     return {
@@ -133,6 +134,7 @@
           '</header>' +
           '<div id="chat-search-panel" class="hidden fixed top-16 lg:top-[89px] left-0 right-0 lg:left-[var(--side-w)] z-40 bg-surface border-b border-outline-variant shadow-lg"><div class="max-w-5xl mx-auto p-sm"><div class="relative"><span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[20px] pointer-events-none">search</span><input id="chat-search-input" type="text" autocomplete="off" placeholder="Buscar nas mensagens deste grupo…" class="w-full bg-surface-container-low border border-outline-variant rounded-xl py-2 pl-10 pr-10 text-body-md text-on-surface focus:ring-2 focus:ring-primary/30"><button type="button" id="chat-search-close" class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high"><span class="material-symbols-outlined text-[20px]">close</span></button></div><div id="chat-search-results" class="max-h-[50vh] overflow-y-auto custom-scrollbar mt-sm space-y-0.5"></div></div></div>' +
           '<main id="chat-scroll" class="lg:pl-[var(--side-w)] h-[100dvh] pt-16 lg:pt-[89px] pb-64 lg:pb-52 flex flex-col overflow-y-auto custom-scrollbar">' +
+            (slug === 'sala-ao-vivo' ? '<div id="sala-card" class="hidden sticky top-16 lg:top-[89px] z-10 w-full max-w-5xl mx-auto px-container-margin pt-md pb-xs bg-background shrink-0"></div>' : '') +
             '<div id="chat-messages" class="hidden w-full max-w-5xl mx-auto flex flex-col gap-lg px-container-margin py-lg"></div>' +
             '<div id="chat-loading" class="flex-grow flex items-center justify-center text-on-surface-variant text-body-sm gap-sm"><span class="material-symbols-outlined animate-spin">progress_activity</span> Carregando…</div>' +
             '<div id="chat-empty" class="hidden flex-grow flex flex-col items-center justify-center text-center gap-md py-xl px-container-margin"><div class="w-20 h-20 rounded-full bg-surface-container-high flex items-center justify-center text-primary"><span class="material-symbols-outlined text-[40px]">forum</span></div><div class="space-y-xs max-w-xs"><h2 class="font-headline-sm text-headline-sm text-on-surface">Ainda não há mensagens</h2><p class="text-body-sm text-on-surface-variant">Seja o primeiro a enviar uma mensagem neste grupo.</p></div></div>' +
@@ -242,6 +244,10 @@
         if (slug) { var tr = await sb.from('comu_topics').select('id,name,slug,post_policy').eq('slug', slug).maybeSingle(); topic = tr.data; }
         if (self.destroyed) return;
         if (topic) { titleEl.textContent = topic.name; document.title = 'Comunidade do Giovanni | ' + topic.name; }
+        // Sala ao vivo (21/10/2026): card da aula com o Zoom embutido (assets/sala.js). So aparece
+        // para quem tem acesso: a Edge Function sala-ao-vivo responde 403 aos outros.
+        var salaSlot = document.getElementById('sala-card');
+        if (salaSlot && G.salaCard) self.salaParar = G.salaCard.mount(salaSlot);
 
         if (topic && topic.post_policy === 'readonly' && !isAdmin) {
           document.getElementById('chat-composer').classList.add('hidden');
