@@ -859,6 +859,26 @@ serve(async (req)=>{
     const [dMesa, dDiario] = visitante ? [null, null] : await Promise.all([dadosDaMesa(emailAluno), dadosDoDiario(emailAluno)]);
     const mesaDadosNota = visitante ? "" : notaDaMesa(dMesa);
     const diarioDadosNota = visitante ? "" : notaDoDiario(dDiario, member_question);
+    // pagou a mesa no Hub e ainda não tem conta (lista comu_mesa_pendentes, conferida de hora
+    // em hora pela hub-mesa-pendentes, 21/10/2026): a conta é criada à mão pela equipe.
+    let mesaCompraNota = "";
+    if (!visitante && dMesa && !(dMesa.contas || []).length) {
+      try {
+        const pend = await rest(`comu_mesa_pendentes?email=eq.${encodeURIComponent(String(emailAluno || "").trim().toLowerCase())}&resolvido_em=is.null&select=produto,pago_em&limit=1`) || [];
+        if (pend[0]) {
+          const p = pend[0];
+          mesaCompraNota = [
+            "",
+            "## COMPRA DA MESA SEM CONTA AINDA (DADO REAL: HUB + SISTEMA DA MESA)",
+            `- Ele pagou ${p.produto || "a mesa"}${p.pago_em ? " em " + new Date(p.pago_em).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }) : ""} e ainda NÃO tem conta de teste na mesa com este e-mail.`,
+            "Como usar: só fale disso se ele perguntar da mesa, da conta ou do teste. Diga que a compra da mesa consta certinho e que a conta é criada pela equipe, e que o acesso chega por E-MAIL. " +
+              "Se ele quer começar, diga que o pedido já ficou com a equipe. Não prometa prazo, não diga que a conta já existe e não peça para comprar de novo (needs_human=true)."
+          ].join("\n");
+          const falaDaMesa = Number(jev?.mesa ?? 0) >= 0.5 || /\bmesa\b|conta de teste|desafio|\bteste\b|mt5|metatrader/i.test(member_question);
+          if (falaDaMesa) await rest(`comu_support_tickets?id=eq.${ticket_id}`, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ tarefa: "ativar_mesa", needs_human: true }) });
+        }
+      } catch (_e) {}
+    }
     // acessos reais no Hub (produtos e datas) — entra como FATO, acima do que o modelo "acha"
     let hubNota = "";
     let hubTemDados = false;
@@ -929,6 +949,7 @@ serve(async (req)=>{
       mesaNota,
       mesaDadosNota,
       diarioDadosNota,
+      mesaCompraNota,
       agora,
       "\n\n## CONHECIMENTO RECUPERADO (use se ajudar; não invente além disso)\n" + kblock,
       notaDaAula(aula),
