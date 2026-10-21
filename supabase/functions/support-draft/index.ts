@@ -268,6 +268,72 @@ function respostaCortesia(tipo, saud, nome) {
   return `Imagina${quem}! Qualquer coisa é só chamar por aqui.`;
 }
 
+// Situação da pessoa na MESA PROPRIETÁRIA (21/10/2026): o projeto da mesa tem a função
+// suporte-consulta (só leitura). Sem isto o Bruno respondia sobre a mesa no escuro e
+// inventava ("sua mesa está ativa, sem prazo"). Falhou ou demorou: segue sem o dado.
+const MESA_URL = Deno.env.get("MESA_CONSULTA_URL") ?? "";
+const MESA_SECRET = Deno.env.get("MESA_CONSULTA_SECRET") ?? "";
+async function dadosDaMesa(email) {
+  if (!MESA_URL || !MESA_SECRET || !email || email.indexOf("@") < 0) return null;
+  try {
+    const r = await fetch(MESA_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-suporte-secret": MESA_SECRET },
+      body: JSON.stringify({ email }),
+      signal: AbortSignal.timeout(6000)
+    });
+    if (!r.ok) return null;
+    const d = await r.json();
+    return d && d.ok ? d : null;
+  } catch (_e) {
+    return null;
+  }
+}
+function notaDaMesa(d) {
+  const contas = (d && d.contas) || [];
+  const provisoes = ((d && d.provisoes) || []).filter((p) => p.status && p.status !== "provisioned" && !p.provisioned_at);
+  if (!contas.length && !provisoes.length) return "";
+  const dia = (iso) => {
+    if (!iso) return "";
+    try {
+      return new Date(iso).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+    } catch (_e) {
+      return "";
+    }
+  };
+  const num = (v) => (v === null || v === undefined || v === "" ? "" : Number(v).toLocaleString("pt-BR", { maximumFractionDigits: 2 }));
+  const SIT = { active: "EM ANDAMENTO", failed: "ENCERRADA/REPROVADA", expired: "EXPIRADA", passed: "APROVADA" };
+  const linhas = contas.slice(0, 4).map((c) => {
+    const nome = `Conta ${c.login_mt5 || "?"}${c.plano ? " (" + c.plano + ")" : ""}`;
+    const sit = c.aprovada_em ? "APROVADA" : (SIT[c.status] || String(c.status || "").toUpperCase());
+    const partes = [`- ${nome}: ${sit}`];
+    if (c.inicio) partes.push(`início ${dia(c.inicio)}`);
+    if (c.status === "active" && c.prazo_ate) partes.push(`prazo até ${dia(c.prazo_ate)}`);
+    if (c.dias_operados !== null && c.dias_operados !== undefined) partes.push(`${c.dias_operados} dias operados`);
+    if (c.status === "active" && c.saldo_atual !== null) partes.push(`saldo ${num(c.saldo_atual)} (inicial ${num(c.saldo_inicial)})`);
+    if (c.reprovada_em) partes.push(`encerrada em ${dia(c.reprovada_em)}`);
+    if (c.motivo_reprovacao) partes.push(`motivo: ${c.motivo_reprovacao}`);
+    if (c.aprovada_em) partes.push(`aprovada em ${dia(c.aprovada_em)}`);
+    if (c.analise && c.analise.status) partes.push(`análise da equipe: ${c.analise.status}${c.analise.nota ? " (" + c.analise.nota + ")" : ""}`);
+    const alertas = (c.violacoes || []).slice(0, 3).map((v) => `${v.regra} em ${dia(v.quando)}`);
+    if (alertas.length) partes.push(`alertas recentes: ${alertas.join(", ")}`);
+    return partes.join("; ") + ".";
+  });
+  for (const p of provisoes.slice(0, 2)) {
+    linhas.push(`- Compra${p.plano ? " " + p.plano : ""} aguardando a criação da conta desde ${dia(p.created_at)}.`);
+  }
+  return [
+    "",
+    "## MESA PROPRIETÁRIA DESTE ALUNO (DADO REAL DO SISTEMA DA MESA; NÃO INVENTE)",
+    ...linhas,
+    "Como usar: estes dados valem MAIS que o histórico da conversa (o que a equipe disse antes pode ter mudado). " +
+      "Se o aluno diz que a mesa/conta/plano não está ativo ou pergunta se foi liberado, e há conta EM ANDAMENTO, diga o número dela e desde quando está ativa. " +
+      "Se ele pergunta por que reprovou, dê o motivo exatamente como está. " +
+      "Se tem conta EM ANDAMENTO, ela é a atual. NÃO prometa reverter reprovação, compensar dias, mudar prazo nem liberar conta: isso é decisão da equipe (needs_human=true). " +
+      "Nunca informe senha de conta. Se o que ele pergunta não está aqui, diga que vai conferir com a equipe (needs_human=true)."
+  ].join("\n");
+}
+
 // Acessos da pessoa no Hub Central: produtos, situação e até quando valem.
 // Sem isto o Bruno respondia no escuro justamente no assunto mais comum do suporte
 // (acesso: 28% das mensagens). Usa a hub-accesses pelo atalho de serviço.
@@ -682,7 +748,7 @@ serve(async (req)=>{
         "## MESA PROPRIETARIA (LIBERACAO MANUAL)",
         "Este aluno esta pedindo acesso/ativacao da mesa proprietaria. A liberacao e MANUAL: a equipe cria e libera a conta depois do pedido.",
         "- Diga, com naturalidade, que a liberacao da mesa e feita manualmente pela equipe depois da solicitacao e que o pedido dele JA foi registrado e sera feito.",
-        "- Nao prometa horario exato, prazo nem e-mail, e nao diga que ja esta liberado: diga que avisamos por aqui mesmo assim que estiver pronto.",
+        "- Nao prometa horario exato nem prazo, e nao diga que ja esta liberado: diga que o acesso da mesa chega por E-MAIL assim que estiver pronto.",
         "- Nao peca para ele falar com a corretora."
       ].join("\n");
       try {
@@ -693,6 +759,8 @@ serve(async (req)=>{
         });
       } catch (_e) {}
     }
+    // situação real na mesa proprietária (projeto da mesa, suporte-consulta)
+    const mesaDadosNota = visitante ? "" : notaDaMesa(await dadosDaMesa(emailAluno));
     // acessos reais no Hub (produtos e datas) — entra como FATO, acima do que o modelo "acha"
     let hubNota = "";
     let hubTemDados = false;
@@ -728,6 +796,7 @@ serve(async (req)=>{
       hubNota,
       salaNota,
       mesaNota,
+      mesaDadosNota,
       agora,
       "\n\n## CONHECIMENTO RECUPERADO (use se ajudar; não invente além disso)\n" + kblock,
       notaDaAula(aula),

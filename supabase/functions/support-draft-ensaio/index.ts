@@ -20,6 +20,7 @@ const H = {
   "Content-Type": "application/json"
 };
 const CAPTURADO = [];
+let ULTIMA_NOTA_MESA = "";
 async function rest(path, init) {
   const metodo = String((init && init.method) || "GET").toUpperCase();
   if (String(path).startsWith("rpc/") && !RPC_LIVRES.some((p)=>String(path).startsWith(p))) throw new Error("ensaio: rpc nao liberada " + path);
@@ -110,7 +111,7 @@ async function transcribe(url) {
   }
   return await transcribeOpenAI(url);
 }
-const ok = (o)=>new Response(JSON.stringify({ ...o, ensaio: true, capturado: CAPTURADO }), {
+const ok = (o)=>new Response(JSON.stringify({ ...o, ensaio: true, capturado: CAPTURADO, nota_mesa: ULTIMA_NOTA_MESA }), {
     status: 200,
     headers: {
       "Content-Type": "application/json"
@@ -238,6 +239,72 @@ function respostaCortesia(tipo, saud, nome) {
   return `Imagina${quem}! Qualquer coisa é só chamar por aqui.`;
 }
 
+// Situação da pessoa na MESA PROPRIETÁRIA (21/10/2026): o projeto da mesa tem a função
+// suporte-consulta (só leitura). Sem isto o Bruno respondia sobre a mesa no escuro e
+// inventava ("sua mesa está ativa, sem prazo"). Falhou ou demorou: segue sem o dado.
+const MESA_URL = Deno.env.get("MESA_CONSULTA_URL") ?? "";
+const MESA_SECRET = Deno.env.get("MESA_CONSULTA_SECRET") ?? "";
+async function dadosDaMesa(email) {
+  if (!MESA_URL || !MESA_SECRET || !email || email.indexOf("@") < 0) return null;
+  try {
+    const r = await fetch(MESA_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-suporte-secret": MESA_SECRET },
+      body: JSON.stringify({ email }),
+      signal: AbortSignal.timeout(6000)
+    });
+    if (!r.ok) return null;
+    const d = await r.json();
+    return d && d.ok ? d : null;
+  } catch (_e) {
+    return null;
+  }
+}
+function notaDaMesa(d) {
+  const contas = (d && d.contas) || [];
+  const provisoes = ((d && d.provisoes) || []).filter((p) => p.status && p.status !== "provisioned" && !p.provisioned_at);
+  if (!contas.length && !provisoes.length) return "";
+  const dia = (iso) => {
+    if (!iso) return "";
+    try {
+      return new Date(iso).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+    } catch (_e) {
+      return "";
+    }
+  };
+  const num = (v) => (v === null || v === undefined || v === "" ? "" : Number(v).toLocaleString("pt-BR", { maximumFractionDigits: 2 }));
+  const SIT = { active: "EM ANDAMENTO", failed: "ENCERRADA/REPROVADA", expired: "EXPIRADA", passed: "APROVADA" };
+  const linhas = contas.slice(0, 4).map((c) => {
+    const nome = `Conta ${c.login_mt5 || "?"}${c.plano ? " (" + c.plano + ")" : ""}`;
+    const sit = c.aprovada_em ? "APROVADA" : (SIT[c.status] || String(c.status || "").toUpperCase());
+    const partes = [`- ${nome}: ${sit}`];
+    if (c.inicio) partes.push(`início ${dia(c.inicio)}`);
+    if (c.status === "active" && c.prazo_ate) partes.push(`prazo até ${dia(c.prazo_ate)}`);
+    if (c.dias_operados !== null && c.dias_operados !== undefined) partes.push(`${c.dias_operados} dias operados`);
+    if (c.status === "active" && c.saldo_atual !== null) partes.push(`saldo ${num(c.saldo_atual)} (inicial ${num(c.saldo_inicial)})`);
+    if (c.reprovada_em) partes.push(`encerrada em ${dia(c.reprovada_em)}`);
+    if (c.motivo_reprovacao) partes.push(`motivo: ${c.motivo_reprovacao}`);
+    if (c.aprovada_em) partes.push(`aprovada em ${dia(c.aprovada_em)}`);
+    if (c.analise && c.analise.status) partes.push(`análise da equipe: ${c.analise.status}${c.analise.nota ? " (" + c.analise.nota + ")" : ""}`);
+    const alertas = (c.violacoes || []).slice(0, 3).map((v) => `${v.regra} em ${dia(v.quando)}`);
+    if (alertas.length) partes.push(`alertas recentes: ${alertas.join(", ")}`);
+    return partes.join("; ") + ".";
+  });
+  for (const p of provisoes.slice(0, 2)) {
+    linhas.push(`- Compra${p.plano ? " " + p.plano : ""} aguardando a criação da conta desde ${dia(p.created_at)}.`);
+  }
+  return [
+    "",
+    "## MESA PROPRIETÁRIA DESTE ALUNO (DADO REAL DO SISTEMA DA MESA; NÃO INVENTE)",
+    ...linhas,
+    "Como usar: estes dados valem MAIS que o histórico da conversa (o que a equipe disse antes pode ter mudado). " +
+      "Se o aluno diz que a mesa/conta/plano não está ativo ou pergunta se foi liberado, e há conta EM ANDAMENTO, diga o número dela e desde quando está ativa. " +
+      "Se ele pergunta por que reprovou, dê o motivo exatamente como está. " +
+      "Se tem conta EM ANDAMENTO, ela é a atual. NÃO prometa reverter reprovação, compensar dias, mudar prazo nem liberar conta: isso é decisão da equipe (needs_human=true). " +
+      "Nunca informe senha de conta. Se o que ele pergunta não está aqui, diga que vai conferir com a equipe (needs_human=true)."
+  ].join("\n");
+}
+
 // Acessos da pessoa no Hub Central: produtos, situação e até quando valem.
 // Sem isto o Bruno respondia no escuro justamente no assunto mais comum do suporte
 // (acesso: 28% das mensagens). Usa a hub-accesses pelo atalho de serviço.
@@ -276,6 +343,16 @@ serve(async (req)=>{
     const pedidoTranscricao = await req.clone().json().catch(() => ({}));
     // diagnóstico da triagem (14/10/2026): o support-draft engole o erro do Jev e segue sem
     // categoria; aqui a resposta crua aparece (status e começo do corpo, sem a chave).
+    // diagnóstico só de leitura (19/10/2026): situação de pagamento de uma assinatura no Hub
+    if (pedidoTranscricao && pedidoTranscricao.diag_hub_assinatura) {
+      const HUB_URL = Deno.env.get("HUB_URL") ?? "";
+      const HUB_KEY = Deno.env.get("HUB_SERVICE_KEY") ?? "";
+      const ids = [].concat(pedidoTranscricao.diag_hub_assinatura).map((x) => String(x).replace(/[^0-9a-f-]/gi, "")).filter(Boolean).slice(0, 200);
+      const r = await fetch(`${HUB_URL}/rest/v1/subscriptions?id=in.(${ids.join(",")})&select=id,status,payment_status,access_status,access_enabled,last_renewal_date,starts_at,expires_at,created_at,payment_method,metadata,product:product_id(slug,name),offer:offer_id(slug,name)`, {
+        headers: { apikey: HUB_KEY, Authorization: `Bearer ${HUB_KEY}` }
+      });
+      return ok({ ok: r.ok, status: r.status, dados: r.ok ? await r.json() : (await r.text()).slice(0, 300) });
+    }
     if (pedidoTranscricao && pedidoTranscricao.diag_jev) {
       try {
         const r = await fetch("https://api.typesafe.ai/v1/systemone", {
@@ -292,9 +369,13 @@ serve(async (req)=>{
     if (pedidoTranscricao && pedidoTranscricao.transcrever_url) {
       return ok({ ok: true, texto: await transcribe(String(pedidoTranscricao.transcrever_url)) });
     }
-    const { ticket_id, trigger_message_id, ate, modelo: modeloForcado, jev: jevForcado, limiar_categoria: limiarForcado, janela_equipe_h: janelaForcada } = await req.json();
+    const { ticket_id, trigger_message_id, ate, modelo: modeloForcado, jev: jevForcado, limiar_categoria: limiarForcado, janela_equipe_h: janelaForcada, contexto: contextoPedido, pergunta_teste: perguntaTeste } = await req.json();
+    // v3 = histórico da v2 + resumo do estado do atendimento antes de responder
+    const contextoV3 = contextoPedido === "v3";
+    const contextoV2 = contextoPedido === "v2" || contextoV3;
     const force = true;
     CAPTURADO.length = 0;
+    ULTIMA_NOTA_MESA = "";
     const ATE = ate ? new Date(ate).toISOString() : new Date().toISOString();
     if (!ticket_id) return ok({
       ok: false,
@@ -408,8 +489,41 @@ serve(async (req)=>{
       }
     } catch (_e) {}
     const inList = "(" + tids.join(",") + ")";
-    const raw = await rest(`comu_messages?ticket_id=in.${inList}&kind=in.(text,image,audio,video)&status=neq.deleted&created_at=lt.${encodeURIComponent(ATE)}&select=id,author_id,body,kind,media_url,media_meta,ticket_id,created_at&order=created_at.desc&limit=22`);
-    const msgs = (raw || []).slice().reverse();
+    const SEL = "select=id,author_id,body,kind,media_url,media_meta,ticket_id,created_at";
+    const infoTicket = {};
+    let msgs;
+    if (contextoV2) {
+      // contexto v2 (ensaio 14/10/2026): o atendimento atual inteiro (até 80 mensagens) e até 3
+      // atendimentos anteriores dos últimos 30 dias (10 mensagens cada), separados e com data.
+      const atual = await rest(`comu_messages?ticket_id=eq.${ticket_id}&kind=in.(text,image,audio,video)&status=neq.deleted&created_at=lt.${encodeURIComponent(ATE)}&${SEL}&order=created_at.desc&limit=80`) || [];
+      let anteriores = [];
+      if (!visitante) {
+        const desde = new Date(new Date(ATE).getTime() - 30 * 86400000).toISOString();
+        const tks = await rest(`comu_support_tickets?user_id=eq.${tk.user_id}&id=neq.${ticket_id}&and=(created_at.lt.${encodeURIComponent(ATE)},created_at.gte.${encodeURIComponent(desde)})&select=id,protocol,status,created_at,resolved_at&order=created_at.desc&limit=3`) || [];
+        for (const t of tks) {
+          infoTicket[t.id] = t;
+          const ms = await rest(`comu_messages?ticket_id=eq.${t.id}&kind=in.(text,image,audio,video)&status=neq.deleted&created_at=lt.${encodeURIComponent(ATE)}&${SEL}&order=created_at.desc&limit=10`) || [];
+          anteriores = ms.slice().reverse().concat(anteriores);
+        }
+      }
+      try {
+        const ta = await rest(`comu_support_tickets?id=eq.${ticket_id}&select=id,protocol,created_at`);
+        if (ta && ta[0]) infoTicket[ticket_id] = ta[0];
+      } catch (_e) {}
+      msgs = anteriores.concat(atual.slice().reverse());
+    } else {
+      const raw = await rest(`comu_messages?ticket_id=in.${inList}&kind=in.(text,image,audio,video)&status=neq.deleted&created_at=lt.${encodeURIComponent(ATE)}&${SEL}&order=created_at.desc&limit=22`);
+      msgs = (raw || []).slice().reverse();
+    }
+    // ensaio: pergunta de teste no momento atual (os dados da mesa e do Hub são os de agora)
+    if (perguntaTeste) msgs.push({ id: null, author_id: tk.user_id, kind: "text", body: String(perguntaTeste), media_url: null, media_meta: null, ticket_id, created_at: ATE });
+    const dataHora = (iso) => {
+      try {
+        return new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+      } catch (_e) {
+        return "";
+      }
+    };
     if (!msgs.length) return ok({
       ok: true,
       skipped: "sem mensagens"
@@ -423,6 +537,8 @@ serve(async (req)=>{
     const audioIdx = [];
     for(let i = msgs.length - 1; i >= 0 && audioIdx.length < 4; i--)if ((msgs[i].kind === "audio" || msgs[i].kind === "video") && msgs[i].media_url) audioIdx.push(i);
     const trans = {};
+    // v2: aproveita a transcrição já salva de QUALQUER áudio do histórico (a versão de hoje só olha os 4 últimos)
+    if (contextoV2) for (let i = 0; i < msgs.length; i++) { const mm = msgs[i]; if (mm.media_meta && typeof mm.media_meta.transcript === "string") trans[i] = mm.media_meta.transcript; }
     await Promise.all(audioIdx.map(async (i)=>{
       const m = msgs[i];
       // cache: reusa a transcrição já salva em media_meta (evita re-chamar o transcritor)
@@ -625,7 +741,7 @@ serve(async (req)=>{
         "## MESA PROPRIETARIA (LIBERACAO MANUAL)",
         "Este aluno esta pedindo acesso/ativacao da mesa proprietaria. A liberacao e MANUAL: a equipe cria e libera a conta depois do pedido.",
         "- Diga, com naturalidade, que a liberacao da mesa e feita manualmente pela equipe depois da solicitacao e que o pedido dele JA foi registrado e sera feito.",
-        "- Nao prometa horario exato, prazo nem e-mail, e nao diga que ja esta liberado: diga que avisamos por aqui mesmo assim que estiver pronto.",
+        "- Nao prometa horario exato nem prazo, e nao diga que ja esta liberado: diga que o acesso da mesa chega por E-MAIL assim que estiver pronto.",
         "- Nao peca para ele falar com a corretora."
       ].join("\n");
       try {
@@ -636,6 +752,9 @@ serve(async (req)=>{
         });
       } catch (_e) {}
     }
+    // situação real na mesa proprietária (projeto da mesa, suporte-consulta)
+    const mesaDadosNota = visitante ? "" : notaDaMesa(await dadosDaMesa(emailAluno));
+    ULTIMA_NOTA_MESA = mesaDadosNota;
     // acessos reais no Hub (produtos e datas) — entra como FATO, acima do que o modelo "acha"
     let hubNota = "";
     let hubTemDados = false;
@@ -665,17 +784,53 @@ serve(async (req)=>{
         ].filter(Boolean).join("\n");
       }
     } catch (_e) {}
+    // v3 (ensaio 14/10/2026): antes de responder, lê o histórico inteiro e resume EM QUE PÉ está o
+    // atendimento. No teste de 22 casos, dar mais mensagens não bastou: a IA recebia o histórico mas
+    // repetia o que já tinha falhado e esquecia o que a equipe já tinha feito ou prometido.
+    let estadoAtendimento = "";
+    if (contextoV3) {
+      try {
+        const linhasHist = [];
+        let blocoHist = null;
+        for (let i = 0; i < msgs.length; i++) {
+          const m = msgs[i];
+          if (m.ticket_id !== blocoHist) {
+            blocoHist = m.ticket_id;
+            const it = infoTicket[m.ticket_id] || {};
+            const enc = it.resolved_at && it.resolved_at < ATE ? ", encerrado em " + dataHora(it.resolved_at) : "";
+            linhasHist.push(m.ticket_id === ticket_id ? `=== ATENDIMENTO ATUAL (aberto em ${dataHora(it.created_at)}) ===` : `=== ATENDIMENTO ANTERIOR (aberto em ${dataHora(it.created_at)}${enc}) ===`);
+          }
+          linhasHist.push(`[${dataHora(m.created_at)}] ${lineText(m, i)}`);
+        }
+        const historicoTexto = linhasHist.join("\n").slice(-24000);
+        const rr = await openai("chat/completions", {
+          model: "gpt-4.1-mini",
+          temperature: 0,
+          max_tokens: 600,
+          messages: [
+            { role: "system", content: "Você lê o histórico de um atendimento de suporte (escola de trading GVSI: MetaTrader 5, aulas, mesa proprietária, comunidade) e resume EM QUE PÉ ele está, para quem vai responder agora. Use só o que está no histórico; não invente; não escreva a resposta ao aluno. Responda exatamente nestes tópicos, curtos (escreva 'nada' quando não houver):\nASSUNTO ATUAL: o que o aluno quer agora (a última mensagem dele, no contexto do atendimento atual).\nJÁ INFORMADO PELO ALUNO: dados e fatos que ele já deu (e-mail, conta, aparelho, o que aparece na tela, o que já fez).\nJÁ TENTADO E NÃO RESOLVEU: instruções ou soluções já dadas que ele disse que não funcionaram.\nJÁ FEITO PELA EQUIPE: ações feitas (acesso remoto, reenvio de e-mail, liberação, configuração).\nPROMETIDO OU PENDENTE: o que a equipe prometeu ou deixou para depois, com a data; e há quanto tempo o aluno espera, se estiver esperando.\nASSUNTOS ENCERRADOS: assuntos resolvidos que não devem ser retomados." },
+            { role: "user", content: `Agora: ${dataHora(ATE)}\n\n${historicoTexto}` }
+          ]
+        });
+        estadoAtendimento = String(rr.choices[0].message.content || "").trim();
+      } catch (e) {
+        console.error("[ensaio] estado do atendimento:", String(e).slice(0, 200));
+      }
+    }
     const sys = [
       baseP,
       visitanteNota,
       hubNota,
       mesaNota,
+      mesaDadosNota,
       agora,
       "\n\n## CONHECIMENTO RECUPERADO (use se ajudar; não invente além disso)\n" + kblock,
       notaDaAula(aula),
       "\n\n## CORRECOES — NAO REPITA ESTES ERROS\n" + cblock,
       challengeNote,
       "\n\n## NÃO INVENTE O CONTEXTO\nO histórico acima pode incluir conversas anteriores deste mesmo aluno. Se ele continua um assunto antigo (ex.: 'a lógica é essa, né?', 'consegui', 'e aí?') e você NÃO encontra no histórico do que ele fala, NÃO invente um tópico nem aplique um conhecimento só porque parece parecido. Nesse caso, confirme de forma geral ou pergunte a que ele se refere. Só afirme algo específico (módulo, prazo, passo, número) se estiver claramente na conversa ou no conhecimento recuperado.",
+      contextoV2 ? "\n\n## CONVERSA E ASSUNTO ATUAL\n- O histórico vem separado por atendimento, cada mensagem com data e hora. Responda ao ASSUNTO ATUAL: a última mensagem do aluno, lida junto com o que veio antes NESTE atendimento.\n- Use o que o aluno já disse, mesmo muitas mensagens atrás ou num atendimento anterior: dados que ele informou, o que já tentou, o que já foi explicado. Nunca peça de novo o que ele já disse e nunca repita uma instrução que já foi dada e não funcionou: avance para o próximo passo ou passe para a equipe.\n- Assunto encerrado (o aluno agradeceu, disse que resolveu ou confirmou, ou está num atendimento anterior encerrado) NÃO é retomado, repetido nem reexplicado, a menos que o aluno volte a ele.\n- Se a última mensagem for só agradecimento ou confirmação de algo resolvido, responda curto, sem retomar o assunto." : "",
+      estadoAtendimento ? "\n\n## ESTADO DO ATENDIMENTO (resumo da conversa inteira; use)\n" + estadoAtendimento + "\n\nComo usar: responda ao ASSUNTO ATUAL. Não repita nada que está em JÁ TENTADO E NÃO RESOLVEU: avance para o próximo passo ou passe para a equipe (needs_human). Não peça de novo o que está em JÁ INFORMADO. Leve em conta o que está em JÁ FEITO PELA EQUIPE. Se há PROMETIDO OU PENDENTE da equipe e o aluno está esperando, reconheça a espera sem prometer prazo. Não retome ASSUNTOS ENCERRADOS." : "",
       "\n\n## O ALUNO PODE MANDAR IMAGEM, ÁUDIO OU VÍDEO\nAs imagens do aluno vêm anexadas nesta conversa; olhe o conteúdo delas (prints de tela, gráficos, mensagens de erro, QR codes) e responda com base no que realmente aparece. Os áudios já vêm transcritos no histórico como 'Aluno (áudio): ...'. VÍDEOS: você NÃO consegue assistir vídeo; ele aparece no histórico como 'Aluno enviou um VÍDEO...'. REGRA IMPORTANTE: se o aluno JÁ enviou uma imagem, áudio ou vídeo, NUNCA peça pra ele enviar de novo — ele já enviou. Se a dúvida depende do que aparece num VÍDEO e a narração transcrita não deixa claro, NÃO invente a causa: diga que vai olhar o vídeo dele e deixe um humano assumir (needs_human=true).",
       "\n\n## NUNCA RESPONDA COM MENSAGEM DE ESPERA\nNão escreva 'vou chamar alguém da equipe', 'só um momento', 'vou verificar e já te retorno' nem nada parecido. Se não der para responder com segurança, deixe answer vazio e needs_human=true: o sistema avisa o aluno, uma vez só, que a equipe vai responder.",
       "\n\n## FORMATO DE SAIDA (OBRIGATORIO)\nResponda SOMENTE com um JSON: {\"answer\": \"<resposta pro aluno>\", \"needs_human\": <true|false>, \"reason\": \"<se needs_human=true, o motivo curto>\"}. No campo answer, escreva em PARAGRAFOS CURTOS separados por uma linha em branco: use \\n\\n entre os paragrafos (duas quebras de linha de verdade no texto). Nada de bloco unico gigante; sem marcadores. Deixe answer vazio se precisar de humano. needs_human=true quando a dúvida exige uma ACAO que só a equipe executa, é intencao de compra, ou você nao sabe."
@@ -683,13 +838,29 @@ serve(async (req)=>{
     // conteúdo multimodal: cada linha do histórico + as imagens recentes anexadas
     const content = [];
     let imgCount = 0;
+    let ticketDoBloco = null;
+    // v2: as 4 imagens MAIS RECENTES (a versão de hoje anexa as 4 primeiras da janela, as mais antigas)
+    const imgRecentes = new Set();
+    if (contextoV2) for (let i = msgs.length - 1; i >= 0 && imgRecentes.size < 4; i--) if (msgs[i].kind === "image" && msgs[i].media_url) imgRecentes.add(i);
     for(let i = 0; i < msgs.length; i++){
       const m = msgs[i];
+      if (contextoV2 && m.ticket_id !== ticketDoBloco) {
+        ticketDoBloco = m.ticket_id;
+        const it = infoTicket[m.ticket_id] || {};
+        const aberto = it.created_at ? dataHora(it.created_at) : "";
+        const encerrado = it.resolved_at && it.resolved_at < ATE ? ", encerrado em " + dataHora(it.resolved_at) : "";
+        content.push({
+          type: "text",
+          text: m.ticket_id === ticket_id
+            ? `=== ATENDIMENTO ATUAL ${it.protocol || ""} (aberto em ${aberto}) ===`
+            : `=== ATENDIMENTO ANTERIOR ${it.protocol || ""} (aberto em ${aberto}${encerrado}). Assunto já tratado: só use se o aluno voltar a ele. ===`
+        });
+      }
       content.push({
         type: "text",
-        text: lineText(m, i)
+        text: contextoV2 ? `[${dataHora(m.created_at)}] ${lineText(m, i)}` : lineText(m, i)
       });
-      if (m.kind === "image" && m.media_url && imgCount < 4) {
+      if (m.kind === "image" && m.media_url && (contextoV2 ? imgRecentes.has(i) : imgCount < 4)) {
         content.push({
           type: "image_url",
           image_url: {
