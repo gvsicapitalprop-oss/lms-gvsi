@@ -20,6 +20,7 @@
           '<button type="button" data-theme-toggle class="text-primary flex items-center" aria-label="Tema"><span class="material-symbols-outlined" data-theme-icon>dark_mode</span></button>' +
         '</header>' +
         '<div class="lg:pl-[var(--side-w)] min-h-screen pt-14 lg:pt-0 lg:flex lg:flex-col">' +
+          '<div id="campanha-banner" class="hidden px-container-margin pt-lg shrink-0"><div class="max-w-5xl mx-auto"></div></div>' +
           '<div id="challenge-widget" class="hidden lg:pt-lg px-container-margin pt-lg shrink-0"><div class="max-w-3xl mx-auto"></div></div>' +
           '<div class="lg:hidden pb-16"><div class="px-container-margin py-lg">' +
             '<div class="mb-lg relative"><span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline">search</span>' +
@@ -40,6 +41,8 @@
       G.renderTopicList(document.getElementById('topic-list'), '');
       G.applyUnread();
       G.loadLastMessages(); // #13: preenche última mensagem + horário na tela inicial
+      // Banner da Black Friday (assets/campanha.js): só para quem a área de membros liberar
+      if (G.campanhaBanner) G.campanhaBanner.mount(document.querySelector('#campanha-banner > div'));
       // Indicador do Desafio (só para participantes)
       (function () {
         if (!G.CHALLENGE_ON) return;
