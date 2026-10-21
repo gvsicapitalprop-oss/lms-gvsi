@@ -485,7 +485,11 @@ async function porEmail(ctx: Ctx, email: string) {
   if (alunoId) {
     const subs = await hubGet(
       `subscriptions?select=id,status,starts_at,expires_at,created_at,product:product_id(slug,access_duration_days)` +
-        `&contact_id=in.(${ids})&status=eq.active&access_enabled=eq.true`,
+        `&contact_id=in.(${ids})&status=eq.active&access_enabled=eq.true` +
+        // paga DE FATO, a mesma regra da conferencia() (21/10/2026): boleto gerado e não pago
+        // nasce "active" no Hub e abria o curso na hora em que a conta nascia
+        "&or=(and(payment_status.eq.up_to_date,or(last_renewal_date.not.is.null,access_status.eq.synced)),payment_status.eq.trial)" +
+        "&metadata->>inadimplente_plano_restante=is.null",
     );
     for (const s of subs) {
       try {

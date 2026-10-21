@@ -106,7 +106,13 @@ Deno.serve(async (req: Request) => {
     const today = new Date().toISOString().slice(0, 10) + "T00:00:00";
 
     // 1) assinaturas do hub -> e-mails com acesso ATIVO (status=active, access_enabled!=false, não expirada)
-    const subs = await hubGet("subscriptions?select=status,access_enabled,expires_at,created_at,product_id,offer_id,contact:contact_id(email,full_name)");
+    const subs = await hubGet("subscriptions?select=status,access_enabled,expires_at,created_at,product_id,offer_id,payment_status,last_renewal_date,access_status,metadata,contact:contact_id(email,full_name)");
+    // Paga DE FATO, a mesma regra da conferência da hub-avulsos (21/10/2026): o Hub marca o
+    // boleto/PIX como "active" no momento em que o boleto é gerado. Sem isto, quem só gerou o
+    // boleto ganhava conta e curso (100 assinaturas assim em 21/10, Pedro Ivo entre elas).
+    const pago = (s: any) =>
+      ((s.payment_status === "up_to_date" && (!!s.last_renewal_date || s.access_status === "synced")) || s.payment_status === "trial") &&
+      !(s.metadata && s.metadata.inadimplente_plano_restante != null);
     const active = new Map<string, string>(); // email -> nome
     const crEmails = new Set<string>(); const salaEmails = new Set<string>(); // acesso ATIVO por produto (para os tópicos restritos)
     // Quem tem direito de verdade, para BLOQUEAR/DESBLOQUEAR: assinatura ativa e não
@@ -124,7 +130,8 @@ Deno.serve(async (req: Request) => {
       const valid = !s.expires_at || s.expires_at >= today;
       if (s.status === "active" && valid) comDireito.add(e);
       if (s.status === "active" && s.access_enabled !== false && valid) {
-        if (!active.has(e)) active.set(e, clean(c.full_name || "") || clean(e.split("@")[0]));
+        // conta nova só para quem pagou; os tópicos de quem já é membro seguem como estavam
+        if (!active.has(e) && pago(s)) active.set(e, clean(c.full_name || "") || clean(e.split("@")[0]));
         if (PROD_CR.has(s.product_id)) crEmails.add(e);
         if (PROD_SALA.has(s.product_id)) salaEmails.add(e);
       }
